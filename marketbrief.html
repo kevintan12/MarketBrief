@@ -788,7 +788,7 @@ async function genTickerAI(sym,d,resId){
     +'  Day High: '+fmt(liveData.high)+' / Day Low: '+fmt(liveData.low)+'\n'
     +'  Volume: '+fmtVol(liveData.volume)
     :'(no price data)';
-  var prompt='You are a financial analyst. Today is '+dateStr+' ('+dayOfWeek+').\n\n'
+  var prompt='You are a financial analyst. Today is '+dateStr+'. The last trading session for this stock was '+prevDay+'.\n\n'
     +'LIVE DATA for '+sym+' ('+name+'):\n'
     +priceBlock+'\n\n'
     +'Rules: (1) The prior session was '+prevDay+' — use that exact word, never "yesterday". '
