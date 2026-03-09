@@ -15,7 +15,7 @@
   --acc:#00d4ff; --grn:#10b981; --red:#ef4444;
   --txt:#e2e8f0; --mut:#64748b; --gld:#f59e0b;
   --orange:#f97316;
-  --base:11px;
+  --base:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{font-size:var(--base);}
@@ -568,17 +568,20 @@ function formatSummary(txt) {
   lines.forEach(function(line){
     line = line.trim();
     if (!line) { html += '<div style="height:8px"></div>'; return; }
-    var isHeader = /^[1-9][\.\)]/.test(line) || /^[🇺🇸🇸🇬🇭🇰📊]/.test(line);
+    // Strip leading ## markdown heading markers
+    var stripped = line.replace(/^#+\s*/, '');
+    // Detect headers: ## lines, numbered like "1.", or starts with high unicode (emoji/flags)
+    var isHeader = /^#/.test(line) || /^[1-9][.)\s]/.test(stripped) || stripped.charCodeAt(0) > 255;
     if (isHeader) {
-      html += '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.05rem;'
-        +'color:var(--orange);margin-top:16px;margin-bottom:6px;padding-bottom:4px;'
-        +'border-bottom:1px solid rgba(249,115,22,0.25);">'+esc(line)+'</div>';
+      html += '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.1rem;'
+        + 'color:var(--orange);margin-top:16px;margin-bottom:6px;padding-bottom:5px;'
+        + 'border-bottom:1px solid rgba(249,115,22,0.3);">' + esc(stripped) + '</div>';
     } else if (/^[-•*]/.test(line)) {
       html += '<div style="display:flex;gap:8px;margin-bottom:5px;">'
-        +'<span style="color:var(--orange);flex-shrink:0;margin-top:2px">›</span>'
-        +'<span style="font-size:1rem;line-height:1.75;color:var(--txt);">'+esc(line.replace(/^[-•*]\s*/,''))+'</span></div>';
+        + '<span style="color:var(--orange);flex-shrink:0;margin-top:2px">›</span>'
+        + '<span style="font-size:1rem;line-height:1.75;color:var(--txt);">' + esc(line.replace(/^[-•*]\s*/, '')) + '</span></div>';
     } else {
-      html += '<div style="font-size:1rem;line-height:1.8;color:var(--txt);margin-bottom:4px;">'+esc(line)+'</div>';
+      html += '<div style="font-size:1rem;line-height:1.8;color:var(--txt);margin-bottom:4px;">' + esc(line) + '</div>';
     }
   });
   return html;
