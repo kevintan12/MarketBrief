@@ -463,10 +463,11 @@ async function execSearch(inpId,btnId,resId){
       +'<div style="text-align:right"><div class="tprice '+cls+'" id="tprice_'+resId+'">'+fmt(d.price)+'</div>'
       +'<div class="cchg '+cls+'" id="tcchg_'+resId+'" style="text-align:right;margin-top:3px">'+arr+' '+fmtD(d.change)+' ('+fmtP(d.changePct)+')</div></div></div>'
       +'<div class="sgrid">'
-      +'<div class="sstat"><div class="ssl">Change</div><div class="ssv '+cls+'" id="tssv0_'+resId+'">'+fmtD(d.change)+'</div></div>'
+      +'<div class="sstat"><div class="ssl">Volume</div><div class="ssv" id="tssv0_'+resId+'">'+fmtVol(d.volume)+'</div></div>'
       +'<div class="sstat"><div class="ssl">Prev Close</div><div class="ssv" id="tssv1_'+resId+'">'+fmt(d.prev)+'</div></div>'
       +'<div class="sstat"><div class="ssl">Day High</div><div class="ssv" id="tssv2_'+resId+'">'+fmt(d.high)+'</div></div>'
       +'<div class="sstat"><div class="ssl">Day Low</div><div class="ssv" id="tssv3_'+resId+'">'+fmt(d.low)+'</div></div>'
+      +'</div>'
       +'</div>'
       +(S.apiKey?'<button class="analyze-btn" id="anBtn_'+resId+'" onclick="triggerTickerAI(\''+esc(raw)+'\'\,\''+resId+'\'\,this)">✦ Analyse with AI</button>':'')
       +'</div>'
@@ -569,7 +570,11 @@ function getOpenLabel(){
 
 async function silentRefreshDash(){
   if(!S.proxyUrl||!mktData.length)return;
-  var tickers=getAllTickers();
+  var s=isAnyMarketOpen();
+  if(!s.any)return; // markets all closed — no fetching
+  // Only fetch tickers whose market is currently open
+  var tickers=getAllTickers().filter(function(t){return s[t.mkt];});
+  if(!tickers.length)return;
   var results=await Promise.allSettled(tickers.map(function(t){return fetchQuote(t.sym);}));
   var updated=false;
   tickers.forEach(function(t,i){
@@ -580,9 +585,8 @@ async function silentRefreshDash(){
     }
   });
   if(updated)renderIndices();
-  if(lastSearchSym)silentRefreshTicker(lastSearchSym);
+  if(lastSearchSym&&isTradingNow(lastSearchSym))silentRefreshTicker(lastSearchSym);
   updateLiveIndicator();
-  // Also refresh ticker 1s loop if market open and we have a searched sym
 }
 
 async function silentRefreshTicker(sym){
@@ -600,7 +604,7 @@ async function silentRefreshTicker(sym){
       var s1=document.getElementById('tssv1_'+resId);
       var s2=document.getElementById('tssv2_'+resId);
       var s3=document.getElementById('tssv3_'+resId);
-      if(s0){s0.className='ssv '+cls;s0.textContent=fmtD(d.change);}
+      if(s0){s0.className='ssv';s0.textContent=fmtVol(d.volume);}
       if(s1)s1.textContent=fmt(d.prev);
       if(s2)s2.textContent=fmt(d.high);
       if(s3)s3.textContent=fmt(d.low);
@@ -631,25 +635,53 @@ function updateLiveIndicator(){
   });
 }
 
+var _refreshTick=0, _refreshInFlight=false;
 function startAutoRefresh(){
   if(autoRefreshTimer)clearInterval(autoRefreshTimer);
+  _refreshTick=0;
   autoRefreshTimer=setInterval(function(){
-    if(isAnyMarketOpen().any)silentRefreshDash();
+    _refreshTick++;
     updateLiveIndicator();
+    // Throttle actual fetches: every 5 ticks (5s) when market open, avoid concurrent fetches
+    if(_refreshTick%5===0 && !_refreshInFlight && isAnyMarketOpen().any){
+      _refreshInFlight=true;
+      silentRefreshDash().finally(function(){_refreshInFlight=false;});
+    }
+    // Ticker refresh every 5s too
+    if(_refreshTick%5===0 && lastSearchSym && isTradingNow(lastSearchSym) && !_refreshInFlight){
+      silentRefreshTicker(lastSearchSym);
+    }
   },1000);
   updateLiveIndicator();
 }
 function renderIndices(){
   var list=curFilter==='all'?mktData:mktData.filter(function(d){return d.mkt===curFilter;});
   if(!list.length){setGridHTML('<div class="msg">No data for this filter.</div>');return;}
-  setGridHTML(list.map(function(d){
-    var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
-    var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
-    return '<div class="card"><div class="cleft"><div class="flag">'+d.flag+'</div>'
-      +'<div><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'</div></div></div>'
-      +'<div class="cright"><div class="cprice '+cls+'">'+fmt(d.price)+'</div>'
-      +'<div class="cchg '+cls+'">'+arr+' '+fmtP(d.pct)+' ('+fmtD(d.chg)+')</div></div></div>';
-  }).join(''));
+  ['idxGrid','idxGridD'].forEach(function(gid){
+    var g=document.getElementById(gid); if(!g)return;
+    // Full render only if card count changed (filter switch / first load)
+    var existing=g.querySelectorAll('[data-sym]');
+    if(existing.length!==list.length){
+      g.innerHTML=list.map(function(d){
+        var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
+        var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
+        return '<div class="card" data-sym="'+esc(d.sym)+'"><div class="cleft"><div class="flag">'+d.flag+'</div>'
+          +'<div><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'</div></div></div>'
+          +'<div class="cright"><div class="cprice '+cls+'" id="cp_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'
+          +'<div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtP(d.pct)+' ('+fmtD(d.chg)+')</div></div></div>';
+      }).join('');
+      return;
+    }
+    // In-place price-only update — no DOM re-render, no flicker
+    list.forEach(function(d){
+      var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
+      var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
+      var pr=document.getElementById('cp_'+gid+'_'+d.sym);
+      var ch=document.getElementById('cc_'+gid+'_'+d.sym);
+      if(pr){pr.className='cprice '+cls;pr.textContent=fmt(d.price);}
+      if(ch){ch.className='cchg '+cls;ch.textContent=arr+' '+fmtP(d.pct)+' ('+fmtD(d.chg)+')';}
+    });
+  });
 }
 
 // ── Closing date ──────────────────────────────────────────────────────────────
@@ -715,26 +747,50 @@ async function genTickerAI(sym,d,resId){
   var el=document.getElementById('tai_'+resId);
   if(!el)return;
   el.innerHTML='<div class="msg">Generating analysis… <span class="spin"></span></div>';
-  var priceStr=d?(' Last price: '+fmt(d.price)+', moved '+fmtP(d.changePct)+' from previous close.'):'';
-  var prompt='You are a financial analyst writing for a Singapore-based investor.\n\n'
-    +'Analyse '+sym+(d&&d.name?' ('+d.name+')':'')+'.'+priceStr+'\n\n'
-    +'Write a structured analysis with EXACTLY these 4 section headers (use them verbatim):\n'
+  // Always fetch the freshest quote right now for accuracy
+  var liveData=d;
+  try{ liveData=await fetchQuote(sym); }catch(e){}
+  var now=new Date();
+  var dateStr=now.toLocaleDateString('en-SG',{timeZone:S.tz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var name=liveData&&liveData.name?liveData.name:sym;
+  var priceBlock=liveData?
+    'Current live data as of '+dateStr+':\n'
+    +'  Price: '+fmt(liveData.price)+' '+((liveData.currency||'')+'\n')
+    +'  Change: '+fmtD(liveData.change)+' ('+fmtP(liveData.changePct)+')\n'
+    +'  Prev Close: '+fmt(liveData.prev)+'\n'
+    +'  Day High: '+fmt(liveData.high)+' / Day Low: '+fmt(liveData.low)+'\n'
+    +'  Volume: '+fmtVol(liveData.volume)
+    :'(no price data)';
+  var prompt='You are a financial analyst. Today is '+dateStr+'.\n\n'
+    +'IMPORTANT: The price data below is LIVE and current as of today. '
+    +'Use web_search to find RECENT news ('+now.getFullYear()+' only) about this stock before writing. '
+    +'Do NOT reference any events, outages, scandals, or news from before '+now.getFullYear()+' — your training data may be stale.\n\n'
+    +'Stock: '+sym+' ('+name+')\n'
+    +priceBlock+'\n\n'
+    +'Step 1: Search the web for \''+sym+' stock news '+now.getFullYear()+'\' to get recent context.\n'
+    +'Step 2: Write a structured analysis with EXACTLY these headers (verbatim):\n'
     +'1. 📈 Price Action\n'
-    +'2. 🔍 Likely Drivers\n'
+    +'2. 🔍 Recent Drivers (cite specific events from your web search — only '+now.getFullYear()+' events)\n'
     +'3. ⚠️ Key Risks\n'
     +'4. 🇸🇬 Singapore Investor Angle\n\n'
-    +'For each section write 2-3 concise sentences. Be specific and factual. '
-    +'End with one line: "Outlook: [short verdict]".';
+    +'2-3 sentences per section. Reference the actual current price provided above. '
+    +'End with: "Outlook: [short verdict]".';
+
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:250,messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]
+      })});
     var data=await resp.json();
-    var txt=(data.content&&data.content[0]&&data.content[0].text)||'';
-    el.innerHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge">AI Analysis</span></div><div>'+formatSummary(txt)+'</div></div>';
-  }catch(e){el.innerHTML='';}
+    // Extract text blocks (skip tool_use/tool_result blocks)
+    var txt=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('\n')||'Analysis unavailable.';
+    el.innerHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><div>'+formatSummary(txt)+'</div></div>';
+  }catch(e){el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';}
 }
-
 // ── Summary formatter ─────────────────────────────────────────────────────────
 function formatSummary(txt){
   var html='';
@@ -913,6 +969,14 @@ function loadSettings(){
 }
 
 function fmt(n){if(n===null||n===undefined)return '—';return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtVol(v){
+  if(v===null||v===undefined||v===0)return '—';
+  var n=Number(v);
+  if(n>=1e9)return (n/1e9).toFixed(2)+'B';
+  if(n>=1e6)return (n/1e6).toFixed(2)+'M';
+  if(n>=1e3)return (n/1e3).toFixed(1)+'K';
+  return n.toString();
+}
 function fmtP(p){if(p===null||p===undefined)return '—';return(p>=0?'+':'')+Number(p).toFixed(2)+'%';}
 function fmtD(d){if(d===null||d===undefined)return '—';return(d>=0?'+':'')+Number(d).toFixed(2);}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
