@@ -368,23 +368,46 @@ function setFilter(f, btn) {
 
 // ── Market Data ───────────────────────────────────────────────────────────────
 var INDICES = [
-  {sym:'SPY',    fh:'SPY',       name:'S&P 500 ETF',   sub:'US · NYSE',      flag:'🇺🇸', mkt:'US'},
-  {sym:'QQQ',    fh:'QQQ',       name:'Nasdaq ETF',     sub:'US · Nasdaq',    flag:'🇺🇸', mkt:'US'},
-  {sym:'DIA',    fh:'DIA',       name:'Dow Jones ETF',  sub:'US · NYSE',      flag:'🇺🇸', mkt:'US'},
-  {sym:'ES3.SI', fh:'SGX:ES3',   name:'STI ETF',        sub:'SG · SGX',       flag:'🇸🇬', mkt:'SG'},
-  {sym:'D05.SI', fh:'SGX:D05',   name:'DBS Group',      sub:'SG · SGX',       flag:'🇸🇬', mkt:'SG'},
-  {sym:'O39.SI', fh:'SGX:O39',   name:'OCBC',           sub:'SG · SGX',       flag:'🇸🇬', mkt:'SG'},
-  {sym:'2800.HK',fh:'HKEX:2800', name:'HSI Tracker',    sub:'HK · HKEX',      flag:'🇭🇰', mkt:'HK'},
-  {sym:'0700.HK',fh:'HKEX:700',  name:'Tencent',        sub:'HK · HKEX',      flag:'🇭🇰', mkt:'HK'},
+  {sym:'SPY',    fh:'SPY',    yh:'SPY',      name:'S&P 500 ETF',  sub:'US · NYSE',    flag:'🇺🇸', mkt:'US'},
+  {sym:'QQQ',    fh:'QQQ',    yh:'QQQ',      name:'Nasdaq ETF',   sub:'US · Nasdaq',  flag:'🇺🇸', mkt:'US'},
+  {sym:'DIA',    fh:'DIA',    yh:'DIA',      name:'Dow Jones ETF',sub:'US · NYSE',    flag:'🇺🇸', mkt:'US'},
+  {sym:'ES3.SI', fh:null,     yh:'ES3.SI',   name:'STI ETF',      sub:'SG · SGX',     flag:'🇸🇬', mkt:'SG'},
+  {sym:'D05.SI', fh:null,     yh:'D05.SI',   name:'DBS Group',    sub:'SG · SGX',     flag:'🇸🇬', mkt:'SG'},
+  {sym:'O39.SI', fh:null,     yh:'O39.SI',   name:'OCBC',         sub:'SG · SGX',     flag:'🇸🇬', mkt:'SG'},
+  {sym:'2800.HK',fh:null,     yh:'2800.HK',  name:'HSI Tracker',  sub:'HK · HKEX',    flag:'🇭🇰', mkt:'HK'},
+  {sym:'0700.HK',fh:null,     yh:'0700.HK',  name:'Tencent',      sub:'HK · HKEX',    flag:'🇭🇰', mkt:'HK'},
 ];
 
+// Fetch via Finnhub (US stocks - reliable CORS)
 async function fetchFH(fhSym) {
   if (!S.finnhubKey) throw new Error('no_key');
   var r = await fetch('https://finnhub.io/api/v1/quote?symbol='+encodeURIComponent(fhSym)+'&token='+S.finnhubKey);
   if (!r.ok) throw new Error('HTTP '+r.status);
   var d = await r.json();
   if (!d.c || d.c === 0) throw new Error('no_data');
-  return d;
+  return {c:d.c, d:d.d, dp:d.dp, pc:d.pc, h:d.h, l:d.l};
+}
+
+// Fetch via Yahoo Finance CORS proxy (SGX/HKEX)
+async function fetchYH(yhSym) {
+  var encoded = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+yhSym+'?interval=1d&range=2d');
+  var url = 'https://api.allorigins.win/get?url=' + encoded;
+  var r = await fetch(url);
+  if (!r.ok) throw new Error('HTTP '+r.status);
+  var wrapper = await r.json();
+  var data = JSON.parse(wrapper.contents);
+  var meta = data.chart.result[0].meta;
+  var price = meta.regularMarketPrice;
+  var prev = meta.chartPreviousClose || meta.previousClose;
+  if (!price || !prev) throw new Error('no_data');
+  var chg = price - prev;
+  var chgPct = (chg / prev) * 100;
+  return {c:price, d:chg, dp:chgPct, pc:prev, h:meta.regularMarketDayHigh||price, l:meta.regularMarketDayLow||price};
+}
+
+async function fetchIdx(idx) {
+  if (idx.fh) return fetchFH(idx.fh);
+  return fetchYH(idx.yh);
 }
 
 async function loadDashboard() {
@@ -397,7 +420,7 @@ async function loadDashboard() {
     return;
   }
 
-  var results = await Promise.allSettled(INDICES.map(function(idx){ return fetchFH(idx.fh); }));
+  var results = await Promise.allSettled(INDICES.map(function(idx){ return fetchIdx(idx); }));
   marketData = [];
   INDICES.forEach(function(idx, i) {
     var r = results[i];
@@ -485,15 +508,30 @@ async function doSearch() {
     btn.disabled=false; btn.textContent='Search'; return;
   }
 
-  var fhSym = raw;
-  if (raw.endsWith('.SI')) fhSym = 'SGX:'+raw.replace('.SI','');
-  else if (raw.endsWith('.HK')) fhSym = 'HKEX:'+raw.replace('.HK','').replace(/^0+/,'');
+  var isSGX = raw.endsWith('.SI');
+  var isHKEX = raw.endsWith('.HK');
+  var useFH = !isSGX && !isHKEX; // Use Finnhub for US, Yahoo proxy for SGX/HKEX
 
   try {
-    var qr = await fetch('https://finnhub.io/api/v1/quote?symbol='+encodeURIComponent(fhSym)+'&token='+S.finnhubKey);
-    var pr = await fetch('https://finnhub.io/api/v1/stock/profile2?symbol='+encodeURIComponent(fhSym)+'&token='+S.finnhubKey);
-    var q = await qr.json();
-    var p = await pr.json();
+    var q, p = {};
+    if (useFH) {
+      var fhSym = raw;
+      var qr = await fetch('https://finnhub.io/api/v1/quote?symbol='+encodeURIComponent(fhSym)+'&token='+S.finnhubKey);
+      var pr = await fetch('https://finnhub.io/api/v1/stock/profile2?symbol='+encodeURIComponent(fhSym)+'&token='+S.finnhubKey);
+      q = await qr.json();
+      p = await pr.json();
+    } else {
+      // Use allorigins proxy for SGX/HKEX
+      var encoded = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+raw+'?interval=1d&range=2d');
+      var r = await fetch('https://api.allorigins.win/get?url='+encoded);
+      var wrapper = await r.json();
+      var ydata = JSON.parse(wrapper.contents);
+      var meta = ydata.chart.result[0].meta;
+      var price = meta.regularMarketPrice;
+      var prev = meta.chartPreviousClose || meta.previousClose;
+      q = {c:price, d:price-prev, dp:((price-prev)/prev)*100, pc:prev, h:meta.regularMarketDayHigh||price, l:meta.regularMarketDayLow||price};
+      p = {name: meta.longName || meta.shortName || raw, currency: meta.currency || ''};
+    }
     if (!q.c || q.c===0) throw new Error('No data for "'+raw+'". Try: NVDA, O39.SI, 0700.HK');
     var up = q.dp >= 0;
     var cls = Math.abs(q.dp) < 0.01 ? 'neu' : (up ? 'up' : 'down');
