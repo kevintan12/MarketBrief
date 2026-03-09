@@ -1,554 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0a0f1e">
-<title>MarketBrief</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg: #0a0f1e; --surface: #111827; --surface2: #1a2236;
-  --border: #1e2d45; --accent: #00d4ff; --green: #10b981;
-  --red: #ef4444; --text: #e2e8f0; --muted: #64748b; --gold: #f59e0b;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: 'DM Mono', monospace;
-  background: var(--bg); color: var(--text);
-  min-height: 100vh; overflow-x: hidden;
-}
-body::before {
-  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image: linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-.app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding-bottom: 100px; }
-
-/* Header */
-.header {
-  padding: 18px 20px 14px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-  position: sticky; top: 0; background: rgba(10,15,30,0.94);
-  backdrop-filter: blur(16px); z-index: 100;
-}
-.logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; color: var(--accent); }
-.logo span { color: var(--text); }
-.header-time { font-size: 0.63rem; color: var(--muted); text-align: right; line-height: 1.6; }
-
-/* Content */
-.content { padding: 18px 20px; }
-
-/* Filter chips */
-.chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-.chip {
-  padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border);
-  background: transparent; color: var(--muted); font-family: 'DM Mono', monospace;
-  font-size: 0.68rem; cursor: pointer; transition: all 0.15s; white-space: nowrap;
-}
-.chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 500; }
-.chip:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
-
-/* Section label */
-.slabel {
-  font-size: 0.58rem; letter-spacing: 0.14em; color: var(--muted);
-  text-transform: uppercase; margin-bottom: 10px; margin-top: 22px;
-}
-.slabel:first-child { margin-top: 0; }
-
-/* Cards */
-.card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 14px 16px;
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s;
-  animation: fadeUp 0.35s ease both;
-}
-.card:hover { border-color: var(--accent); }
-@keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-.card:nth-child(1){animation-delay:.04s} .card:nth-child(2){animation-delay:.08s}
-.card:nth-child(3){animation-delay:.12s} .card:nth-child(4){animation-delay:.16s}
-.card:nth-child(5){animation-delay:.20s} .card:nth-child(6){animation-delay:.24s}
-.card:nth-child(7){animation-delay:.28s} .card:nth-child(8){animation-delay:.32s}
-
-.card-left { display: flex; align-items: center; gap: 11px; }
-.flag { width: 32px; height: 32px; border-radius: 50%; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
-.cname { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.82rem; }
-.csub { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
-.card-right { text-align: right; }
-.cprice { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; }
-.cchange { font-size: 0.68rem; margin-top: 2px; }
-.up { color: var(--green); } .down { color: var(--red); } .neu { color: var(--muted); }
-
-/* Msg box */
-.msg { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font-size: 0.74rem; color: var(--muted); line-height: 1.6; margin-bottom: 8px; }
-.msg.err { border-color: var(--red); color: var(--red); }
-.msg.ok { border-color: var(--green); color: var(--green); }
-
-/* Spinner */
-.spin { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: sp 0.7s linear infinite; vertical-align: middle; }
-@keyframes sp { to { transform: rotate(360deg); } }
-
-/* Summary box */
-.sum-box {
-  background: linear-gradient(135deg, rgba(0,212,255,0.06), rgba(124,58,237,0.06));
-  border: 1px solid rgba(0,212,255,0.18); border-radius: 14px; padding: 16px;
-  animation: fadeUp 0.4s ease both;
-}
-.sum-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.ai-badge { font-size: 0.58rem; letter-spacing: 0.1em; background: var(--accent); color: var(--bg); padding: 2px 8px; border-radius: 20px; }
-.sum-date { font-size: 0.63rem; color: var(--muted); }
-.sum-text { font-size: 0.76rem; line-height: 1.8; color: var(--text); white-space: pre-wrap; }
-
-/* Refresh btn */
-.refresh-wrap { display: flex; justify-content: flex-end; margin-bottom: 8px; }
-.refresh-btn {
-  background: none; border: 1px solid var(--border); color: var(--muted);
-  border-radius: 6px; padding: 4px 10px; font-size: 0.63rem; cursor: pointer;
-  font-family: 'DM Mono', monospace; transition: all 0.2s;
-}
-.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-/* Status dot */
-.dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 5px; animation: pulse 2s ease infinite; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-/* Search */
-.search-wrap { position: relative; margin-bottom: 8px; }
-.search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); }
-.search-input {
-  width: 100%; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: 11px 14px 11px 38px; color: var(--text);
-  font-family: 'DM Mono', monospace; font-size: 0.78rem; outline: none; transition: border-color 0.2s;
-}
-.search-input:focus { border-color: var(--accent); }
-.search-input::placeholder { color: var(--muted); }
-.search-btn {
-  width: 100%; padding: 10px; background: var(--accent); border: none;
-  border-radius: 8px; color: var(--bg); font-family: 'Syne', sans-serif;
-  font-weight: 700; font-size: 0.78rem; cursor: pointer; transition: opacity 0.2s; margin-bottom: 14px;
-}
-.search-btn:hover { opacity: 0.85; }
-.search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* Ticker card */
-.tick-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 10px; animation: fadeUp 0.35s ease both; }
-.tick-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-.tick-sym { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; color: var(--accent); }
-.tick-name { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
-.tick-price { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.4rem; text-align: right; }
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.stat { background: var(--surface2); border-radius: 8px; padding: 9px 11px; }
-.stat-l { font-size: 0.58rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
-.stat-v { font-size: 0.8rem; color: var(--text); margin-top: 3px; font-weight: 500; }
-
-/* Settings */
-.set-panel { display: flex; flex-direction: column; gap: 12px; }
-.set-row { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
-.set-label { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 9px; }
-.set-input {
-  width: 100%; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 9px 11px; color: var(--text);
-  font-family: 'DM Mono', monospace; font-size: 0.76rem; outline: none;
-}
-.set-input:focus { border-color: var(--accent); }
-select.set-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; padding-right: 30px; }
-.set-note { font-size: 0.6rem; color: var(--muted); margin-top: 7px; line-height: 1.5; }
-.save-btn {
-  width: 100%; padding: 12px; background: var(--accent); border: none;
-  border-radius: 10px; color: var(--bg); font-family: 'Syne', sans-serif;
-  font-weight: 700; font-size: 0.82rem; cursor: pointer; transition: opacity 0.2s;
-}
-.save-btn:hover { opacity: 0.85; }
-.tog-group { display: flex; gap: 6px; flex-wrap: wrap; }
-
-/* Bottom nav */
-.bnav {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 480px; background: rgba(10,15,30,0.96);
-  backdrop-filter: blur(20px); border-top: 1px solid var(--border);
-  display: flex; padding: 8px 0 18px; z-index: 100;
-}
-.bitem {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  gap: 3px; padding: 5px 0; cursor: pointer; border: none;
-  background: transparent; color: var(--muted); font-family: 'DM Mono', monospace;
-  font-size: 0.56rem; transition: color 0.2s;
-}
-.bitem.active { color: var(--accent); }
-.bicon { font-size: 1.05rem; }
-
-/* PWA tip */
-.pwa-tip {
-  margin: 12px 20px 0; background: rgba(245,158,11,0.08);
-  border: 1px solid rgba(245,158,11,0.25); border-radius: 10px;
-  padding: 10px 13px; font-size: 0.66rem; color: var(--gold); line-height: 1.6;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+    <title>MarketBrief</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a; --card: #1e293b; --accent: #38bdf8;
+            --text: #f1f5f9; --muted: #94a3b8; --up: #10b981; --down: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 16px; border: 1px solid #334155; }
+        .price { font-size: 2.5rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .change { font-size: 1.1rem; margin-top: 4px; font-weight: 600; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+        input, select, button { 
+            background: #334155; border: none; padding: 12px; border-radius: 8px; 
+            color: white; font-size: 14px; width: 100%;
+        }
+        button { background: var(--accent); color: #0f172a; font-weight: 700; cursor: pointer; }
+        .ai-box { background: rgba(56, 189, 248, 0.1); border-left: 4px solid var(--accent); padding: 12px; font-size: 14px; line-height: 1.5; }
+        .label { color: var(--muted); font-size: 12px; text-transform: uppercase; margin-bottom: 4px; }
+    </style>
 </head>
 <body>
-<div class="app">
 
-  <div class="header">
-    <div class="logo">Market<span>Brief</span></div>
-    <div class="header-time" id="hTime"></div>
-  </div>
-
-  <div class="pwa-tip" id="pwaTip" style="display:none">
-    📱 Tap browser menu → <strong>Add to Home Screen</strong> for app-like access
-  </div>
-
-  <!-- DASHBOARD -->
-  <div id="vDash" class="content">
-    <div class="refresh-wrap">
-      <button class="refresh-btn" onclick="loadDashboard()">↻ Refresh</button>
+    <div class="header">
+        <h2 style="font-family: 'JetBrains Mono'">MarketBrief</h2>
+        <span id="clock" style="font-size: 12px; color: var(--muted);"></span>
     </div>
-    <div class="chip-row" id="mktFilter">
-      <button class="chip active" onclick="setFilter('all',this)">All</button>
-      <button class="chip" onclick="setFilter('US',this)">🇺🇸 US</button>
-      <button class="chip" onclick="setFilter('SG',this)">🇸🇬 SGX</button>
-      <button class="chip" onclick="setFilter('HK',this)">🇭🇰 HKEX</button>
-    </div>
-    <div class="slabel">Market Indices</div>
-    <div id="indexGrid"><div class="msg">Loading… <span class="spin"></span></div></div>
-    <div class="slabel" style="margin-top:20px"><span class="dot"></span>AI Summary</div>
-    <div id="sumArea"><div class="msg">Enter your API keys in ⚙ Settings to get started.</div></div>
-  </div>
 
-  <!-- SEARCH -->
-  <div id="vSearch" class="content" style="display:none">
-    <div class="slabel" style="margin-top:0">Search by Ticker</div>
-    <div class="search-wrap">
-      <span class="search-icon">⌕</span>
-      <input class="search-input" id="tickIn" placeholder="e.g. NVDA · O39.SI · 0700.HK"
-        onkeydown="if(event.key==='Enter')doSearch()" autocomplete="off" spellcheck="false">
-    </div>
-    <button class="search-btn" id="searchBtn" onclick="doSearch()">Search</button>
-    <div id="tickResult"></div>
-  </div>
-
-  <!-- SETTINGS -->
-  <div id="vSettings" class="content" style="display:none">
-    <div class="slabel" style="margin-top:0">Configuration</div>
-    <div class="set-panel">
-
-      <div class="set-row" style="border-color:rgba(0,212,255,0.35)">
-        <div class="set-label" style="color:var(--accent)">★ Twelve Data Key — Market Data (US, SGX, HKEX)</div>
-        <input class="set-input" type="password" id="tdKey" placeholder="your_twelvedata_api_key">
-        <div class="set-note">Free key at <strong style="color:var(--text)">twelvedata.com</strong> → Sign up → API Keys. 800 free calls/day. No credit card needed.</div>
-      </div>
-
-      <div class="set-row">
-        <div class="set-label">Claude Key — AI Summaries</div>
-        <input class="set-input" type="password" id="cKey" placeholder="sk-ant-api03-...">
-        <div class="set-note">Get your key at <strong style="color:var(--text)">console.anthropic.com</strong>. Stored only in your browser.</div>
-      </div>
-
-      <div class="set-row">
-        <div class="set-label">Default Markets</div>
-        <div class="tog-group">
-          <button class="chip active" id="mUS" onclick="toggleMkt('US')">🇺🇸 US</button>
-          <button class="chip active" id="mSG" onclick="toggleMkt('SG')">🇸🇬 SGX</button>
-          <button class="chip active" id="mHK" onclick="toggleMkt('HK')">🇭🇰 HKEX</button>
-        </div>
-      </div>
-
-      <div class="set-row">
-        <div class="set-label">Summary Style</div>
-        <select class="set-input" id="sumStyle">
-          <option value="detailed">Detailed paragraph</option>
-          <option value="concise">Concise (3–4 sentences)</option>
-          <option value="bullets">Bullet points</option>
+    <div class="controls">
+        <select id="market">
+            <option value="US">US Market</option>
+            <option value="SG">Singapore (SGX)</option>
+            <option value="HK">Hong Kong (HKEX)</option>
         </select>
-      </div>
-
-      <div class="set-row">
-        <div class="set-label">Timezone</div>
-        <select class="set-input" id="tzSel">
-          <option value="Asia/Singapore">Singapore SGT (UTC+8)</option>
-          <option value="Asia/Hong_Kong">Hong Kong HKT (UTC+8)</option>
-          <option value="America/New_York">New York ET</option>
-          <option value="UTC">UTC</option>
-        </select>
-      </div>
-
-      <button class="save-btn" onclick="saveSettings()">Save Settings</button>
-      <div id="saveMsg"></div>
-
-      <div class="set-row" style="border-color:rgba(239,68,68,0.2)">
-        <div class="set-label" style="color:var(--red)">Disclaimer</div>
-        <div class="set-note" style="margin:0">Data via Twelve Data (free tier, 15–20 min delay). For informational purposes only — not financial advice.</div>
-      </div>
+        <input type="text" id="symbol" placeholder="Symbol (e.g. D05 or AAPL)">
     </div>
-  </div>
+    <button onclick="refreshData()" style="margin-bottom: 16px;">Refresh Summary</button>
 
-</div>
+    <div class="card" id="main-quote">
+        <div class="label" id="stock-name">Waiting for input...</div>
+        <div class="price" id="curr-price">--.--</div>
+        <div class="change" id="curr-change">--.-- (--%)</div>
+    </div>
 
-<!-- Bottom Nav -->
-<div class="bnav">
-  <button class="bitem active" id="bn-dash" onclick="showView('Dash')"><span class="bicon">◈</span>Dashboard</button>
-  <button class="bitem" id="bn-search" onclick="showView('Search')"><span class="bicon">⌕</span>Search</button>
-  <button class="bitem" id="bn-settings" onclick="showView('Settings')"><span class="bicon">⚙</span>Settings</button>
-</div>
+    <div id="ai-container" style="display: none;">
+        <div class="label">AI Market Analysis</div>
+        <div class="ai-box" id="ai-text">Analyzing market trends...</div>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <input type="password" id="api-key" placeholder="Enter API Key (Alpha Vantage/Claude)" style="font-size: 10px;">
+        <p style="font-size: 10px; color: var(--muted); margin-top: 8px;">*Data powered by Alpha Vantage & Anthropic</p>
+    </div>
 
 <script>
-// ── State ────────────────────────────────────────────────────────────────────
-var S = { apiKey:'', tdKey:'', markets:['US','SG','HK'], sumStyle:'detailed', tz:'Asia/Singapore' };
-var marketData = [];
-var filterNow = 'all';
+    async function refreshData() {
+        const market = document.getElementById('market').value;
+        let symbol = document.getElementById('symbol').value.toUpperCase();
+        const apiKey = document.getElementById('api-key').value;
+        
+        if (!symbol || !apiKey) return alert("Please enter symbol and API Key");
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
-window.onload = function() {
-  loadSettings();
-  tick();
-  setInterval(tick, 1000);
-  loadDashboard();
-  // PWA tip
-  var sa = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-  if (!sa && /android|iphone|ipad/i.test(navigator.userAgent)) {
-    document.getElementById('pwaTip').style.display = 'block';
-  }
-};
+        // Apply Exchange Suffixes for Alpha Vantage
+        if (market === "SG") symbol += ".SI";
+        if (market === "HK") symbol += ".HK";
 
-function tick() {
-  var el = document.getElementById('hTime');
-  var now = new Date();
-  var ds = now.toLocaleDateString('en-SG', {timeZone:S.tz, weekday:'short', month:'short', day:'numeric'});
-  var ts = now.toLocaleTimeString('en-SG', {timeZone:S.tz, hour:'2-digit', minute:'2-digit'});
-  var lbl = {Asia_Singapore:'SGT','Asia/Singapore':'SGT','Asia/Hong_Kong':'HKT','America/New_York':'ET','UTC':'UTC'}[S.tz] || '';
-  el.innerHTML = ds + '<br>' + ts + ' ' + lbl;
-}
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
+        
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            const quote = data["Global Quote"];
 
-// ── Settings ─────────────────────────────────────────────────────────────────
-function loadSettings() {
-  try { var s = JSON.parse(localStorage.getItem('mb2_settings') || '{}'); S = Object.assign(S, s); } catch(e){}
-  document.getElementById('tdKey').value = S.tdKey || '';
-  document.getElementById('cKey').value = S.apiKey || '';
-  document.getElementById('sumStyle').value = S.sumStyle || 'detailed';
-  document.getElementById('tzSel').value = S.tz || 'Asia/Singapore';
-  ['US','SG','HK'].forEach(function(m) {
-    document.getElementById('m'+m).classList.toggle('active', S.markets.indexOf(m) > -1);
-  });
-}
+            if (!quote || Object.keys(quote).length === 0) {
+                alert("Stock not found. Check symbol/market.");
+                return;
+            }
 
-function saveSettings() {
-  S.tdKey = document.getElementById('tdKey').value.trim();
-  S.apiKey = document.getElementById('cKey').value.trim();
-  S.sumStyle = document.getElementById('sumStyle').value;
-  S.tz = document.getElementById('tzSel').value;
-  localStorage.setItem('mb2_settings', JSON.stringify(S));
-  var m = document.getElementById('saveMsg');
-  m.innerHTML = '<div class="msg ok" style="margin-top:6px">✓ Settings saved.</div>';
-  setTimeout(function(){ m.innerHTML=''; }, 2500);
-}
+            // Update UI
+            document.getElementById('stock-name').innerText = `${symbol} Market Status`;
+            document.getElementById('curr-price').innerText = Number(quote["05. price"]).toFixed(2);
+            
+            const change = Number(quote["09. change"]);
+            const changePct = quote["10. change percent"];
+            const color = change >= 0 ? 'var(--up)' : 'var(--down)';
+            
+            document.getElementById('curr-change').innerText = `${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePct})`;
+            document.getElementById('curr-change').style.color = color;
 
-function toggleMkt(m) {
-  var i = S.markets.indexOf(m);
-  if (i > -1) S.markets.splice(i,1); else S.markets.push(m);
-  document.getElementById('m'+m).classList.toggle('active', S.markets.indexOf(m) > -1);
-}
-
-// ── Navigation ────────────────────────────────────────────────────────────────
-function showView(name) {
-  ['Dash','Search','Settings'].forEach(function(v) {
-    document.getElementById('v'+v).style.display = v===name ? '' : 'none';
-    document.getElementById('bn-'+v.toLowerCase()).classList.toggle('active', v===name);
-  });
-}
-
-function setFilter(f, btn) {
-  filterNow = f;
-  document.querySelectorAll('#mktFilter .chip').forEach(function(b){ b.classList.remove('active'); });
-  btn.classList.add('active');
-  renderIndices();
-}
-
-// ── Market Data ───────────────────────────────────────────────────────────────
-var INDICES = [
-  {sym:'SPY',    name:'S&P 500 ETF',  sub:'US · NYSE',   flag:'🇺🇸', mkt:'US', td:'SPY',      tdEx:'NYSE'},
-  {sym:'QQQ',    name:'Nasdaq ETF',   sub:'US · Nasdaq', flag:'🇺🇸', mkt:'US', td:'QQQ',      tdEx:'NASDAQ'},
-  {sym:'DIA',    name:'Dow Jones ETF',sub:'US · NYSE',   flag:'🇺🇸', mkt:'US', td:'DIA',      tdEx:'NYSE'},
-  {sym:'ES3',    name:'STI ETF',      sub:'SG · SGX',    flag:'🇸🇬', mkt:'SG', td:'ES3',      tdEx:'SGX'},
-  {sym:'D05',    name:'DBS Group',    sub:'SG · SGX',    flag:'🇸🇬', mkt:'SG', td:'D05',      tdEx:'SGX'},
-  {sym:'O39',    name:'OCBC',         sub:'SG · SGX',    flag:'🇸🇬', mkt:'SG', td:'O39',      tdEx:'SGX'},
-  {sym:'2800',   name:'HSI Tracker',  sub:'HK · HKEX',   flag:'🇭🇰', mkt:'HK', td:'2800',     tdEx:'HKEX'},
-  {sym:'0700',   name:'Tencent',      sub:'HK · HKEX',   flag:'🇭🇰', mkt:'HK', td:'700',      tdEx:'HKEX'},
-];
-
-// Twelve Data API - supports US, SGX, HKEX with proper CORS
-async function fetchTD(idx) {
-  var key = S.tdKey;
-  if (!key) throw new Error('no_key');
-  var sym = idx.td + (idx.tdEx !== 'NYSE' && idx.tdEx !== 'NASDAQ' ? ':' + idx.tdEx : '');
-  var url = 'https://api.twelvedata.com/quote?symbol='+encodeURIComponent(sym)+'&apikey='+key;
-  var r = await fetch(url);
-  if (!r.ok) throw new Error('HTTP '+r.status);
-  var d = await r.json();
-  if (d.status === 'error' || !d.close) throw new Error(d.message || 'no_data');
-  var price = parseFloat(d.close);
-  var prev = parseFloat(d.previous_close);
-  var chg = price - prev;
-  var chgPct = (chg / prev) * 100;
-  return {c:price, d:chg, dp:chgPct, pc:prev, h:parseFloat(d.high), l:parseFloat(d.low), name:d.name||idx.sym};
-}
-
-async function loadDashboard() {
-  var grid = document.getElementById('indexGrid');
-  grid.innerHTML = '<div class="msg">Fetching market data… <span class="spin"></span></div>';
-
-  if (!S.tdKey) {
-    grid.innerHTML = '<div class="msg">Add your <strong>Twelve Data API key</strong> in ⚙ Settings to load market data.<br><br>Free key at <strong>twelvedata.com</strong></div>';
-    document.getElementById('sumArea').innerHTML = '<div class="msg">Market data needed first.</div>';
-    return;
-  }
-
-  var results = await Promise.allSettled(INDICES.map(function(idx){ return fetchTD(idx); }));
-  marketData = [];
-  INDICES.forEach(function(idx, i) {
-    var r = results[i];
-    if (r.status === 'fulfilled') {
-      marketData.push({ sym:idx.sym, name:idx.name, sub:idx.sub, flag:idx.flag, mkt:idx.mkt,
-        price:r.value.c, change:r.value.d, changePct:r.value.dp });
+            // Trigger AI Summary (Claude)
+            generateAISummary(quote, apiKey);
+        } catch (e) {
+            console.error(e);
+        }
     }
-  });
 
-  renderIndices();
+    async function generateAISummary(q, key) {
+        const container = document.getElementById('ai-container');
+        const aiText = document.getElementById('ai-text');
+        container.style.display = 'block';
+        aiText.innerText = "Analyzing what happened yesterday...";
 
-  if (marketData.length === 0) {
-    grid.innerHTML = '<div class="msg err">Could not load any market data. Check your Twelve Data API key in ⚙ Settings.</div>';
-    return;
-  }
+        const prompt = `Summarize what happened yesterday for stock ${q["01. symbol"]}. Price is ${q["05. price"]} with a change of ${q["10. change percent"]}. Identify one likely catalyst and one implication for a Singapore resident investor. Max 2 sentences.`;
 
-  if (S.apiKey) { loadSummary(); }
-  else { document.getElementById('sumArea').innerHTML = '<div class="msg">Add your Claude API key in ⚙ Settings for AI summaries.</div>'; }
-}
+        try {
+            const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': key,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                    model: 'claude-3-haiku-20240307',
+                    max_tokens: 150,
+                    messages: [{ role: 'user', content: prompt }]
+                })
+            });
+            const result = await resp.json();
+            aiText.innerText = result.content[0].text;
+        } catch (e) {
+            aiText.innerText = "Summary unavailable. Check your Anthropic API credit balance.";
+        }
+    }
 
-function renderIndices() {
-  var grid = document.getElementById('indexGrid');
-  var list = filterNow === 'all' ? marketData : marketData.filter(function(d){ return d.mkt === filterNow; });
-  if (!list.length) { grid.innerHTML = '<div class="msg">No data for this filter.</div>'; return; }
-  grid.innerHTML = list.map(function(d, i) {
-    var up = d.changePct >= 0;
-    var cls = Math.abs(d.changePct) < 0.01 ? 'neu' : (up ? 'up' : 'down');
-    var arrow = cls === 'neu' ? '—' : (up ? '▲' : '▼');
-    return '<div class="card"><div class="card-left"><div class="flag">'+d.flag+'</div><div><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'</div></div></div>'
-      +'<div class="card-right"><div class="cprice '+cls+'">'+fmt(d.price)+'</div>'
-      +'<div class="cchange '+cls+'">'+arrow+' '+fmtPct(d.changePct)+' ('+fmtD(d.change)+')</div></div></div>';
-  }).join('');
-}
-
-// ── AI Summary ────────────────────────────────────────────────────────────────
-async function loadSummary() {
-  var area = document.getElementById('sumArea');
-  area.innerHTML = '<div class="msg">Generating AI summary… <span class="spin"></span></div>';
-  var yesterday = prevTradingDay();
-  var dataStr = marketData.map(function(d){ return d.name+': '+fmt(d.price)+' '+fmtPct(d.changePct); }).join('\n');
-  var styleMap = {
-    detailed: 'Write a detailed paragraph covering key movements, possible drivers, and overall market sentiment.',
-    concise: 'Write a concise 3-4 sentence summary of the key market movements.',
-    bullets: 'Write 4-6 bullet points covering key market movements and takeaways.'
-  };
-  var style = styleMap[S.sumStyle] || styleMap.detailed;
-  var prompt = 'You are a financial market analyst. Previous trading day ('+yesterday+') market data:\n\n'+dataStr+'\n\n'+style+' Focus on the Singapore investor perspective (SGX, HKEX, US). Be specific about percentage moves. End with a one-line sentiment: e.g. "Sentiment: Cautiously Bullish".';
-  try {
-    var resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': S.apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:600, messages:[{role:'user',content:prompt}] })
-    });
-    if (!resp.ok) { var e = await resp.json().catch(function(){return {};}); throw new Error(e.error && e.error.message ? e.error.message : 'API error '+resp.status); }
-    var data = await resp.json();
-    var text = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : 'No summary.';
-    area.innerHTML = '<div class="sum-box"><div class="sum-header"><span class="ai-badge">AI · Claude</span><span class="sum-date">'+yesterday+'</span></div><div class="sum-text">'+esc(text)+'</div></div>';
-  } catch(e) {
-    area.innerHTML = '<div class="msg err">Summary error: '+esc(e.message)+'</div>';
-  }
-}
-
-function prevTradingDay() {
-  var d = new Date(); d.setDate(d.getDate()-1);
-  while (d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()-1);
-  return d.toLocaleDateString('en-SG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-}
-
-// ── Ticker Search ─────────────────────────────────────────────────────────────
-async function doSearch() {
-  var raw = document.getElementById('tickIn').value.trim().toUpperCase();
-  if (!raw) return;
-  var btn = document.getElementById('searchBtn');
-  var res = document.getElementById('tickResult');
-  btn.disabled = true; btn.textContent = 'Searching…';
-  res.innerHTML = '<div class="msg"><span class="spin"></span></div>';
-
-  
-
-  if (!S.tdKey) {
-    res.innerHTML = '<div class="msg err">Add your Twelve Data API key in ⚙ Settings first.</div>';
-    btn.disabled=false; btn.textContent='Search'; return;
-  }
-
-  // Format symbol for Twelve Data: SGX:ES3, HKEX:700, or plain NVDA
-  var tdSym = raw;
-  if (raw.endsWith('.SI')) tdSym = raw.replace('.SI','') + ':SGX';
-  else if (raw.endsWith('.HK')) tdSym = raw.replace('.HK','').replace(/^0+/,'') + ':HKEX';
-
-  try {
-    var r = await fetch('https://api.twelvedata.com/quote?symbol='+encodeURIComponent(tdSym)+'&apikey='+S.tdKey);
-    var d = await r.json();
-    if (d.status === 'error' || !d.close) throw new Error(d.message || 'No data for "'+raw+'". Try: NVDA, O39.SI, 0700.HK');
-    var price = parseFloat(d.close);
-    var prev = parseFloat(d.previous_close);
-    var q = {c:price, d:price-prev, dp:((price-prev)/prev)*100, pc:prev, h:parseFloat(d.high), l:parseFloat(d.low)};
-    var p = {name: d.name || raw, currency: d.currency || ''};
-    if (!q.c || q.c===0) throw new Error('No data for "'+raw+'". Try: NVDA, O39.SI, 0700.HK');
-    var up = q.dp >= 0;
-    var cls = Math.abs(q.dp) < 0.01 ? 'neu' : (up ? 'up' : 'down');
-    var arrow = cls==='neu' ? '—' : (up ? '▲' : '▼');
-    res.innerHTML = '<div class="tick-card">'
-      +'<div class="tick-top"><div><div class="tick-sym">'+esc(raw)+'</div><div class="tick-name">'+esc(p.name||raw)+'</div></div>'
-      +'<div><div class="tick-price '+cls+'">'+fmt(q.c)+'</div><div class="cchange '+cls+'" style="text-align:right;margin-top:3px">'+arrow+' '+fmtPct(q.dp)+'</div></div></div>'
-      +'<div class="stats-grid">'
-      +'<div class="stat"><div class="stat-l">Change</div><div class="stat-v '+cls+'">'+fmtD(q.d)+'</div></div>'
-      +'<div class="stat"><div class="stat-l">Prev Close</div><div class="stat-v">'+fmt(q.pc)+'</div></div>'
-      +'<div class="stat"><div class="stat-l">Day High</div><div class="stat-v">'+fmt(q.h)+'</div></div>'
-      +'<div class="stat"><div class="stat-l">Day Low</div><div class="stat-v">'+fmt(q.l)+'</div></div>'
-      +'</div></div>';
-    if (S.apiKey) genTickerSummary(raw, q, p);
-  } catch(e) {
-    res.innerHTML = '<div class="msg err">'+esc(e.message)+'</div>';
-  }
-  btn.disabled=false; btn.textContent='Search';
-}
-
-async function genTickerSummary(sym, q, p) {
-  var el = document.getElementById('tickResult');
-  el.innerHTML += '<div id="tsum"><div class="msg">Generating analysis… <span class="spin"></span></div></div>';
-  var prompt = 'Brief 3-sentence analysis of '+sym+(p.name?' ('+p.name+')':'')+' which moved '+fmtPct(q.dp)+' to '+fmt(q.c)+'. Mention likely drivers and one thing a Singapore investor should consider. Be factual and concise.';
-  try {
-    var resp = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:250,messages:[{role:'user',content:prompt}]})
-    });
-    var d = await resp.json();
-    var text = (d.content&&d.content[0]&&d.content[0].text) ? d.content[0].text : '';
-    document.getElementById('tsum').innerHTML = '<div class="sum-box" style="margin-top:0"><div class="sum-header"><span class="ai-badge">AI Analysis</span></div><div class="sum-text">'+esc(text)+'</div></div>';
-  } catch(e) { document.getElementById('tsum').innerHTML=''; }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function fmt(n) { if(!n&&n!==0) return '—'; return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function fmtPct(p) { if(p===null||p===undefined) return '—'; return (p>=0?'+':'')+Number(p).toFixed(2)+'%'; }
-function fmtD(d) { if(d===null||d===undefined) return '—'; return (d>=0?'+':'')+Number(d).toFixed(2); }
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    setInterval(() => {
+        document.getElementById('clock').innerText = new Date().toLocaleString();
+    }, 1000);
 </script>
 </body>
 </html>
