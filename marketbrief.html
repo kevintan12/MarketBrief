@@ -535,8 +535,16 @@
     <div class="section-label" style="margin-top:0;">Configuration</div>
     <div class="settings-panel">
 
+      <div class="setting-row" style="border-color: rgba(0,212,255,0.3);">
+        <div class="setting-label" style="color:var(--accent);">★ Finnhub API Key (Market Data)</div>
+        <input class="setting-input" type="password" id="finnhubKeyInput" placeholder="your_finnhub_key..." autocomplete="off">
+        <div style="font-size:0.62rem; color: var(--muted); margin-top:8px; line-height:1.5;">
+          Free key at <strong style="color:var(--text)">finnhub.io</strong> — click "Get free API key". No credit card needed.
+        </div>
+      </div>
+
       <div class="setting-row">
-        <div class="setting-label">Claude API Key</div>
+        <div class="setting-label">Claude API Key (AI Summaries)</div>
         <input class="setting-input" type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
         <div style="font-size:0.62rem; color: var(--muted); margin-top:8px; line-height:1.5;">
           Get your key at console.anthropic.com. Stored locally in your browser only.
@@ -601,6 +609,7 @@
 // ─── State ───────────────────────────────────────────────────────────────────
 let settings = {
   apiKey: '',
+  finnhubKey: '',
   markets: ['US', 'SG', 'HK'],
   summaryStyle: 'detailed',
   tz: 'Asia/Singapore'
@@ -645,6 +654,7 @@ function loadSettings() {
     settings = { ...settings, ...s };
   } catch (e) {}
   document.getElementById('apiKeyInput').value = settings.apiKey || '';
+  document.getElementById('finnhubKeyInput').value = settings.finnhubKey || '';
   document.getElementById('summaryStyle').value = settings.summaryStyle || 'detailed';
   document.getElementById('tzSelect').value = settings.tz || 'Asia/Singapore';
   ['US','SG','HK'].forEach(m => {
@@ -655,6 +665,7 @@ function loadSettings() {
 
 function saveSettings() {
   settings.apiKey = document.getElementById('apiKeyInput').value.trim();
+  settings.finnhubKey = document.getElementById('finnhubKeyInput').value.trim();
   settings.summaryStyle = document.getElementById('summaryStyle').value;
   settings.tz = document.getElementById('tzSelect').value;
   localStorage.setItem('mb_settings', JSON.stringify(settings));
@@ -688,81 +699,48 @@ function setMarketFilter(filter, btn) {
 
 // ─── Market Data ──────────────────────────────────────────────────────────────
 const INDICES = [
-  { symbol: '^GSPC',   name: 'S&P 500',    sub: 'US · NYSE/Nasdaq', flag: '🇺🇸', market: 'US' },
-  { symbol: '^IXIC',   name: 'Nasdaq',      sub: 'US · Tech',        flag: '🇺🇸', market: 'US' },
-  { symbol: '^DJI',    name: 'Dow Jones',   sub: 'US · DJIA',        flag: '🇺🇸', market: 'US' },
-  { symbol: 'ES3.SI',  name: 'STI ETF',     sub: 'SG · SGX (SPDR)',  flag: '🇸🇬', market: 'SG' },
-  { symbol: 'D05.SI',  name: 'DBS Group',   sub: 'SG · SGX',         flag: '🇸🇬', market: 'SG' },
-  { symbol: 'O39.SI',  name: 'OCBC',        sub: 'SG · SGX',         flag: '🇸🇬', market: 'SG' },
-  { symbol: '^HSI',    name: 'Hang Seng',   sub: 'HK · HKEX',        flag: '🇭🇰', market: 'HK' },
-  { symbol: '2800.HK', name: 'HSI ETF',     sub: 'HK · Tracker Fund',flag: '🇭🇰', market: 'HK' },
+  { symbol: 'SPY',     fh: 'SPY',       name: 'S&P 500 ETF',   sub: 'US · NYSE',        flag: '🇺🇸', market: 'US', currency: 'USD' },
+  { symbol: 'QQQ',     fh: 'QQQ',       name: 'Nasdaq ETF',    sub: 'US · Nasdaq',       flag: '🇺🇸', market: 'US', currency: 'USD' },
+  { symbol: 'DIA',     fh: 'DIA',       name: 'Dow Jones ETF', sub: 'US · NYSE',         flag: '🇺🇸', market: 'US', currency: 'USD' },
+  { symbol: 'ES3.SI',  fh: 'SGX:ES3',   name: 'STI ETF',       sub: 'SG · SGX (SPDR)',  flag: '🇸🇬', market: 'SG', currency: 'SGD' },
+  { symbol: 'D05.SI',  fh: 'SGX:D05',   name: 'DBS Group',     sub: 'SG · SGX',          flag: '🇸🇬', market: 'SG', currency: 'SGD' },
+  { symbol: 'O39.SI',  fh: 'SGX:O39',   name: 'OCBC',          sub: 'SG · SGX',          flag: '🇸🇬', market: 'SG', currency: 'SGD' },
+  { symbol: '2800.HK', fh: 'HKEX:2800', name: 'HSI Tracker',   sub: 'HK · HKEX',         flag: '🇭🇰', market: 'HK', currency: 'HKD' },
+  { symbol: '0700.HK', fh: 'HKEX:700',  name: 'Tencent',       sub: 'HK · HKEX',         flag: '🇭🇰', market: 'HK', currency: 'HKD' },
 ];
 
-// Try multiple proxy endpoints in order
-async function fetchQuote(symbol) {
-  const proxies = [
-    () => fetchViaYahooV8(symbol),
-    () => fetchViaYahooV7(symbol),
-  ];
-  for (const fn of proxies) {
-    try {
-      const result = await fn();
-      if (result && result.price) return result;
-    } catch (e) {}
-  }
-  return null;
-}
-
-async function fetchViaYahooV8(symbol) {
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d&corsDomain=finance.yahoo.com`;
-  const r = await fetch(url, {
-    mode: 'cors',
-    headers: { 'Accept': 'application/json' }
-  });
+async function fetchQuote(idx) {
+  const key = settings.finnhubKey;
+  if (!key) throw new Error('No Finnhub key');
+  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(idx.fh)}&token=${key}`;
+  const r = await fetch(url);
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const d = await r.json();
-  const meta = d.chart.result[0].meta;
-  const price = meta.regularMarketPrice;
-  const prev = meta.chartPreviousClose || meta.previousClose;
-  if (!price || !prev) throw new Error('No price data');
-  return {
-    symbol,
-    price,
-    change: price - prev,
-    changePct: ((price - prev) / prev) * 100,
-    currency: meta.currency,
-    name: meta.longName || meta.shortName || symbol
-  };
+  if (!d.c || d.c === 0) throw new Error('No price for ' + idx.fh);
+  return { ...idx, price: d.c, change: d.d, changePct: d.dp };
 }
 
-async function fetchViaYahooV7(symbol) {
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}&corsDomain=finance.yahoo.com`;
-  const r = await fetch(url, {
-    mode: 'cors',
-    headers: { 'Accept': 'application/json' }
-  });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const d = await r.json();
-  const q = d.quoteResponse?.result?.[0];
-  if (!q) throw new Error('No result');
-  const price = q.regularMarketPrice;
-  const prev = q.regularMarketPreviousClose;
-  if (!price || !prev) throw new Error('No price');
-  return {
-    symbol,
-    price,
-    change: price - prev,
-    changePct: ((price - prev) / prev) * 100,
-    currency: q.currency,
-    name: q.longName || q.shortName || symbol
-  };
+async function fetchTickerQuote(symbol) {
+  const key = settings.finnhubKey;
+  if (!key) throw new Error('Add your Finnhub API key in Settings first');
+  let fhSymbol = symbol.toUpperCase();
+  if (fhSymbol.endsWith('.SI')) fhSymbol = 'SGX:' + fhSymbol.replace('.SI','');
+  else if (fhSymbol.endsWith('.HK')) fhSymbol = 'HKEX:' + fhSymbol.replace('.HK','').replace(/^0+/,'');
+  const [qr, pr] = await Promise.allSettled([
+    fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fhSymbol)}&token=${key}`),
+    fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(fhSymbol)}&token=${key}`)
+  ]);
+  const q = qr.status === 'fulfilled' ? await qr.value.json() : {};
+  const p = pr.status === 'fulfilled' ? await pr.value.json() : {};
+  if (!q.c || q.c === 0) throw new Error(`No data for "${symbol}". Try formats: NVDA, O39.SI, 0700.HK`);
+  return { symbol, price: q.c, change: q.d, changePct: q.dp, currency: p.currency || '', name: p.name || symbol };
 }
 
 async function loadDashboard() {
   const grid = document.getElementById('indexGrid');
   grid.innerHTML = '<div class="msg-box">Fetching market data… <span class="spinner"></span></div>';
 
-  const results = await Promise.allSettled(INDICES.map(idx => fetchQuote(idx.symbol)));
+  const results = await Promise.allSettled(INDICES.map(idx => fetchQuote(idx)));
   marketData = INDICES.map((idx, i) => {
     const r = results[i];
     return r.status === 'fulfilled' && r.value ? { ...idx, ...r.value } : null;
@@ -771,7 +749,7 @@ async function loadDashboard() {
   renderIndices();
 
   if (marketData.length === 0) {
-    grid.innerHTML = `<div class="msg-box error">Could not load market data. This is likely a CORS issue from opening as a local file.<br><br><strong>Fix:</strong> Host on GitHub Pages — see the setup guide.</div>`;
+    grid.innerHTML = `<div class="msg-box error">Could not load market data.<br><br>Make sure you have added your <strong>Finnhub API key</strong> in ⚙ Settings. Get a free key at finnhub.io</div>`;
     document.getElementById('summaryArea').innerHTML = '<div class="msg-box">Market data required for AI summary.</div>';
     return;
   }
@@ -896,13 +874,14 @@ async function searchTicker() {
   btn.textContent = 'Searching…';
   result.innerHTML = '<div class="msg-box">Fetching <span class="spinner"></span></div>';
 
-  const data = await fetchQuote(raw);
+  const data = await fetchTickerQuote(raw).catch(e => { result.innerHTML = `<div class="msg-box error">${escHtml(e.message)}</div>`; return null; });
 
   btn.disabled = false;
   btn.textContent = 'Search';
 
   if (!data || !data.price) {
-    result.innerHTML = `<div class="msg-box error">Could not find data for "${raw}". Try: NVDA, O39.SI, 0700.HK, ^STI</div>`;
+    if (!result.innerHTML.includes('msg-box error')) result.innerHTML = `<div class="msg-box error">Could not find data for "${raw}".</div>`;
+    btn.disabled = false; btn.textContent = 'Search';
     return;
   }
 
