@@ -246,11 +246,11 @@ var INDICES = [
   { sym:'^GSPC',   name:'S&P 500',    sub:'US · NYSE/Nasdaq', flag:'🇺🇸', mkt:'US' },
   { sym:'^IXIC',   name:'Nasdaq',     sub:'US · Composite',   flag:'🇺🇸', mkt:'US' },
   { sym:'^DJI',    name:'Dow Jones',  sub:'US · DJIA',        flag:'🇺🇸', mkt:'US' },
-  { sym:'ES3.SI',  name:'STI ETF',    sub:'SG · SGX',         flag:'🇸🇬', mkt:'SG' },
+  { sym:'^STI',    name:'STI',        sub:'SG · Straits Times Index', flag:'🇸🇬', mkt:'SG' },
   { sym:'D05.SI',  name:'DBS Group',  sub:'SG · SGX',         flag:'🇸🇬', mkt:'SG' },
   { sym:'O39.SI',  name:'OCBC',       sub:'SG · SGX',         flag:'🇸🇬', mkt:'SG' },
-  { sym:'2800.HK', name:'HSI Tracker',sub:'HK · HKEX',        flag:'🇭🇰', mkt:'HK' },
-  { sym:'0700.HK', name:'Tencent',    sub:'HK · HKEX',        flag:'🇭🇰', mkt:'HK' },
+  { sym:'^HSI',    name:'Hang Seng',  sub:'HK · Hang Seng Index', flag:'🇭🇰', mkt:'HK' },
+  { sym:'1398.HK', name:'ICBC',       sub:'HK · HKEX',        flag:'🇭🇰', mkt:'HK' },
 ];
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
@@ -389,13 +389,13 @@ async function loadSummary() {
   var yday = prevDay();
   var dataStr = mktData.map(function(d){ return d.name+': '+fmt(d.price)+' '+fmtP(d.pct); }).join('\n');
   var styleMap = {
-    detailed:'Write a detailed paragraph covering key movements, drivers, and overall sentiment.',
-    concise:'Write a concise 3-4 sentence summary.',
-    bullets:'Write 4-6 bullet points covering key movements and takeaways.'
+    detailed:'Provide a structured market summary with these clearly labelled sections:\n1. 🇺🇸 US Markets\n2. 🇸🇬 Singapore (SGX)\n3. 🇭🇰 Hong Kong (HKEX)\n4. 📊 Overall Sentiment\n\nFor each section write 2-3 sentences covering key moves and likely drivers. Be specific about percentage changes. End the Sentiment section with a one-line verdict e.g. "Sentiment: Cautiously Bullish".',
+    concise:'Provide a structured summary with these labelled sections:\n1. 🇺🇸 US Markets\n2. 🇸🇬 Singapore (SGX)\n3. 🇭🇰 Hong Kong (HKEX)\n4. 📊 Overall Sentiment\n\nOne sentence per section. Be specific about % moves.',
+    bullets:'Provide a structured summary with these labelled sections:\n1. 🇺🇸 US Markets\n2. 🇸🇬 Singapore (SGX)\n3. 🇭🇰 Hong Kong (HKEX)\n4. 📊 Overall Sentiment\n\nUse 2-3 bullet points per section. Be specific about % moves.'
   };
-  var prompt = 'You are a financial market analyst. Previous trading day ('+yday+') data:\n\n'+dataStr
+  var prompt = 'You are a financial market analyst writing for a Singapore-based investor. Previous trading day ('+yday+') data:\n\n'+dataStr
     +'\n\n'+(styleMap[S.style]||styleMap.detailed)
-    +' Focus on the Singapore investor perspective. Be specific about % moves. End with a one-line sentiment e.g. "Sentiment: Cautiously Bullish".';
+    +' Focus on what matters for a Singapore investor holding SGX, HKEX and US equities.';
   try {
     var resp = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -408,7 +408,7 @@ async function loadSummary() {
     var data=await resp.json();
     var txt=(data.content&&data.content[0]&&data.content[0].text)||'No summary generated.';
     area.innerHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
-      +'<span class="sumdate">'+esc(yday)+'</span></div><div class="sumtxt">'+esc(txt)+'</div></div>';
+      +'<span class="sumdate">'+esc(yday)+'</span></div><div class="sumtxt">'+formatSummary(txt)+'</div></div>';
   } catch(e){
     area.innerHTML='<div class="msg err">Summary error: '+esc(e.message)+'</div>';
   }
@@ -474,11 +474,42 @@ async function genTickerAI(sym, d) {
   } catch(e){ document.getElementById('tai').innerHTML=''; }
 }
 
+// ── Summary Formatter ────────────────────────────────────────────────────────
+function formatSummary(txt) {
+  // Split into lines, style section headers and bullets
+  var lines = txt.split('\n');
+  var html = '';
+  lines.forEach(function(line) {
+    line = line.trim();
+    if (!line) { html += '<div style="height:10px"></div>'; return; }
+    // Section headers: lines starting with a number+dot or emoji
+    var isHeader = /^[1-9][\.\)]/.test(line) || /^[🇺🇸🇸🇬🇭🇰📊]/.test(line);
+    if (isHeader) {
+      html += '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:0.78rem;'
+        +'color:var(--acc);margin-top:14px;margin-bottom:5px;letter-spacing:0.02em;">'
+        +escHtml(line)+'</div>';
+    } else if (/^[-•*]/.test(line)) {
+      // Bullet points
+      html += '<div style="display:flex;gap:7px;margin-bottom:4px;">'
+        +'<span style="color:var(--acc);flex-shrink:0;margin-top:1px">›</span>'
+        +'<span style="font-size:0.74rem;line-height:1.7;color:var(--txt);">'+escHtml(line.replace(/^[-•*]\s*/,''))+'</span></div>';
+    } else {
+      // Regular paragraph line
+      html += '<div style="font-size:0.74rem;line-height:1.75;color:var(--txt);margin-bottom:3px;">'+escHtml(line)+'</div>';
+    }
+  });
+  return html;
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt(n){ if(n===null||n===undefined) return '—'; return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtP(p){ if(p===null||p===undefined) return '—'; return (p>=0?'+':'')+Number(p).toFixed(2)+'%'; }
 function fmtD(d){ if(d===null||d===undefined) return '—'; return (d>=0?'+':'')+Number(d).toFixed(2); }
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s){ return escHtml(s); }
 </script>
 </body>
 </html>
