@@ -752,27 +752,49 @@ async function genTickerAI(sym,d,resId){
   try{ liveData=await fetchQuote(sym); }catch(e){}
   var now=new Date();
   var dateStr=now.toLocaleDateString('en-SG',{timeZone:S.tz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  // Compute last trading day label (skip weekends)
+  var dayOfWeek=now.toLocaleDateString('en-US',{timeZone:S.tz,weekday:'long'});
+  var prevTradingDay=(dayOfWeek==='Monday')?'Friday':(dayOfWeek==='Sunday')?'Friday':'yesterday';
   var name=liveData&&liveData.name?liveData.name:sym;
+  var yr=now.getFullYear();
   var priceBlock=liveData?
-    'Current live data as of '+dateStr+':\n'
-    +'  Price: '+fmt(liveData.price)+' '+((liveData.currency||'')+'\n')
-    +'  Change: '+fmtD(liveData.change)+' ('+fmtP(liveData.changePct)+')\n'
-    +'  Prev Close: '+fmt(liveData.prev)+'\n'
-    +'  Day High: '+fmt(liveData.high)+' / Day Low: '+fmt(liveData.low)+'\n'
+    'As of '+dateStr+':
+'
+    +'  Price: '+fmt(liveData.price)+' '+(liveData.currency||'')+'
+'
+    +'  Change vs '+prevTradingDay+"'s close: "+fmtD(liveData.change)+' ('+fmtP(liveData.changePct)+')
+'
+    +'  Prev Close ('+prevTradingDay+'): '+fmt(liveData.prev)+'
+'
+    +'  Day High: '+fmt(liveData.high)+' / Day Low: '+fmt(liveData.low)+'
+'
     +'  Volume: '+fmtVol(liveData.volume)
     :'(no price data)';
-  var now2=new Date();
-  var yr=now2.getFullYear();
-  var prompt='You are a financial analyst. Today is '+dateStr+'. Knowledge cutoff warning: only discuss events from '+yr+'.\n\n'
-    +'CURRENT LIVE DATA for '+sym+' ('+name+'):\n'
-    +priceBlock+'\n\n'
-    +'Write a concise structured analysis using ONLY the data above and your knowledge of this company\'s fundamentals as of '+yr+'. '
-    +'Do NOT mention historical incidents, outages, or events from before '+yr+'.\n\n'
-    +'Use EXACTLY these section headers:\n'
-    +'1. 📈 Price Action\n'
-    +'2. 🔍 Key Drivers\n'
-    +'3. ⚠️ Key Risks\n'
-    +'4. 🇸🇬 Singapore Investor Angle\n\n'
+  var prompt='You are a financial analyst writing a brief for a Singapore investor. Today is '+dateStr+'.
+
+'
+    +'LIVE MARKET DATA for '+sym+' ('+name+'):
+'
+    +priceBlock+'
+
+'
+    +'Important context: the previous close shown is from '+prevTradingDay+" (not yesterday if today is Monday). "
+    +'Do NOT say "yesterday" if today is Monday — say "'+prevTradingDay+'" instead. '
+    +'Do NOT reference any historical events, incidents, or news from before '+yr+'. '
+    +'Do NOT include a title line in your response.
+
+'
+    +'Write a concise analysis using EXACTLY these section headers:
+'
+    +'1. 📈 Price Action
+'
+    +'2. 🔍 Key Drivers
+'
+    +'3. ⚠️ Key Risks
+'
+    +'4. 🇸🇬 Singapore Investor Angle
+
+'
     +'2 sentences per section max. End with: "Outlook: [verdict]".';
 
   try{
