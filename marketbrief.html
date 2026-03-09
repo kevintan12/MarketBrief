@@ -4,113 +4,121 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0f172a">
-    <title>MarketBrief</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <title>MarketBrief v2</title>
     <style>
         :root {
-            --bg: #0f172a; --card: #1e293b; --accent: #38bdf8;
-            --text: #f1f5f9; --muted: #94a3b8; --up: #10b981; --down: #ef4444;
+            --bg: #0a0f1e; --card: #111827; --accent: #00d4ff;
+            --text: #e2e8f0; --muted: #64748b; --up: #10b981; --down: #ef4444;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 16px; border: 1px solid #334155; }
-        .price { font-size: 2.5rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-        .change { font-size: 1.1rem; margin-top: 4px; font-weight: 600; }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
-        input, select, button { 
-            background: #334155; border: none; padding: 12px; border-radius: 8px; 
-            color: white; font-size: 14px; width: 100%;
-        }
-        button { background: var(--accent); color: #0f172a; font-weight: 700; cursor: pointer; }
-        .ai-box { background: rgba(56, 189, 248, 0.1); border-left: 4px solid var(--accent); padding: 12px; font-size: 14px; line-height: 1.5; }
-        .label { color: var(--muted); font-size: 12px; text-transform: uppercase; margin-bottom: 4px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; margin: 0; }
+        .card { background: var(--card); border-radius: 16px; padding: 24px; border: 1px solid #1e2d45; margin-bottom: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
+        .symbol-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .price { font-size: 3rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
+        .change { font-size: 1.2rem; font-weight: 600; }
+        .input-group { display: flex; gap: 8px; margin-bottom: 12px; }
+        select, input { background: #1a2236; border: 1px solid #1e2d45; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 16px; }
+        button { width: 100%; background: var(--accent); color: #0a0f1e; border: none; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 16px; cursor: pointer; transition: opacity 0.2s; }
+        button:active { opacity: 0.7; }
+        .ai-section { margin-top: 20px; border-top: 1px solid #1e2d45; padding-top: 20px; }
+        .ai-badge { background: rgba(0, 212, 255, 0.1); color: var(--accent); padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; display: inline-block; margin-bottom: 10px; }
+        .ai-text { font-size: 14px; line-height: 1.6; color: #94a3b8; font-style: italic; }
+        #status { font-size: 11px; color: var(--muted); text-align: center; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h2 style="font-family: 'JetBrains Mono'">MarketBrief</h2>
-        <span id="clock" style="font-size: 12px; color: var(--muted);"></span>
+    <div class="card">
+        <div class="input-group">
+            <select id="market">
+                <option value="US">US Market</option>
+                <option value="SG">Singapore (SGX)</option>
+                <option value="HK">Hong Kong (HKEX)</option>
+            </select>
+            <input type="text" id="symbol" placeholder="D05 or AAPL" autocomplete="off">
+        </div>
+        <button onclick="fetchMarketData()">Get Yesterday's Summary</button>
+        <div id="status">Ready</div>
     </div>
 
-    <div class="controls">
-        <select id="market">
-            <option value="US">US Market</option>
-            <option value="SG">Singapore (SGX)</option>
-            <option value="HK">Hong Kong (HKEX)</option>
-        </select>
-        <input type="text" id="symbol" placeholder="Symbol (e.g. D05 or AAPL)">
-    </div>
-    <button onclick="refreshData()" style="margin-bottom: 16px;">Refresh Summary</button>
-
-    <div class="card" id="main-quote">
-        <div class="label" id="stock-name">Waiting for input...</div>
-        <div class="price" id="curr-price">--.--</div>
-        <div class="change" id="curr-change">--.-- (--%)</div>
+    <div class="card" id="display-card" style="display: none;">
+        <div class="symbol-label" id="disp-symbol">---</div>
+        <div class="price" id="disp-price">0.00</div>
+        <div class="change" id="disp-change">0.00 (0.00%)</div>
+        
+        <div class="ai-section" id="ai-wrap" style="display: none;">
+            <div class="ai-badge">AI INSIGHT</div>
+            <div class="ai-text" id="disp-ai">Analyzing trends...</div>
+        </div>
     </div>
 
-    <div id="ai-container" style="display: none;">
-        <div class="label">AI Market Analysis</div>
-        <div class="ai-box" id="ai-text">Analyzing market trends...</div>
-    </div>
-
-    <div style="margin-top: 20px;">
-        <input type="password" id="api-key" placeholder="Enter API Key (Alpha Vantage/Claude)" style="font-size: 10px;">
-        <p style="font-size: 10px; color: var(--muted); margin-top: 8px;">*Data powered by Alpha Vantage & Anthropic</p>
+    <div style="padding: 0 10px;">
+        <input type="password" id="av-key" placeholder="Alpha Vantage API Key" style="font-size: 12px; margin-bottom: 8px;">
+        <input type="password" id="cl-key" placeholder="Claude API Key" style="font-size: 12px;">
     </div>
 
 <script>
-    async function refreshData() {
+    async function fetchMarketData() {
         const market = document.getElementById('market').value;
-        let symbol = document.getElementById('symbol').value.toUpperCase();
-        const apiKey = document.getElementById('api-key').value;
-        
-        if (!symbol || !apiKey) return alert("Please enter symbol and API Key");
+        let symbol = document.getElementById('symbol').value.trim().toUpperCase();
+        const avKey = document.getElementById('av-key').value;
+        const clKey = document.getElementById('cl-key').value;
+        const status = document.getElementById('status');
 
-        // Apply Exchange Suffixes for Alpha Vantage
-        if (market === "SG") symbol += ".SI";
-        if (market === "HK") symbol += ".HK";
+        if (!symbol || !avKey) {
+            status.innerText = "Error: Missing Symbol or AV Key";
+            return;
+        }
 
-        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
+        status.innerText = "Fetching market data...";
         
+        // Correct Suffix Mapping for Alpha Vantage
+        let fullSymbol = symbol;
+        if (market === "SG") fullSymbol = `${symbol}.SI`;
+        if (market === "HK") fullSymbol = `${symbol}.HK`;
+
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${fullSymbol}&apikey=${avKey}`;
+
         try {
             const resp = await fetch(url);
             const data = await resp.json();
             const quote = data["Global Quote"];
 
-            if (!quote || Object.keys(quote).length === 0) {
-                alert("Stock not found. Check symbol/market.");
+            if (!quote || !quote["05. price"]) {
+                status.innerText = "Error: Stock not found or API limit reached.";
                 return;
             }
 
             // Update UI
-            document.getElementById('stock-name').innerText = `${symbol} Market Status`;
-            document.getElementById('curr-price').innerText = Number(quote["05. price"]).toFixed(2);
+            document.getElementById('display-card').style.display = 'block';
+            document.getElementById('disp-symbol').innerText = fullSymbol;
+            document.getElementById('disp-price').innerText = Number(quote["05. price"]).toFixed(2);
             
-            const change = Number(quote["09. change"]);
-            const changePct = quote["10. change percent"];
-            const color = change >= 0 ? 'var(--up)' : 'var(--down)';
+            const rawChange = Number(quote["09. change"]);
+            const pctChange = quote["10. change percent"];
+            const isUp = rawChange >= 0;
             
-            document.getElementById('curr-change').innerText = `${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePct})`;
-            document.getElementById('curr-change').style.color = color;
+            const changeEl = document.getElementById('disp-change');
+            changeEl.innerText = `${isUp ? '+' : ''}${rawChange.toFixed(2)} (${pctChange})`;
+            changeEl.style.color = isUp ? 'var(--up)' : 'var(--down)';
 
-            // Trigger AI Summary (Claude)
-            generateAISummary(quote, apiKey);
+            status.innerText = `Updated ${new Date().toLocaleTimeString()}`;
+
+            if (clKey) {
+                getAISummary(quote, clKey);
+            }
         } catch (e) {
-            console.error(e);
+            status.innerText = "Connection error.";
         }
     }
 
-    async function generateAISummary(q, key) {
-        const container = document.getElementById('ai-container');
-        const aiText = document.getElementById('ai-text');
-        container.style.display = 'block';
-        aiText.innerText = "Analyzing what happened yesterday...";
+    async function getAISummary(q, key) {
+        const aiWrap = document.getElementById('ai-wrap');
+        const aiText = document.getElementById('disp-ai');
+        aiWrap.style.display = 'block';
+        aiText.innerText = "Consulting Claude...";
 
-        const prompt = `Summarize what happened yesterday for stock ${q["01. symbol"]}. Price is ${q["05. price"]} with a change of ${q["10. change percent"]}. Identify one likely catalyst and one implication for a Singapore resident investor. Max 2 sentences.`;
+        const prompt = `Summarize market action for ${q["01. symbol"]} which closed at ${q["05. price"]} (${q["10. change percent"]} change). 
+        Identify one specific driver from yesterday and one implication for a Singapore-based investor. 2 sentences total.`;
 
         try {
             const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -130,13 +138,9 @@
             const result = await resp.json();
             aiText.innerText = result.content[0].text;
         } catch (e) {
-            aiText.innerText = "Summary unavailable. Check your Anthropic API credit balance.";
+            aiText.innerText = "AI summary unavailable.";
         }
     }
-
-    setInterval(() => {
-        document.getElementById('clock').innerText = new Date().toLocaleString();
-    }, 1000);
 </script>
 </body>
 </html>
