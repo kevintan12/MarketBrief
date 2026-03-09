@@ -187,7 +187,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.5</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.7</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -195,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   <!-- DESKTOP -->
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.5</span></div>
+      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.7</span></div>
       <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -755,27 +755,33 @@ async function genTickerAI(sym,d,resId){
   var dayOfWeek=now.toLocaleDateString('en-US',{timeZone:S.tz,weekday:'long'});
   // Determine prevDay label based on ticker's market
   function getPrevDay(sym){
-    // Get current time in the relevant market timezone
-    var tz='America/New_York'; // default US
+    var tz='America/New_York';
     if(sym.endsWith('.SI')) tz='Asia/Singapore';
     else if(sym.endsWith('.HK')) tz='Asia/Hong_Kong';
-    var mktNow=new Date();
-    var mktDayName=mktNow.toLocaleDateString('en-US',{timeZone:tz,weekday:'long'});
-    var mktH=parseInt(mktNow.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}));
-    var mktM=parseInt(mktNow.toLocaleString('en-US',{timeZone:tz,minute:'numeric'}));
-    var mktMins=mktH*60+mktM;
-    // Close times: US=16:00 ET, SG=17:00 SGT, HK=16:00 HKT
+    // SGX open: 09:00 SGT, close: 17:00 SGT  → open=540, close=1020
+    // US open:  09:30 ET,  close: 16:00 ET   → open=570, close=960
+    // HK open:  09:30 HKT, close: 16:00 HKT  → open=570, close=960
+    var openMin =tz==='Asia/Singapore'?540:570;
     var closeMin=tz==='Asia/Singapore'?1020:960;
-    // If market is currently open, previous close is from the session before this one
-    var isOpen=(mktDayName!=='Saturday'&&mktDayName!=='Sunday'&&mktMins>=570&&mktMins<closeMin);
-    // Cases where prev session was Friday:
-    // - It's Saturday or Sunday
-    // - It's Monday before/during market hours (market open today but Friday was prior close)
-    // - It's Monday after close — prev close IS today (Monday), say "today's open" but simpler: use "Friday"
-    // Rule: if today in market TZ is Monday OR Sunday OR Saturday → prev session was Friday
-    // Also: if today is Monday and market not yet closed → still Friday's close
-    if(mktDayName==='Saturday'||mktDayName==='Sunday') return 'Friday';
-    if(mktDayName==='Monday') return 'Friday'; // Monday's prev close is always Friday regardless of time
+    var now=new Date();
+    var mktDayName=now.toLocaleDateString('en-US',{timeZone:tz,weekday:'long'});
+    var mktH=parseInt(now.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}));
+    var mktM=parseInt(now.toLocaleString('en-US',{timeZone:tz,minute:'numeric'}));
+    var mktMins=mktH*60+mktM;
+    var isWeekend=mktDayName==='Saturday'||mktDayName==='Sunday';
+    // Market hasn't opened yet today — price data still references previous session
+    var beforeOpen=!isWeekend&&mktMins<openMin;
+    if(isWeekend) return 'Friday';
+    if(mktDayName==='Monday') return 'Friday';
+    // Tuesday-Friday but before market opens: session hasn't started, prev = day before yesterday
+    if(beforeOpen){
+      var days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      var idx=days.indexOf(mktDayName);
+      var prevName=days[idx-1]||'yesterday';
+      if(prevName==='Monday') return 'Monday';
+      if(prevName==='Sunday'||prevName==='Saturday') return 'Friday';
+      return prevName;
+    }
     return 'yesterday';
   }
   var prevDay=getPrevDay(sym);
