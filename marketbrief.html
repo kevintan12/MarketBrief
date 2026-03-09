@@ -1,146 +1,192 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <title>MarketBrief v2</title>
-    <style>
-        :root {
-            --bg: #0a0f1e; --card: #111827; --accent: #00d4ff;
-            --text: #e2e8f0; --muted: #64748b; --up: #10b981; --down: #ef4444;
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; margin: 0; }
-        .card { background: var(--card); border-radius: 16px; padding: 24px; border: 1px solid #1e2d45; margin-bottom: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
-        .symbol-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .price { font-size: 3rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
-        .change { font-size: 1.2rem; font-weight: 600; }
-        .input-group { display: flex; gap: 8px; margin-bottom: 12px; }
-        select, input { background: #1a2236; border: 1px solid #1e2d45; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 16px; }
-        button { width: 100%; background: var(--accent); color: #0a0f1e; border: none; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 16px; cursor: pointer; transition: opacity 0.2s; }
-        button:active { opacity: 0.7; }
-        .ai-section { margin-top: 20px; border-top: 1px solid #1e2d45; padding-top: 20px; }
-        .ai-badge { background: rgba(0, 212, 255, 0.1); color: var(--accent); padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; display: inline-block; margin-bottom: 10px; }
-        .ai-text { font-size: 14px; line-height: 1.6; color: #94a3b8; font-style: italic; }
-        #status { font-size: 11px; color: var(--muted); text-align: center; margin-top: 10px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0f1e">
+<title>MarketBrief</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0f1e; --surface: #111827; --surface2: #1a2236;
+  --border: #1e2d45; --accent: #00d4ff; --green: #10b981;
+  --red: #ef4444; --text: #e2e8f0; --muted: #64748b; --gold: #f59e0b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+.app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding-bottom: 100px; }
+.header { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(10,15,30,0.94); backdrop-filter: blur(16px); z-index: 100; }
+.logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; color: var(--accent); }
+.header-time { font-size: 0.63rem; color: var(--muted); text-align: right; line-height: 1.6; }
+.content { padding: 18px 20px; }
+.chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.chip { padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.68rem; cursor: pointer; }
+.chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 500; }
+.slabel { font-size: 0.58rem; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; margin-top: 22px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.card-left { display: flex; align-items: center; gap: 11px; }
+.flag { width: 32px; height: 32px; border-radius: 50%; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+.cname { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.82rem; }
+.csub { font-size: 0.62rem; color: var(--muted); }
+.cprice { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; }
+.up { color: var(--green); } .down { color: var(--red); }
+.msg { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font-size: 0.74rem; color: var(--muted); margin-bottom: 8px; }
+.sum-box { background: linear-gradient(135deg, rgba(0,212,255,0.06), rgba(124,58,237,0.06)); border: 1px solid rgba(0,212,255,0.18); border-radius: 14px; padding: 16px; }
+.ai-badge { font-size: 0.58rem; background: var(--accent); color: var(--bg); padding: 2px 8px; border-radius: 20px; }
+.search-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem; margin-bottom: 8px; }
+.save-btn { width: 100%; padding: 12px; background: var(--accent); border: none; border-radius: 10px; color: var(--bg); font-family: 'Syne', sans-serif; font-weight: 700; cursor: pointer; }
+.bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: rgba(10,15,30,0.96); backdrop-filter: blur(20px); border-top: 1px solid var(--border); display: flex; padding: 8px 0 18px; z-index: 100; }
+.bitem { flex: 1; display: flex; flex-direction: column; align-items: center; background: transparent; border: none; color: var(--muted); font-size: 0.56rem; cursor: pointer; }
+.bitem.active { color: var(--accent); }
+</style>
 </head>
 <body>
+<div class="app">
+  <div class="header">
+    <div class="logo">Market<span>Brief</span></div>
+    <div class="header-time" id="hTime"></div>
+  </div>
 
-    <div class="card">
-        <div class="input-group">
-            <select id="market">
-                <option value="US">US Market</option>
-                <option value="SG">Singapore (SGX)</option>
-                <option value="HK">Hong Kong (HKEX)</option>
-            </select>
-            <input type="text" id="symbol" placeholder="D05 or AAPL" autocomplete="off">
-        </div>
-        <button onclick="fetchMarketData()">Get Yesterday's Summary</button>
-        <div id="status">Ready</div>
+  <div id="vDash" class="content">
+    <div class="chip-row" id="mktFilter">
+      <button class="chip active" onclick="setFilter('all',this)">All</button>
+      <button class="chip" onclick="setFilter('US',this)">🇺🇸 US</button>
+      <button class="chip" onclick="setFilter('SG',this)">🇸🇬 SGX</button>
+      <button class="chip" onclick="setFilter('HK',this)">🇭🇰 HKEX</button>
     </div>
+    <div class="slabel">Market Watchlist</div>
+    <div id="indexGrid"><div class="msg">Loading watchlist...</div></div>
+    <div class="slabel" style="margin-top:20px">AI Summary</div>
+    <div id="sumArea"></div>
+  </div>
 
-    <div class="card" id="display-card" style="display: none;">
-        <div class="symbol-label" id="disp-symbol">---</div>
-        <div class="price" id="disp-price">0.00</div>
-        <div class="change" id="disp-change">0.00 (0.00%)</div>
-        
-        <div class="ai-section" id="ai-wrap" style="display: none;">
-            <div class="ai-badge">AI INSIGHT</div>
-            <div class="ai-text" id="disp-ai">Analyzing trends...</div>
-        </div>
-    </div>
+  <div id="vSearch" class="content" style="display:none">
+    <input class="search-input" id="tickIn" placeholder="e.g. NVDA or D05.SI">
+    <button class="save-btn" onclick="doSearch()">Search Ticker</button>
+    <div id="tickResult"></div>
+  </div>
 
-    <div style="padding: 0 10px;">
-        <input type="password" id="av-key" placeholder="Alpha Vantage API Key" style="font-size: 12px; margin-bottom: 8px;">
-        <input type="password" id="cl-key" placeholder="Claude API Key" style="font-size: 12px;">
+  <div id="vSettings" class="content" style="display:none">
+    <div class="slabel">Configuration</div>
+    <div style="margin-bottom:15px">
+      <div style="font-size:10px; color:var(--accent); margin-bottom:5px">ALPHA VANTAGE KEY (GLOBAL DATA)</div>
+      <input class="search-input" type="password" id="avKey" placeholder="Paste Alpha Vantage Key">
     </div>
+    <div style="margin-bottom:15px">
+      <div style="font-size:10px; color:var(--muted); margin-bottom:5px">CLAUDE API KEY (AI INSIGHTS)</div>
+      <input class="search-input" type="password" id="cKey" placeholder="Paste Claude Key">
+    </div>
+    <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+  </div>
+</div>
+
+<div class="bnav">
+  <button class="bitem active" id="bn-dash" onclick="showView('Dash')">Dashboard</button>
+  <button class="bitem" id="bn-search" onclick="showView('Search')">Search</button>
+  <button class="bitem" id="bn-settings" onclick="showView('Settings')">Settings</button>
+</div>
 
 <script>
-    async function fetchMarketData() {
-        const market = document.getElementById('market').value;
-        let symbol = document.getElementById('symbol').value.trim().toUpperCase();
-        const avKey = document.getElementById('av-key').value;
-        const clKey = document.getElementById('cl-key').value;
-        const status = document.getElementById('status');
+var S = { avKey:'', apiKey:'', markets:['US','SG','HK'] };
+var marketData = [];
+var filterNow = 'all';
 
-        if (!symbol || !avKey) {
-            status.innerText = "Error: Missing Symbol or AV Key";
-            return;
-        }
+window.onload = function() {
+  loadSettings();
+  setInterval(tick, 1000);
+  loadDashboard();
+};
 
-        status.innerText = "Fetching market data...";
-        
-        // Correct Suffix Mapping for Alpha Vantage
-        let fullSymbol = symbol;
-        if (market === "SG") fullSymbol = `${symbol}.SI`;
-        if (market === "HK") fullSymbol = `${symbol}.HK`;
+function tick() {
+  document.getElementById('hTime').innerText = new Date().toLocaleString('en-SG', {timeZone:'Asia/Singapore'});
+}
 
-        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${fullSymbol}&apikey=${avKey}`;
+function loadSettings() {
+  var s = JSON.parse(localStorage.getItem('mb_av_settings') || '{}');
+  S = Object.assign(S, s);
+  document.getElementById('avKey').value = S.avKey || '';
+  document.getElementById('cKey').value = S.apiKey || '';
+}
 
-        try {
-            const resp = await fetch(url);
-            const data = await resp.json();
-            const quote = data["Global Quote"];
+function saveSettings() {
+  S.avKey = document.getElementById('avKey').value.trim();
+  S.apiKey = document.getElementById('cKey').value.trim();
+  localStorage.setItem('mb_av_settings', JSON.stringify(S));
+  alert("Settings Saved");
+  loadDashboard();
+}
 
-            if (!quote || !quote["05. price"]) {
-                status.innerText = "Error: Stock not found or API limit reached.";
-                return;
-            }
+function showView(name) {
+  ['Dash','Search','Settings'].forEach(v => {
+    document.getElementById('v'+v).style.display = v===name ? '' : 'none';
+    document.getElementById('bn-'+v.toLowerCase()).classList.toggle('active', v===name);
+  });
+}
 
-            // Update UI
-            document.getElementById('display-card').style.display = 'block';
-            document.getElementById('disp-symbol').innerText = fullSymbol;
-            document.getElementById('disp-price').innerText = Number(quote["05. price"]).toFixed(2);
-            
-            const rawChange = Number(quote["09. change"]);
-            const pctChange = quote["10. change percent"];
-            const isUp = rawChange >= 0;
-            
-            const changeEl = document.getElementById('disp-change');
-            changeEl.innerText = `${isUp ? '+' : ''}${rawChange.toFixed(2)} (${pctChange})`;
-            changeEl.style.color = isUp ? 'var(--up)' : 'var(--down)';
+const WATCHLIST = [
+  {sym:'SPY', name:'S&P 500', mkt:'US', flag:'🇺🇸'},
+  {sym:'D05.SI', name:'DBS Bank', mkt:'SG', flag:'🇸🇬'},
+  {sym:'0700.HK', name:'Tencent', mkt:'HK', flag:'🇭🇰'}
+];
 
-            status.innerText = `Updated ${new Date().toLocaleTimeString()}`;
+async function loadDashboard() {
+  if (!S.avKey) {
+    document.getElementById('indexGrid').innerHTML = '<div class="msg">Enter Alpha Vantage Key in Settings.</div>';
+    return;
+  }
+  marketData = [];
+  for (let item of WATCHLIST) {
+    try {
+      const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${item.sym}&apikey=${S.avKey}`;
+      const r = await fetch(url);
+      const d = await r.json();
+      const q = d["Global Quote"];
+      if (q) {
+        marketData.push({
+          ...item,
+          price: parseFloat(q["05. price"]),
+          changePct: q["10. change percent"]
+        });
+      }
+    } catch(e) {}
+  }
+  renderIndices();
+  if (S.apiKey && marketData.length > 0) loadAISummary();
+}
 
-            if (clKey) {
-                getAISummary(quote, clKey);
-            }
-        } catch (e) {
-            status.innerText = "Connection error.";
-        }
-    }
+function renderIndices() {
+  const list = filterNow === 'all' ? marketData : marketData.filter(d => d.mkt === filterNow);
+  document.getElementById('indexGrid').innerHTML = list.map(d => `
+    <div class="card">
+      <div class="card-left"><div class="flag">${d.flag}</div><div><div class="cname">${d.name}</div><div class="csub">${d.sym}</div></div></div>
+      <div class="card-right"><div class="cprice">${d.price.toFixed(2)}</div><div class="cchange ${parseFloat(d.changePct) >= 0 ? 'up' : 'down'}">${d.changePct}</div></div>
+    </div>
+  `).join('');
+}
 
-    async function getAISummary(q, key) {
-        const aiWrap = document.getElementById('ai-wrap');
-        const aiText = document.getElementById('disp-ai');
-        aiWrap.style.display = 'block';
-        aiText.innerText = "Consulting Claude...";
+async function loadAISummary() {
+  const area = document.getElementById('sumArea');
+  area.innerHTML = '<div class="msg">Analyzing...</div>';
+  const dataStr = marketData.map(d => `${d.name}: ${d.changePct}`).join(', ');
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': S.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model:'claude-3-haiku-20240307', max_tokens:300, messages:[{role:'user', content: `Summarize yesterday's market: ${dataStr}. Focus on SG/US/HK context. 2 sentences.`}] })
+    });
+    const d = await resp.json();
+    area.innerHTML = `<div class="sum-box"><div class="ai-badge">AI CLAUDE</div><div style="font-size:12px; margin-top:8px">${d.content[0].text}</div></div>`;
+  } catch(e) { area.innerHTML = ''; }
+}
 
-        const prompt = `Summarize market action for ${q["01. symbol"]} which closed at ${q["05. price"]} (${q["10. change percent"]} change). 
-        Identify one specific driver from yesterday and one implication for a Singapore-based investor. 2 sentences total.`;
-
-        try {
-            const resp = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': key,
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-dangerous-direct-browser-access': 'true'
-                },
-                body: JSON.stringify({
-                    model: 'claude-3-haiku-20240307',
-                    max_tokens: 150,
-                    messages: [{ role: 'user', content: prompt }]
-                })
-            });
-            const result = await resp.json();
-            aiText.innerText = result.content[0].text;
-        } catch (e) {
-            aiText.innerText = "AI summary unavailable.";
-        }
-    }
+function setFilter(f, btn) {
+  filterNow = f;
+  document.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderIndices();
+}
 </script>
 </body>
 </html>
