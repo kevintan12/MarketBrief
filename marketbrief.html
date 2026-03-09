@@ -213,7 +213,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
         <button class="chip" onclick="setFilter('SG',this)">🇸🇬 SGX</button>
         <button class="chip" onclick="setFilter('HK',this)">🇭🇰 HKEX</button>
       </div>
-      <div class="slabel notop">Market Indices</div>
+      <div class="slabel notop">Market Indices <span id="liveIndM" style="font-size:0.85rem;margin-left:6px"></span></div>
       <div id="idxGrid"><div class="msg">Loading… <span class="spin"></span></div></div>
       <div class="slabel"><span class="dot"></span>AI Summary</div>
       <button class="ai-btn" id="aiBtnM" onclick="triggerSummary()">✦ Generate AI Summary</button>
@@ -268,6 +268,7 @@ window.onload=function(){
   tickClock(); setInterval(tickClock,1000);
   renderSettingsPanelTo('settingsPanel');
   loadDash();
+  startAutoRefresh();
   var sa=window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
   if(!sa&&/android|iphone|ipad/i.test(navigator.userAgent))
     document.getElementById('pwaTip').style.display='block';
@@ -337,7 +338,7 @@ function renderDesktop(){
           +'<button class="chip" onclick="setFilterD(\'SG\',this)">🇸🇬 SGX</button>'
           +'<button class="chip" onclick="setFilterD(\'HK\',this)">🇭🇰 HKEX</button>'
         +'</div>'
-        +'<div class="slabel notop">Market Indices</div>'
+        +'<div class="slabel notop">Market Indices <span id="liveIndD" style="font-size:0.85rem;margin-left:6px"></span></div>'
         +'<div id="idxGridD"><div class="msg">Loading… <span class="spin"></span></div></div>'
       +'</div>'
       +'<div class="col-right">'
@@ -447,6 +448,7 @@ async function execSearch(inpId,btnId,resId){
   try{
     var d=await fetchQuote(raw);
     if(!d.price)throw new Error('No data for "'+raw+'"');
+    lastSearchSym=raw;
     var cls=Math.abs(d.changePct)<0.01?'neu':(d.changePct>=0?'up':'dn');
     var arr=cls==='neu'?'—':(d.changePct>=0?'▲':'▼');
     var cardId='tc_'+resId;
@@ -516,9 +518,90 @@ async function loadDash(){
   });
   renderIndices();
   if(!mktData.length) setGridHTML('<div class="msg err">Could not load data. Check Proxy URL.</div>');
+  startAutoRefresh();
 }
 function setGridHTML(h){var a=document.getElementById('idxGrid'),b=document.getElementById('idxGridD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
 function setSumHTML(h){var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
+
+// ── Real-time auto-refresh ────────────────────────────────────────────────────
+var autoRefreshTimer=null;
+var lastSearchSym=null;
+
+function isAnyMarketOpen(){
+  var now=new Date(), day=now.getDay();
+  function mins(tz){ var h=parseInt(now.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false})),m=parseInt(now.toLocaleString('en-US',{timeZone:tz,minute:'numeric'})); return h*60+m; }
+  var et=mins('America/New_York'), sg=mins('Asia/Singapore'), hk=mins('Asia/Hong_Kong');
+  var wk=day>=1&&day<=5;
+  return {
+    any: wk&&((et>=570&&et<960)||(sg>=540&&sg<1020)||(hk>=570&&hk<960)),
+    US:  wk&&et>=570&&et<960,
+    SG:  wk&&sg>=540&&sg<1020,
+    HK:  wk&&hk>=570&&hk<960
+  };
+}
+
+function getOpenLabel(){
+  var s=isAnyMarketOpen(), open=[];
+  if(s.US)open.push('\u{1F1FA}\u{1F1F8}');
+  if(s.SG)open.push('\u{1F1F8}\u{1F1EC}');
+  if(s.HK)open.push('\u{1F1ED}\u{1F1F0}');
+  return open.length?open.join(' ')+' LIVE':null;
+}
+
+async function silentRefreshDash(){
+  if(!S.proxyUrl||!mktData.length)return;
+  var tickers=getAllTickers();
+  var results=await Promise.allSettled(tickers.map(function(t){return fetchQuote(t.sym);}));
+  var updated=false;
+  tickers.forEach(function(t,i){
+    var r=results[i];
+    if(r.status==='fulfilled'&&r.value&&r.value.price){
+      var ex=mktData.find(function(x){return x.sym===t.sym;});
+      if(ex){ex.price=r.value.price;ex.chg=r.value.change;ex.pct=r.value.changePct;updated=true;}
+    }
+  });
+  if(updated)renderIndices();
+  if(lastSearchSym)silentRefreshTicker(lastSearchSym);
+  updateLiveIndicator();
+}
+
+async function silentRefreshTicker(sym){
+  try{
+    var d=await fetchQuote(sym);
+    if(!d.price)return;
+    ['tickRes','tickResD'].forEach(function(resId){
+      var cls=Math.abs(d.changePct)<0.01?'neu':(d.changePct>=0?'up':'dn');
+      var arr=cls==='neu'?'\u2014':(d.changePct>=0?'\u25b2':'\u25bc');
+      var pr=document.querySelector('#'+resId+' .tprice');
+      var chg=document.querySelector('#'+resId+' .cchg');
+      if(pr){pr.className='tprice '+cls;pr.textContent=fmt(d.price);}
+      if(chg){chg.className='cchg '+cls;chg.textContent=arr+' '+fmtP(d.changePct);}
+      var stats=document.querySelectorAll('#'+resId+' .ssv');
+      if(stats[0]){stats[0].className='ssv '+cls;stats[0].textContent=fmtD(d.change);}
+      if(stats[1])stats[1].textContent=fmt(d.prev);
+      if(stats[2])stats[2].textContent=fmt(d.high);
+      if(stats[3])stats[3].textContent=fmt(d.low);
+    });
+  }catch(e){}
+}
+
+function updateLiveIndicator(){
+  var label=getOpenLabel();
+  ['liveIndM','liveIndD'].forEach(function(id){
+    var el=document.getElementById(id); if(!el)return;
+    if(label){el.innerHTML='<span class="dot"></span>'+label;el.style.color='var(--grn)';}
+    else{el.innerHTML='Market Closed';el.style.color='var(--mut)';}
+  });
+}
+
+function startAutoRefresh(){
+  if(autoRefreshTimer)clearInterval(autoRefreshTimer);
+  autoRefreshTimer=setInterval(function(){
+    if(isAnyMarketOpen().any)silentRefreshDash();
+    updateLiveIndicator();
+  },60000);
+  updateLiveIndicator();
+}
 function renderIndices(){
   var list=curFilter==='all'?mktData:mktData.filter(function(d){return d.mkt===curFilter;});
   if(!list.length){setGridHTML('<div class="msg">No data for this filter.</div>');return;}
@@ -595,9 +678,16 @@ async function genTickerAI(sym,d,resId){
   var el=document.getElementById('tai_'+resId);
   if(!el)return;
   el.innerHTML='<div class="msg">Generating analysis… <span class="spin"></span></div>';
-  // d may be null if called without prefetched data — we use sym directly
-  var priceStr=d?(' which moved '+fmtP(d.changePct)+' to '+fmt(d.price)):'';
-  var prompt='Brief 3-sentence analysis of '+sym+(d&&d.name?' ('+d.name+')':'')+priceStr+'. Mention likely drivers and one key consideration for a Singapore investor. Be factual and concise.';
+  var priceStr=d?(' Last price: '+fmt(d.price)+', moved '+fmtP(d.changePct)+' from previous close.'):'';
+  var prompt='You are a financial analyst writing for a Singapore-based investor.\n\n'
+    +'Analyse '+sym+(d&&d.name?' ('+d.name+')':'')+'.'+priceStr+'\n\n'
+    +'Write a structured analysis with EXACTLY these 4 section headers (use them verbatim):\n'
+    +'1. 📈 Price Action\n'
+    +'2. 🔍 Likely Drivers\n'
+    +'3. ⚠️ Key Risks\n'
+    +'4. 🇸🇬 Singapore Investor Angle\n\n'
+    +'For each section write 2-3 concise sentences. Be specific and factual. '
+    +'End with one line: "Outlook: [short verdict]".';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
