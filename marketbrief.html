@@ -753,30 +753,54 @@ async function genTickerAI(sym,d,resId){
   var now=new Date();
   var dateStr=now.toLocaleDateString('en-SG',{timeZone:S.tz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
   var dayOfWeek=now.toLocaleDateString('en-US',{timeZone:S.tz,weekday:'long'});
-  var prevTradingDay=(dayOfWeek==='Monday')?'Friday':(dayOfWeek==='Sunday')?'Friday':'yesterday';
+  // Determine prevDay label based on ticker's market
+  function getPrevDay(sym){
+    // Get current time in the relevant market timezone
+    var tz='America/New_York'; // default US
+    if(sym.endsWith('.SI')) tz='Asia/Singapore';
+    else if(sym.endsWith('.HK')) tz='Asia/Hong_Kong';
+    var mktNow=new Date();
+    var mktDay=parseInt(mktNow.toLocaleString('en-US',{timeZone:tz,weekday:'numeric'}));
+    var mktDayName=mktNow.toLocaleDateString('en-US',{timeZone:tz,weekday:'long'});
+    var mktH=parseInt(mktNow.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}));
+    var mktM=parseInt(mktNow.toLocaleString('en-US',{timeZone:tz,minute:'numeric'}));
+    var mktMins=mktH*60+mktM;
+    // Close times: US=16:00 ET, SG=17:00 SGT, HK=16:00 HKT
+    var closeMin=tz==='Asia/Singapore'?1020:960;
+    // If market is currently open, previous close is from the session before this one
+    var isOpen=(mktDayName!=='Saturday'&&mktDayName!=='Sunday'&&mktMins>=570&&mktMins<closeMin);
+    // Cases where prev session was Friday:
+    // - It's Saturday or Sunday
+    // - It's Monday before/during market hours (market open today but Friday was prior close)
+    // - It's Monday after close — prev close IS today (Monday), say "today's open" but simpler: use "Friday"
+    // Rule: if today in market TZ is Monday OR Sunday OR Saturday → prev session was Friday
+    // Also: if today is Monday and market not yet closed → still Friday's close
+    if(mktDayName==='Saturday'||mktDayName==='Sunday') return 'Friday';
+    if(mktDayName==='Monday') return 'Friday'; // Monday's prev close is always Friday regardless of time
+    return 'yesterday';
+  }
+  var prevDay=getPrevDay(sym);
   var name=liveData&&liveData.name?liveData.name:sym;
   var yr=now.getFullYear();
   var priceBlock=liveData?
     'As of '+dateStr+':\n'
     +'  Price: '+fmt(liveData.price)+' '+(liveData.currency||'')+'\n'
-    +'  Change vs '+prevTradingDay+"'s close: "+fmtD(liveData.change)+' ('+fmtP(liveData.changePct)+')\n'
-    +'  Prev Close ('+prevTradingDay+'): '+fmt(liveData.prev)+'\n'
+    +'  Change from '+prevDay+"'s close ("+fmt(liveData.prev)+'): '+fmtD(liveData.change)+' ('+fmtP(liveData.changePct)+')\n'
     +'  Day High: '+fmt(liveData.high)+' / Day Low: '+fmt(liveData.low)+'\n'
     +'  Volume: '+fmtVol(liveData.volume)
     :'(no price data)';
-  var prompt='You are a financial analyst writing a brief for a Singapore investor. Today is '+dateStr+'.\n\n'
-    +'LIVE MARKET DATA for '+sym+' ('+name+'):\n'
+  var prompt='You are a financial analyst. Today is '+dateStr+' ('+dayOfWeek+').\n\n'
+    +'LIVE DATA for '+sym+' ('+name+'):\n'
     +priceBlock+'\n\n'
-    +'Important: previous close is from '+prevTradingDay+'. '
-    +'Do NOT say "yesterday" if today is Monday — say "'+prevTradingDay+'" instead. '
-    +'Do NOT reference historical events from before '+yr+'. '
-    +'Do NOT include a title line.\n\n'
-    +'Write a concise analysis using EXACTLY these section headers:\n'
+    +'Rules: (1) The prior session was '+prevDay+' — use that exact word, never "yesterday". '
+    +'(2) No title line. (3) No markdown bold (**).'
+    +' (4) No events before '+yr+'.\n\n'
+    +'Write analysis with EXACTLY these headers (plain text, no ** or ##):\n'
     +'1. 📈 Price Action\n'
     +'2. 🔍 Key Drivers\n'
     +'3. ⚠️ Key Risks\n'
     +'4. 🇸🇬 Singapore Investor Angle\n\n'
-    +'2 sentences per section max. End with: "Outlook: [verdict]".';
+    +'2 sentences per section. End with: "Outlook: [verdict]".';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -797,6 +821,7 @@ function formatSummary(txt){
   txt.split('\n').forEach(function(line){
     line=line.trim();
     if(!line){html+='<div style="height:8px"></div>';return;}
+    line=line.replace(/\*\*/g,'').replace(/\*/g,'');  // strip markdown bold/italic
     var stripped=line.replace(/^#+\s*/,'');
     var isHeader=/^#/.test(line)||/^[1-9][.)]\s/.test(stripped)||stripped.charCodeAt(0)>255;
     if(isHeader){
