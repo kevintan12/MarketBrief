@@ -752,51 +752,31 @@ async function genTickerAI(sym,d,resId){
   try{ liveData=await fetchQuote(sym); }catch(e){}
   var now=new Date();
   var dateStr=now.toLocaleDateString('en-SG',{timeZone:S.tz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  // Compute last trading day label (skip weekends)
   var dayOfWeek=now.toLocaleDateString('en-US',{timeZone:S.tz,weekday:'long'});
   var prevTradingDay=(dayOfWeek==='Monday')?'Friday':(dayOfWeek==='Sunday')?'Friday':'yesterday';
   var name=liveData&&liveData.name?liveData.name:sym;
   var yr=now.getFullYear();
   var priceBlock=liveData?
-    'As of '+dateStr+':
-'
-    +'  Price: '+fmt(liveData.price)+' '+(liveData.currency||'')+'
-'
-    +'  Change vs '+prevTradingDay+"'s close: "+fmtD(liveData.change)+' ('+fmtP(liveData.changePct)+')
-'
-    +'  Prev Close ('+prevTradingDay+'): '+fmt(liveData.prev)+'
-'
-    +'  Day High: '+fmt(liveData.high)+' / Day Low: '+fmt(liveData.low)+'
-'
+    'As of '+dateStr+':\n'
+    +'  Price: '+fmt(liveData.price)+' '+(liveData.currency||'')+'\n'
+    +'  Change vs '+prevTradingDay+"'s close: "+fmtD(liveData.change)+' ('+fmtP(liveData.changePct)+')\n'
+    +'  Prev Close ('+prevTradingDay+'): '+fmt(liveData.prev)+'\n'
+    +'  Day High: '+fmt(liveData.high)+' / Day Low: '+fmt(liveData.low)+'\n'
     +'  Volume: '+fmtVol(liveData.volume)
     :'(no price data)';
-  var prompt='You are a financial analyst writing a brief for a Singapore investor. Today is '+dateStr+'.
-
-'
-    +'LIVE MARKET DATA for '+sym+' ('+name+'):
-'
-    +priceBlock+'
-
-'
-    +'Important context: the previous close shown is from '+prevTradingDay+" (not yesterday if today is Monday). "
+  var prompt='You are a financial analyst writing a brief for a Singapore investor. Today is '+dateStr+'.\n\n'
+    +'LIVE MARKET DATA for '+sym+' ('+name+'):\n'
+    +priceBlock+'\n\n'
+    +'Important: previous close is from '+prevTradingDay+'. '
     +'Do NOT say "yesterday" if today is Monday — say "'+prevTradingDay+'" instead. '
-    +'Do NOT reference any historical events, incidents, or news from before '+yr+'. '
-    +'Do NOT include a title line in your response.
-
-'
-    +'Write a concise analysis using EXACTLY these section headers:
-'
-    +'1. 📈 Price Action
-'
-    +'2. 🔍 Key Drivers
-'
-    +'3. ⚠️ Key Risks
-'
-    +'4. 🇸🇬 Singapore Investor Angle
-
-'
+    +'Do NOT reference historical events from before '+yr+'. '
+    +'Do NOT include a title line.\n\n'
+    +'Write a concise analysis using EXACTLY these section headers:\n'
+    +'1. 📈 Price Action\n'
+    +'2. 🔍 Key Drivers\n'
+    +'3. ⚠️ Key Risks\n'
+    +'4. 🇸🇬 Singapore Investor Angle\n\n'
     +'2 sentences per section max. End with: "Outlook: [verdict]".';
-
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
