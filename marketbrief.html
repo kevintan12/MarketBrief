@@ -760,7 +760,6 @@ async function genTickerAI(sym,d,resId){
     if(sym.endsWith('.SI')) tz='Asia/Singapore';
     else if(sym.endsWith('.HK')) tz='Asia/Hong_Kong';
     var mktNow=new Date();
-    var mktDay=parseInt(mktNow.toLocaleString('en-US',{timeZone:tz,weekday:'numeric'}));
     var mktDayName=mktNow.toLocaleDateString('en-US',{timeZone:tz,weekday:'long'});
     var mktH=parseInt(mktNow.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}));
     var mktM=parseInt(mktNow.toLocaleString('en-US',{timeZone:tz,minute:'numeric'}));
