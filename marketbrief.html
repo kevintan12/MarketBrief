@@ -306,6 +306,7 @@ function showView(name){
     });
     if(name==='Search') renderSearchBox('searchBox','tickRes');
     if(name==='Settings') renderSettingsPanelTo('settingsPanel');
+    if(name==='Dash') { renderIndices(); updateLiveIndicator(); }
   }
 }
 
@@ -348,6 +349,7 @@ function renderDesktop(){
       +'</div>'
       +'</div>';
     renderIndices();
+    setTimeout(updateLiveIndicator,50);
   } else if(currentView==='Search'){
     dc.innerHTML='<div style="padding:24px;max-width:620px">'
       +'<div class="slabel notop">Search by Name or Ticker</div>'
@@ -452,17 +454,21 @@ async function execSearch(inpId,btnId,resId){
     var cls=Math.abs(d.changePct)<0.01?'neu':(d.changePct>=0?'up':'dn');
     var arr=cls==='neu'?'—':(d.changePct>=0?'▲':'▼');
     var cardId='tc_'+resId;
+    var tradingStatus=isTradingNow(raw);
+    var statusBadge=tradingStatus
+      ?'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;gap:4px;font-size:0.85rem;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:var(--grn);border-radius:20px;padding:2px 9px;margin-left:8px"><span class="dot" style="margin-right:0"></span>Trading</span>'
+      :'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;font-size:0.85rem;background:rgba(100,116,139,0.15);border:1px solid var(--bor);color:var(--mut);border-radius:20px;padding:2px 9px;margin-left:8px">Closed</span>';
     res.innerHTML='<div class="tcard" id="'+cardId+'">'
-      +'<div class="ttop"><div><div class="tsym">'+esc(raw)+'</div><div class="tname">'+esc(d.name||raw)+'</div></div>'
-      +'<div><div class="tprice '+cls+'">'+fmt(d.price)+'</div>'
-      +'<div class="cchg '+cls+'" style="text-align:right;margin-top:3px">'+arr+' '+fmtP(d.changePct)+'</div></div></div>'
+      +'<div class="ttop"><div><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div class="tsym">'+esc(raw)+'</div>'+statusBadge+'</div><div class="tname">'+esc(d.name||raw)+'</div></div>'
+      +'<div style="text-align:right"><div class="tprice '+cls+'" id="tprice_'+resId+'">'+fmt(d.price)+'</div>'
+      +'<div class="cchg '+cls+'" id="tcchg_'+resId+'" style="text-align:right;margin-top:3px">'+arr+' '+fmtD(d.change)+' ('+fmtP(d.changePct)+')</div></div></div>'
       +'<div class="sgrid">'
-      +'<div class="sstat"><div class="ssl">Change</div><div class="ssv '+cls+'">'+fmtD(d.change)+'</div></div>'
-      +'<div class="sstat"><div class="ssl">Prev Close</div><div class="ssv">'+fmt(d.prev)+'</div></div>'
-      +'<div class="sstat"><div class="ssl">Day High</div><div class="ssv">'+fmt(d.high)+'</div></div>'
-      +'<div class="sstat"><div class="ssl">Day Low</div><div class="ssv">'+fmt(d.low)+'</div></div>'
+      +'<div class="sstat"><div class="ssl">Change</div><div class="ssv '+cls+'" id="tssv0_'+resId+'">'+fmtD(d.change)+'</div></div>'
+      +'<div class="sstat"><div class="ssl">Prev Close</div><div class="ssv" id="tssv1_'+resId+'">'+fmt(d.prev)+'</div></div>'
+      +'<div class="sstat"><div class="ssl">Day High</div><div class="ssv" id="tssv2_'+resId+'">'+fmt(d.high)+'</div></div>'
+      +'<div class="sstat"><div class="ssl">Day Low</div><div class="ssv" id="tssv3_'+resId+'">'+fmt(d.low)+'</div></div>'
       +'</div>'
-      +(S.apiKey?'<button class="analyze-btn" id="anBtn_'+resId+'" onclick="triggerTickerAI(\''+esc(raw)+'\',\''+resId+'\',this)">✦ Analyse with AI</button>':'')
+      +(S.apiKey?'<button class="analyze-btn" id="anBtn_'+resId+'" onclick="triggerTickerAI(\''+esc(raw)+'\'\,\''+resId+'\'\,this)">✦ Analyse with AI</button>':'')
       +'</div>'
       +'<div id="tai_'+resId+'"></div>';
   }catch(e){res.innerHTML='<div class="msg err">'+esc(e.message)+'</div>';}
@@ -540,6 +546,19 @@ function isAnyMarketOpen(){
   };
 }
 
+function isTradingNow(sym){
+  // Infer market from symbol suffix
+  var s=isAnyMarketOpen();
+  if(sym.endsWith('.SI')) return s.SG;
+  if(sym.endsWith('.HK')) return s.HK;
+  if(sym.startsWith('^')) {
+    if(sym==='^STI') return s.SG;
+    if(sym==='^HSI') return s.HK;
+    return s.US;
+  }
+  return s.US; // default US for plain symbols like AAPL, ARM
+}
+
 function getOpenLabel(){
   var s=isAnyMarketOpen(), open=[];
   if(s.US)open.push('\u{1F1FA}\u{1F1F8}');
@@ -563,6 +582,7 @@ async function silentRefreshDash(){
   if(updated)renderIndices();
   if(lastSearchSym)silentRefreshTicker(lastSearchSym);
   updateLiveIndicator();
+  // Also refresh ticker 1s loop if market open and we have a searched sym
 }
 
 async function silentRefreshTicker(sym){
@@ -571,22 +591,39 @@ async function silentRefreshTicker(sym){
     if(!d.price)return;
     ['tickRes','tickResD'].forEach(function(resId){
       var cls=Math.abs(d.changePct)<0.01?'neu':(d.changePct>=0?'up':'dn');
-      var arr=cls==='neu'?'\u2014':(d.changePct>=0?'\u25b2':'\u25bc');
-      var pr=document.querySelector('#'+resId+' .tprice');
-      var chg=document.querySelector('#'+resId+' .cchg');
+      var arr=cls==='neu'?'—':(d.changePct>=0?'▲':'▼');
+      var pr=document.getElementById('tprice_'+resId);
+      var chg=document.getElementById('tcchg_'+resId);
       if(pr){pr.className='tprice '+cls;pr.textContent=fmt(d.price);}
-      if(chg){chg.className='cchg '+cls;chg.textContent=arr+' '+fmtP(d.changePct);}
-      var stats=document.querySelectorAll('#'+resId+' .ssv');
-      if(stats[0]){stats[0].className='ssv '+cls;stats[0].textContent=fmtD(d.change);}
-      if(stats[1])stats[1].textContent=fmt(d.prev);
-      if(stats[2])stats[2].textContent=fmt(d.high);
-      if(stats[3])stats[3].textContent=fmt(d.low);
+      if(chg){chg.className='cchg '+cls;chg.textContent=arr+' '+fmtD(d.change)+' ('+fmtP(d.changePct)+')';}
+      var s0=document.getElementById('tssv0_'+resId);
+      var s1=document.getElementById('tssv1_'+resId);
+      var s2=document.getElementById('tssv2_'+resId);
+      var s3=document.getElementById('tssv3_'+resId);
+      if(s0){s0.className='ssv '+cls;s0.textContent=fmtD(d.change);}
+      if(s1)s1.textContent=fmt(d.prev);
+      if(s2)s2.textContent=fmt(d.high);
+      if(s3)s3.textContent=fmt(d.low);
+      // Update trading badge
+      var badge=document.getElementById('tradeBadge_'+resId);
+      if(badge){
+        var trading=isTradingNow(sym);
+        badge.style.background=trading?'rgba(16,185,129,0.15)':'rgba(100,116,139,0.15)';
+        badge.style.borderColor=trading?'rgba(16,185,129,0.4)':'var(--bor)';
+        badge.style.color=trading?'var(--grn)':'var(--mut)';
+        badge.innerHTML=trading?'<span class="dot" style="margin-right:0"></span>Trading':'Closed';
+      }
     });
   }catch(e){}
 }
 
 function updateLiveIndicator(){
-  var label=getOpenLabel();
+  var s=isAnyMarketOpen();
+  // Build label based on current filter
+  var open=[];
+  var mkts = curFilter==='all' ? ['US','SG','HK'] : [curFilter];
+  mkts.forEach(function(m){ if(s[m]) open.push({US:'🇺🇸',SG:'🇸🇬',HK:'🇭🇰'}[m]); });
+  var label=open.length ? open.join(' ')+' LIVE' : null;
   ['liveIndM','liveIndD'].forEach(function(id){
     var el=document.getElementById(id); if(!el)return;
     if(label){el.innerHTML='<span class="dot"></span>'+label;el.style.color='var(--grn)';}
@@ -599,7 +636,7 @@ function startAutoRefresh(){
   autoRefreshTimer=setInterval(function(){
     if(isAnyMarketOpen().any)silentRefreshDash();
     updateLiveIndicator();
-  },60000);
+  },1000);
   updateLiveIndicator();
 }
 function renderIndices(){
