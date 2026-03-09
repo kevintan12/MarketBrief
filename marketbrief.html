@@ -187,7 +187,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.1</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.3</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -195,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   <!-- DESKTOP -->
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.1</span></div>
+      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.3</span></div>
       <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -810,6 +810,10 @@ async function genTickerAI(sym,d,resId){
     var data=await resp.json();
     // Extract text blocks (skip tool_use/tool_result blocks)
     var txt=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('\n')||'Analysis unavailable.';
+    // Only replace 'yesterday' if the correct label is NOT 'yesterday'
+    if(prevDay!=='yesterday'){
+      txt=txt.replace(/\byesterday(?:'s)?\b/gi, function(m){ return m.endsWith("'s")||m.endsWith("\u2019s")?prevDay+"'s":prevDay; });
+    }
     el.innerHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><div>'+formatSummary(txt)+'</div></div>';
   }catch(e){el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';}
 }
