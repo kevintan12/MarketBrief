@@ -668,7 +668,7 @@ function renderIndices(){
         return '<div class="card" data-sym="'+esc(d.sym)+'"><div class="cleft"><div class="flag">'+d.flag+'</div>'
           +'<div><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'</div></div></div>'
           +'<div class="cright"><div class="cprice '+cls+'" id="cp_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'
-          +'<div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtP(d.pct)+' ('+fmtD(d.chg)+')</div></div></div>';
+          +'<div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')</div></div></div>';
       }).join('');
       return;
     }
@@ -679,7 +679,7 @@ function renderIndices(){
       var pr=document.getElementById('cp_'+gid+'_'+d.sym);
       var ch=document.getElementById('cc_'+gid+'_'+d.sym);
       if(pr){pr.className='cprice '+cls;pr.textContent=fmt(d.price);}
-      if(ch){ch.className='cchg '+cls;ch.textContent=arr+' '+fmtP(d.pct)+' ('+fmtD(d.chg)+')';}
+      if(ch){ch.className='cchg '+cls;ch.textContent=arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')';}
     });
   });
 }
@@ -761,28 +761,26 @@ async function genTickerAI(sym,d,resId){
     +'  Day High: '+fmt(liveData.high)+' / Day Low: '+fmt(liveData.low)+'\n'
     +'  Volume: '+fmtVol(liveData.volume)
     :'(no price data)';
-  var prompt='You are a financial analyst. Today is '+dateStr+'.\n\n'
-    +'IMPORTANT: The price data below is LIVE and current as of today. '
-    +'Use web_search to find RECENT news ('+now.getFullYear()+' only) about this stock before writing. '
-    +'Do NOT reference any events, outages, scandals, or news from before '+now.getFullYear()+' — your training data may be stale.\n\n'
-    +'Stock: '+sym+' ('+name+')\n'
+  var now2=new Date();
+  var yr=now2.getFullYear();
+  var prompt='You are a financial analyst. Today is '+dateStr+'. Knowledge cutoff warning: only discuss events from '+yr+'.\n\n'
+    +'CURRENT LIVE DATA for '+sym+' ('+name+'):\n'
     +priceBlock+'\n\n'
-    +'Step 1: Search the web for \''+sym+' stock news '+now.getFullYear()+'\' to get recent context.\n'
-    +'Step 2: Write a structured analysis with EXACTLY these headers (verbatim):\n'
+    +'Write a concise structured analysis using ONLY the data above and your knowledge of this company\'s fundamentals as of '+yr+'. '
+    +'Do NOT mention historical incidents, outages, or events from before '+yr+'.\n\n'
+    +'Use EXACTLY these section headers:\n'
     +'1. 📈 Price Action\n'
-    +'2. 🔍 Recent Drivers (cite specific events from your web search — only '+now.getFullYear()+' events)\n'
+    +'2. 🔍 Key Drivers\n'
     +'3. ⚠️ Key Risks\n'
     +'4. 🇸🇬 Singapore Investor Angle\n\n'
-    +'2-3 sentences per section. Reference the actual current price provided above. '
-    +'End with: "Outlook: [short verdict]".';
+    +'2 sentences per section max. End with: "Outlook: [verdict]".';
 
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:800,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:600,
         messages:[{role:'user',content:prompt}]
       })});
     var data=await resp.json();
@@ -970,8 +968,9 @@ function loadSettings(){
 
 function fmt(n){if(n===null||n===undefined)return '—';return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtVol(v){
-  if(v===null||v===undefined||v===0)return '—';
+  if(v===null||v===undefined||v===0||v==='0')return '—';
   var n=Number(v);
+  if(isNaN(n)||n<=0)return '—';
   if(n>=1e9)return (n/1e9).toFixed(2)+'B';
   if(n>=1e6)return (n/1e6).toFixed(2)+'M';
   if(n>=1e3)return (n/1e3).toFixed(1)+'K';
