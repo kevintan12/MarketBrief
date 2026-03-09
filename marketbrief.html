@@ -187,7 +187,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.1</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -195,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   <!-- DESKTOP -->
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-logo">MarketBrief</div>
+      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.1</span></div>
       <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -791,9 +791,8 @@ async function genTickerAI(sym,d,resId){
   var prompt='You are a financial analyst. Today is '+dateStr+'. The last trading session for this stock was '+prevDay+'.\n\n'
     +'LIVE DATA for '+sym+' ('+name+'):\n'
     +priceBlock+'\n\n'
-    +'Rules: (1) The prior session was '+prevDay+' — use that exact word, never "yesterday". '
-    +'(2) No title line. (3) No markdown bold (**).'
-    +' (4) No events before '+yr+'.\n\n'
+    +'CRITICAL: You MUST use the word "'+prevDay+'" when referring to the prior session. NEVER write "yesterday". Replace every instance of "yesterday" with "'+prevDay+'".\n'
+    +'(No title. No **bold**. No pre-'+yr+' events.)\n\n'
     +'Write analysis with EXACTLY these headers (plain text, no ** or ##):\n'
     +'1. 📈 Price Action\n'
     +'2. 🔍 Key Drivers\n'
