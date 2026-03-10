@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.17</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.19</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -278,7 +278,7 @@ window.onload=function(){
     var ab=e.target.closest('.analyze-btn:not(.about-btn)');
     if(ab&&ab.dataset.sym){triggerTickerAI(ab.dataset.sym,ab.dataset.res,ab);return;}
     var bb=e.target.closest('.about-btn');
-    if(bb&&bb.dataset.sym){triggerAboutAI(bb.dataset.sym,bb.dataset.res,bb);return;}
+    if(bb&&bb.dataset.sym){triggerAboutAI(bb.dataset.sym,bb.dataset.res,bb,bb.dataset.name||bb.dataset.sym);return;}
   });
   var sa=window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
   if(!sa&&/android|iphone|ipad/i.test(navigator.userAgent))
@@ -516,7 +516,7 @@ async function execSearch(inpId,btnId,resId){
       +'</div>'
       +(S.apiKey?'<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">'
         +'<button class="analyze-btn" id="anBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'">✦ Analyse with AI</button>'
-        +'<button class="analyze-btn about-btn" style="background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.3);color:var(--mut);" id="abBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'">ℹ About</button>'
+        +'<button class="analyze-btn about-btn" style="background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.3);color:var(--mut);" id="abBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'" data-name="'+esc(d.name)+'">ℹ About</button>'
         +'</div>':'')
       +'</div>'
       +'<div id="tai_'+resId+'"></div>';
@@ -965,37 +965,45 @@ async function genTickerAI(sym,d,resId){
         try{var ev=JSON.parse(json);
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
-            var ts=getTickStream(); if(ts){
-              ts.innerHTML=formatSummary(applyPrevDay(accumulated));
-              var _tr2=document.getElementById('tickRes')||document.getElementById('tickResD');
-              if(_tr2&&_tr2.innerHTML) savedSearchHTML=_tr2.innerHTML;
-            }
+            var ts=getTickStream();
+            if(ts) ts.innerHTML=formatSummary(applyPrevDay(accumulated));
           }
         }catch(_){}
       }
     }
     var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(applyPrevDay(accumulated));
-    // Save search state so it persists across tab switches
-    var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
-    if(_tr&&_tr.innerHTML) savedSearchHTML=_tr.innerHTML;
+    // Save with slight delay to ensure DOM is fully updated
+    setTimeout(function(){
+      var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
+      if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
+    },100);
   }catch(e){el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';}
 }
 
 // ── About AI (company summary) ────────────────────────────────────────────────
-async function triggerAboutAI(sym,resId,btn){
+async function triggerAboutAI(sym,resId,btn,companyName){
   btn.disabled=true; btn.textContent='Loading…';
   var el=document.getElementById('tai_'+resId); if(!el)return;
   el.innerHTML='<div class="msg">Loading company overview… <span class="spin"></span></div>';
   var name=sym;
-  var aboutHdr='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge" style="background:var(--mut);">ℹ About</span><span class="sumdate" style="margin-left:6px">'+esc(sym)+'</span></div><div id="aboutStream_'+resId+'"></div></div>';
+  var displayName=companyName&&companyName!==sym?companyName:sym;
+  var aboutHdr='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge" style="background:var(--mut);">ℹ About</span><span class="sumdate" style="margin-left:6px">'+esc(displayName)+' ('+esc(sym)+')</span></div><div id="aboutStream_'+resId+'"></div></div>';
   el.innerHTML=aboutHdr;
   function getAboutStream(){return document.getElementById('aboutStream_'+resId);}
   var accumulated='';
   try{
-    var prompt='Give a clear, plain-English overview of the company or index "'+sym+'". Cover: (1) what the company does and its main business in 2-3 sentences, (2) where it is listed and its sector/industry, (3) its approximate market cap tier (large/mid/small cap), (4) 2-3 key things a Singapore investor should know about it — e.g. dividend history, key risks, main revenue drivers, geopolitical exposure. Keep it concise, factual, and accessible. No markdown bold or headers.';
+    var prompt='The stock ticker is "'+sym+'" and the company name is "'+displayName+'". '
+      +'Give a factual, plain-English overview of THIS SPECIFIC company. '
+      +'Use your knowledge of this exact company — do not confuse it with another company or make up details. '
+      +'Cover: (1) what this company actually does and its main business in 2-3 sentences, '
+      +'(2) where it is listed and its sector/industry, '
+      +'(3) its approximate market cap tier (large/mid/small cap), '
+      +'(4) 2-3 key things a Singapore investor should know — e.g. dividend track record, key risks, main revenue drivers, major shareholders, any Singapore-specific context. '
+      +'If you are not confident about this specific company, say so clearly rather than guessing. '
+      +'Keep it concise and factual. No markdown bold (**) or section headers.'
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,stream:true,messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,stream:true,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(),decoder=new TextDecoder(),buf='';
     while(true){
@@ -1008,18 +1016,17 @@ async function triggerAboutAI(sym,resId,btn){
         try{var ev=JSON.parse(json);
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
-            var ts=getAboutStream(); if(ts){
-              ts.innerHTML=formatSummary(accumulated);
-              var _tr3=document.getElementById('tickRes')||document.getElementById('tickResD');
-              if(_tr3&&_tr3.innerHTML) savedSearchHTML=_tr3.innerHTML;
-            }
+            var ts=getAboutStream();
+            if(ts) ts.innerHTML=formatSummary(accumulated);
           }
         }catch(_){}
       }
     }
     var ts=getAboutStream(); if(ts) ts.innerHTML=formatSummary(accumulated);
-    var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
-    if(_tr&&_tr.innerHTML) savedSearchHTML=_tr.innerHTML;
+    setTimeout(function(){
+      var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
+      if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
+    },100);
     btn.textContent='ℹ About'; btn.disabled=false;
   }catch(e){
     el.innerHTML='<div class="msg err">Error: '+esc(e.message)+'</div>';
