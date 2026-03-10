@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.6</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.7</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -350,14 +350,14 @@ function setFilter(f,btn){
   document.querySelectorAll('#mktChips .chip').forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on');
   renderIndices();
-  setSumHTML(''); setAIBtnVisible(true);
+  savedSumHTML=''; setSumHTML(''); setAIBtnVisible(true);
 }
 function setFilterD(f,btn){
   curFilter=f;
   document.querySelectorAll('#mktChipsD .chip').forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on');
   renderIndices();
-  setSumHTML(''); setAIBtnVisible(true);
+  savedSumHTML=''; setSumHTML(''); setAIBtnVisible(true);
 }
 
 // ── Desktop ───────────────────────────────────────────────────────────────────
@@ -573,7 +573,7 @@ async function fetchQuote(sym){
 }
 async function loadDash(){
   setGridHTML('<div class="msg">Loading… <span class="spin"></span></div>');
-  setSumHTML(''); setAIBtnVisible(true);
+  savedSumHTML=''; setSumHTML(''); setAIBtnVisible(true);
   if(!S.proxyUrl){
     setGridHTML('<div class="msg">👋 Welcome! Go to <strong style="color:var(--txt)">⚙ Settings</strong> and enter your Proxy URL.</div>');
     return;
@@ -591,7 +591,7 @@ async function loadDash(){
   startAutoRefresh();
 }
 function setGridHTML(h){var a=document.getElementById('idxGrid'),b=document.getElementById('idxGridD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
-function setSumHTML(h){savedSumHTML=h;var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
+function setSumHTML(h){if(h&&h.length>200)savedSumHTML=h;var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
 
 // ── Real-time auto-refresh ────────────────────────────────────────────────────
 var autoRefreshTimer=null;
@@ -1050,7 +1050,9 @@ async function triggerAboutAI(sym,resId,btn,companyName){
   },1000);
   var name=sym;
   var displayName=companyName&&companyName!==sym?companyName:sym;
-  var aboutHdr='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge" style="background:var(--mut);">ℹ About</span><span class="sumdate" style="margin-left:6px">'+esc(displayName)+' ('+esc(sym)+')</span></div><div id="aboutStream_'+resId+'"></div></div>';
+  var aboutHdr='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge" style="background:var(--mut);">ℹ About</span><span class="sumdate" style="margin-left:6px">'+esc(displayName)+' ('+esc(sym)+')</span></div>'
+    +'<div id="aboutCd_'+resId+'" class="msg">Loading overview… <span id="acdNum_'+resId+'">~12s</span></div>'
+    +'<div id="aboutStream_'+resId+'"></div></div>';
   el.innerHTML=aboutHdr;
   function getAboutStream(){return document.getElementById('aboutStream_'+resId);}
   var accumulated='';
