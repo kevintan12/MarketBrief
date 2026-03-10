@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.12</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.13</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -199,7 +199,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   <!-- DESKTOP -->
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.12</span></div>
+      
       <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -659,25 +659,47 @@ function startAutoRefresh(){
   updateLiveIndicator();
 }
 function renderIndices(){
-  var list=curFilter==='all'?mktData:mktData.filter(function(d){return d.mkt===curFilter;});
-  if(!list.length){setGridHTML('<div class="msg">No data for this filter.</div>');return;}
+  var all=mktData;
+  var filtered=curFilter==='all'?all:all.filter(function(d){return d.mkt===curFilter;});
+  if(!filtered.length){setGridHTML('<div class="msg">No data for this filter.</div>');return;}
+  // Sort order: US index, US watchlist, SG index, SG watchlist, HK index, HK watchlist
+  var MKT_ORDER={US:0,SG:1,HK:2};
+  var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^STI':1,'^HSI':1};
+  function sortKey(d){
+    var mo=MKT_ORDER[d.mkt]!=null?MKT_ORDER[d.mkt]:3;
+    var isIdx=FIXED_SYMS[d.sym]?0:1;
+    return mo*10+isIdx;
+  }
+  var sorted=filtered.slice().sort(function(a,b){return sortKey(a)-sortKey(b);});
   ['idxGrid','idxGridD'].forEach(function(gid){
     var g=document.getElementById(gid); if(!g)return;
-    // Full render only if card count changed (filter switch / first load)
     var existing=g.querySelectorAll('[data-sym]');
-    if(existing.length!==list.length){
-      g.innerHTML=list.map(function(d){
+    if(existing.length!==sorted.length){
+      // Full render with market group headers
+      var html='';
+      var lastGroup='';
+      var groupLabels={US:'🇺🇸 US Markets',SG:'🇸🇬 Singapore Markets',HK:'🇭🇰 Hong Kong Markets'};
+      var subLabels={idx:'Indices',watch:'Watchlist'};
+      sorted.forEach(function(d){
+        var isIdx=FIXED_SYMS[d.sym]?'idx':'watch';
+        var grpKey=d.mkt+'-'+isIdx;
+        if(grpKey!==lastGroup){
+          lastGroup=grpKey;
+          var grpLabel=(isIdx==='idx'?groupLabels[d.mkt]+' · Indices':groupLabels[d.mkt]+' · Watchlist');
+          html+='<div style="font-size:0.78rem;letter-spacing:0.1em;color:var(--mut);text-transform:uppercase;padding:10px 4px 4px;border-top:'+(html?'1px solid var(--bor)':'none')+';">'+grpLabel+'</div>';
+        }
         var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
         var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
-        return '<div class="card" data-sym="'+esc(d.sym)+'"><div class="cleft"><div class="flag">'+d.flag+'</div>'
+        html+='<div class="card" data-sym="'+esc(d.sym)+'"><div class="cleft"><div class="flag">'+d.flag+'</div>'
           +'<div><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'</div></div></div>'
           +'<div class="cright"><div class="cprice '+cls+'" id="cp_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'
           +'<div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')</div></div></div>';
-      }).join('');
+      });
+      g.innerHTML=html;
       return;
     }
-    // In-place price-only update — no DOM re-render, no flicker
-    list.forEach(function(d){
+    // In-place update
+    sorted.forEach(function(d){
       var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
       var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
       var pr=document.getElementById('cp_'+gid+'_'+d.sym);
@@ -742,7 +764,12 @@ async function loadSummary(){
     +headerList+'\n\n'+(styleInstr[S.style]||styleInstr.detailed)+'\n'
     +(mktsToShow.length>1?'End the Overall Sentiment section with one line e.g. "Sentiment: Cautiously Bullish".\n':'End with one line e.g. "Sentiment: Cautiously Bullish".\n')
     +'For each market, comment on volume relative to average — was volume elevated, light, or normal? High volume on a move suggests institutional conviction; low volume suggests retail-driven or unconvinced market. Distinguish where possible between institutional (block trades, futures-led, options activity) and retail (momentum-chasing, meme-driven) participation.\n'
-    +'Focus on what matters for a Singapore investor.';
+    +'Focus on what matters for a Singapore investor.\n\n'
+    +'At the end of the analysis, add a section called "📰 Further Reading" with these links:\n'
+    +'- Yahoo Finance Markets: https://finance.yahoo.com/markets/\n'
+    +'- Bloomberg Markets (today): https://www.bloomberg.com/news/articles/2026-03-09/oil-drops-as-trump-signals-iran-conflict-near-end-markets-wrap\n'
+    +'- CNBC Markets Live: https://www.cnbc.com/2026/03/09/stock-market-today-live-updates.html\n'
+    +'Format each as a plain URL on its own line with a label, e.g. Yahoo Finance Markets: https://...'
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
     +'<div id="sumStream"></div></div>';
@@ -858,24 +885,36 @@ async function genTickerAI(sym,d,resId){
     +'5. 🇸🇬 Singapore Investor Angle\n'
     +'6. 🔮 Near-Term Outlook\n\n'
     +'3-4 sentences per section. For Key Drivers, identify specific catalysts (earnings, macro, sector news, analyst actions). For Volume & Participation, assess whether volume was elevated or light vs average, and whether the move appears institutionally driven or retail-driven. For Near-Term Outlook, give your best assessment of likely direction over the next 5-10 trading days with reasoning — be direct and make a call, while acknowledging uncertainty. Disclaimer: this is analytical opinion, not financial advice. End with: "Outlook: [one-line verdict]".';
+  var tickerHdrHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><div id="tickStream_'+resId+'"></div></div>';
+  el.innerHTML=tickerHdrHTML;
+  function getTickStream(){return document.getElementById('tickStream_'+resId);}
+  var accumulated='';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1100,
-        messages:[{role:'user',content:prompt}]
-      })});
-    var data=await resp.json();
-    // Extract text blocks (skip tool_use/tool_result blocks)
-    var txt=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('\n')||'Analysis unavailable.';
-    // Only replace 'yesterday' if the correct label is NOT 'yesterday'
-    if(prevDay!=='yesterday'){
-      // Match yesterday's/yesterday’s/yesterdays FIRST, then plain yesterday
-      txt=txt.replace(/yesterday[‘’ʼ'`′]s/gi, prevDay+"'s")
-             .replace(/yesterday/gi, prevDay);
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1100,stream:true,messages:[{role:'user',content:prompt}]})});
+    if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
+    var reader=resp.body.getReader(), decoder=new TextDecoder(), buf='';
+    function applyPrevDay(t){
+      if(prevDay==='yesterday') return t;
+      return t.replace(/yesterday[\u2018\u2019\u02bc'`\u2032]s/gi,prevDay+"'s").replace(/yesterday/gi,prevDay);
     }
-    el.innerHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><div>'+formatSummary(txt)+'</div></div>';
+    while(true){
+      var _r=await reader.read(); if(_r.done)break;
+      buf+=decoder.decode(_r.value,{stream:true});
+      var lines=buf.split('\n'); buf=lines.pop();
+      for(var li=0;li<lines.length;li++){
+        var ln=lines[li].trim(); if(!ln.startsWith('data:'))continue;
+        var json=ln.slice(5).trim(); if(json==='[DONE]')continue;
+        try{var ev=JSON.parse(json);
+          if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
+            accumulated+=ev.delta.text;
+            var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(applyPrevDay(accumulated));
+          }
+        }catch(_){}
+      }
+    }
+    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(applyPrevDay(accumulated));
   }catch(e){el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';}
 }
 // ── Summary formatter ─────────────────────────────────────────────────────────
@@ -895,7 +934,11 @@ function formatSummary(txt){
       // Highlight Outlook/Sentiment line
       html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+esc(line)+'</div>';
     } else {
-      html+='<div style="font-size:1.05rem;line-height:1.9;color:var(--txt);margin-bottom:10px;">'+esc(line)+'</div>';
+      // Render URLs as clickable links
+      var linked=line.replace(/(https?:\/\/[^\s<>"]+)/g,function(url){
+        return '</span><a href="'+url+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;word-break:break-all;">'+url+'</a><span>';
+      });
+      html+='<div style="font-size:1.05rem;line-height:1.9;color:var(--txt);margin-bottom:10px;"><span>'+linked+'</span></div>';
     }
   });
   return html;
@@ -998,9 +1041,18 @@ async function settAcFetch(q,wid,mkt,pid){
 function renderSettAcDrop(results,wid,mkt,pid){
   closeSettAcDrop(wid);
   if(!results.length)return;
+  // Filter results to only show tickers belonging to the correct market
+  var filtered=results.filter(function(r){
+    var sym=r.symbol||'';
+    if(mkt==='SG') return sym.endsWith('.SI');
+    if(mkt==='HK') return sym.endsWith('.HK');
+    if(mkt==='US') return !sym.endsWith('.SI')&&!sym.endsWith('.HK')&&!sym.includes('.');
+    return true;
+  });
+  if(!filtered.length)return;
   var drop=document.createElement('div');
   drop.className='tadd-ac-drop'; drop.id='drop_'+wid;
-  drop.innerHTML=results.map(function(r){
+  drop.innerHTML=filtered.map(function(r){
     return '<div class="tadd-ac-item" data-sym="'+esc(r.symbol)+'" data-name="'+esc(r.name)+'">'
       +'<div><div class="tadd-ac-sym">'+esc(r.symbol)+'</div><div class="tadd-ac-name">'+esc(r.name)+'</div></div>'
       +'<div class="tadd-ac-add">+ Add</div>'
