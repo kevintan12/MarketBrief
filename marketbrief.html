@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.19</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.20</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -316,16 +316,9 @@ function showView(name){
       document.getElementById('bn-'+v).classList.toggle('on',v===name);
     });
     if(name==='Search'){
-      renderSearchBox('searchBox','tickRes');
-      // Restore previous search results if any
-      if(savedSearchHTML){
-        setTimeout(function(){
-          var tr=document.getElementById('tickRes');
-          if(tr) tr.innerHTML=savedSearchHTML;
-          var inp=document.getElementById('ac_searchBox');
-          if(inp&&savedSearchQuery) inp.value=savedSearchQuery;
-        },30);
-      }
+      // Only render search box on first visit — after that the DOM is preserved
+      var existingInp=document.getElementById('ac_searchBox');
+      if(!existingInp) renderSearchBox('searchBox','tickRes');
     }
     if(name==='Settings') renderSettingsPanelTo('settingsPanel');
     if(name==='Dash') {
@@ -387,18 +380,23 @@ function renderDesktop(){
     });
     (function tryR(n){setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;var ab=document.getElementById('aiBtnD');if(ab)ab.style.display='none';}else if(n>0)tryR(n-1);},80);})(5);
   } else if(currentView==='Search'){
-    dc.innerHTML='<div style="padding:24px;max-width:620px">'
-      +'<div class="slabel notop">Search by Name or Ticker</div>'
-      +'<div id="searchBoxD"></div><div id="tickResD"></div></div>';
-    renderSearchBox('searchBoxD','tickResD');
-    // Restore previous search results
-    if(savedSearchHTML){
+    // If we have a cached search DOM, restore it directly instead of re-rendering
+    if(savedSearchHTML&&savedSearchQuery){
+      dc.innerHTML='<div style="padding:24px;max-width:620px">'
+        +'<div class="slabel notop">Search by Name or Ticker</div>'
+        +'<div id="searchBoxD"></div><div id="tickResD"></div></div>';
+      renderSearchBox('searchBoxD','tickResD');
       setTimeout(function(){
         var tr=document.getElementById('tickResD');
         if(tr) tr.innerHTML=savedSearchHTML;
         var inp=document.getElementById('ac_searchBoxD');
-        if(inp&&savedSearchQuery) inp.value=savedSearchQuery;
+        if(inp) inp.value=savedSearchQuery;
       },30);
+    } else {
+      dc.innerHTML='<div style="padding:24px;max-width:620px">'
+        +'<div class="slabel notop">Search by Name or Ticker</div>'
+        +'<div id="searchBoxD"></div><div id="tickResD"></div></div>';
+      renderSearchBox('searchBoxD','tickResD');
     }
   } else if(currentView==='Settings'){
     dc.innerHTML='<div style="padding:24px;max-width:720px"><div class="slabel notop">Configuration</div><div class="spanel" id="settingsPanelD"></div></div>';
