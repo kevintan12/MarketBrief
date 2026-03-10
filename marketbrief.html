@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.3</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.5</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -859,13 +859,26 @@ async function loadSummary(){
   var streamEl=document.getElementById('sumStream')||document.querySelector('[id^=sumArea] #sumStream')||document.querySelector('[id^=sumAreaD] #sumStream');
   // Find the stream element in whichever area is visible
   function getStreamEl(){return document.getElementById('sumStream');}
+  // Countdown while waiting for first token
+  var _cdSec=20,_cdFirstToken=false;
+  (function startCd(){
+    var el=getStreamEl();
+    if(el) el.innerHTML='<div class="msg">Searching &amp; analysing markets… <span id="cdNum">~'+_cdSec+'s</span></div>';
+    var t=setInterval(function(){
+      _cdSec--;
+      var n=document.getElementById('cdNum');
+      if(n&&_cdSec>0) n.textContent='~'+_cdSec+'s';
+      else if(_cdSec<=0) clearInterval(t);
+    },1000);
+    window._sumCdTimer=t;
+  })();
   var accumulated='';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify(Object.assign({model:'claude-sonnet-4-20250514',max_tokens:1800,stream:true,messages:[{role:'user',content:prompt}]},liveMarkets.any?{tools:[{type:'web_search_20250305',name:'web_search'}]}:{}))
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1200,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3}],messages:[{role:'user',content:prompt}]})
     });
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader();
@@ -887,7 +900,8 @@ async function loadSummary(){
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             var sel=getStreamEl();
-            if(sel){sel.innerHTML=formatSummary(cleanAIText(accumulated));
+            if(!_cdFirstToken){_cdFirstToken=true;clearInterval(window._sumCdTimer);}
+              if(sel){sel.innerHTML=formatSummary(cleanAIText(accumulated));
               // Update savedSumHTML incrementally so it persists even if user switches tabs mid-stream
               var _sa2=document.getElementById('sumArea')||document.getElementById('sumAreaD');
               if(_sa2&&_sa2.innerHTML&&_sa2.innerHTML.length>100) savedSumHTML=_sa2.innerHTML;
@@ -914,7 +928,14 @@ async function loadSummary(){
 async function genTickerAI(sym,d,resId){
   var el=document.getElementById('tai_'+resId);
   if(!el)return;
-  el.innerHTML='<div class="msg">Generating analysis… <span class="spin"></span></div>';
+  var _tcdSec=15,_tcdFirst=false;
+  el.innerHTML='<div class="msg">Analysing… <span id="tcdNum_'+resId+'">~'+_tcdSec+'s</span></div>';
+  var _tcdTimer=setInterval(function(){
+    _tcdSec--;
+    var n=document.getElementById('tcdNum_'+resId);
+    if(n&&_tcdSec>0) n.textContent='~'+_tcdSec+'s';
+    else if(_tcdSec<=0) clearInterval(_tcdTimer);
+  },1000);
   // Always fetch the freshest quote right now for accuracy
   var liveData=d;
   try{ liveData=await fetchQuote(sym); }catch(e){}
@@ -998,13 +1019,15 @@ async function genTickerAI(sym,d,resId){
         try{var ev=JSON.parse(json);
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
+            if(!_tcdFirst){_tcdFirst=true;clearInterval(_tcdTimer);}
             var ts=getTickStream();
             if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated)));
           }
         }catch(_){}
       }
     }
-    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated)));
+    var _disc='\n\n---\n*This analysis is AI-generated for informational purposes only. Not financial advice. Do your own research before investing.*';
+    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated))+_disc);
     // Save with slight delay to ensure DOM is fully updated
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
@@ -1017,7 +1040,14 @@ async function genTickerAI(sym,d,resId){
 async function triggerAboutAI(sym,resId,btn,companyName){
   btn.disabled=true; btn.textContent='Loading…';
   var el=document.getElementById('tai_'+resId); if(!el)return;
-  el.innerHTML='<div class="msg">Loading company overview… <span class="spin"></span></div>';
+  var _acdSec=12,_acdFirst=false;
+  el.innerHTML='<div class="msg">Loading overview… <span id="acdNum_'+resId+'">~'+_acdSec+'s</span></div>';
+  var _acdTimer=setInterval(function(){
+    _acdSec--;
+    var n=document.getElementById('acdNum_'+resId);
+    if(n&&_acdSec>0) n.textContent='~'+_acdSec+'s';
+    else if(_acdSec<=0) clearInterval(_acdTimer);
+  },1000);
   var name=sym;
   var displayName=companyName&&companyName!==sym?companyName:sym;
   var aboutHdr='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge" style="background:var(--mut);">ℹ About</span><span class="sumdate" style="margin-left:6px">'+esc(displayName)+' ('+esc(sym)+')</span></div><div id="aboutStream_'+resId+'"></div></div>';
@@ -1031,7 +1061,7 @@ async function triggerAboutAI(sym,resId,btn,companyName){
       +'Be specific and factual. Write in plain English. No markdown bold (**) or headers.'
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,stream:true,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}],messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(),decoder=new TextDecoder(),buf='';
     while(true){
@@ -1044,6 +1074,7 @@ async function triggerAboutAI(sym,resId,btn,companyName){
         try{var ev=JSON.parse(json);
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
+            if(!_acdFirst){_acdFirst=true;clearInterval(_acdTimer);}
             var ts=getAboutStream();
             if(ts) ts.innerHTML=formatSummary(cleanAIText(accumulated));
           }
