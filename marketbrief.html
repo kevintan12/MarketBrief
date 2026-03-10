@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.1</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.10</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -199,7 +199,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   <!-- DESKTOP -->
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.311.1</span></div>
+      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.10</span></div>
       <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -726,6 +726,7 @@ async function loadSummary(){
   prompt+='Write a structured market summary with EXACTLY these section headers (use them verbatim):\n'
     +headerList+'\n\n'+(styleInstr[S.style]||styleInstr.detailed)+'\n'
     +(mktsToShow.length>1?'End the Overall Sentiment section with one line e.g. "Sentiment: Cautiously Bullish".\n':'End with one line e.g. "Sentiment: Cautiously Bullish".\n')
+    +'For each market, comment on volume relative to average — was volume elevated, light, or normal? High volume on a move suggests institutional conviction; low volume suggests retail-driven or unconvinced market. Distinguish where possible between institutional (block trades, futures-led, options activity) and retail (momentum-chasing, meme-driven) participation.\n'
     +'Focus on what matters for a Singapore investor.';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
@@ -755,8 +756,9 @@ async function genTickerAI(sym,d,resId){
   var liveData=d;
   try{ liveData=await fetchQuote(sym); }catch(e){}
   var now=new Date();
-  var dateStr=now.toLocaleDateString('en-SG',{timeZone:S.tz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var dayOfWeek=now.toLocaleDateString('en-US',{timeZone:S.tz,weekday:'long'});
+  // Always use SGT for display date — this is a Singapore investor tool
+  var dateStr=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var dayOfWeek=now.toLocaleDateString('en-US',{timeZone:'Asia/Singapore',weekday:'long'});
   // Determine prevDay label based on ticker's market
   function getPrevDay(sym){
     var tz='America/New_York';
@@ -804,9 +806,10 @@ async function genTickerAI(sym,d,resId){
     +'Write analysis with EXACTLY these headers (plain text, no ** or ##):\n'
     +'1. 📈 Price Action\n'
     +'2. 🔍 Key Drivers\n'
-    +'3. ⚠️ Key Risks\n'
-    +'4. 🇸🇬 Singapore Investor Angle\n\n'
-    +'3-4 sentences per section. For Key Drivers, identify the specific catalysts (earnings, macro, sector news, analyst actions). Be analytical and specific. End with: "Outlook: [verdict]".';
+    +'3. 📊 Volume & Participation\n'
+    +'4. ⚠️ Key Risks\n'
+    +'5. 🇸🇬 Singapore Investor Angle\n\n'
+    +'3-4 sentences per section. For Key Drivers, identify specific catalysts (earnings, macro, sector news, analyst actions). For Volume & Participation, assess whether volume was elevated or light vs average, and whether the move appears institutionally driven (block trades, futures-led, sustained accumulation) or retail-driven (momentum, social sentiment). Be analytical and specific. End with: "Outlook: [verdict]".';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
