@@ -77,6 +77,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .up{color:var(--grn);}.dn{color:var(--red);}.neu{color:var(--mut);}
 
 .msg{background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:14px 16px;font-size:1rem;color:var(--mut);line-height:1.7;margin-bottom:8px;}
+.idx-scroll{max-height:340px;overflow-y:auto;overflow-x:hidden;border-radius:11px;scrollbar-width:thin;scrollbar-color:var(--bor) transparent;}
+.idx-scroll::-webkit-scrollbar{width:4px;}
+.idx-scroll::-webkit-scrollbar-track{background:transparent;}
+.idx-scroll::-webkit-scrollbar-thumb{background:var(--bor);border-radius:4px;}
 .msg.err{border-color:var(--red);color:var(--red);}
 .msg.ok{border-color:var(--grn);color:var(--grn);}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--bor);border-top-color:var(--acc);border-radius:50%;animation:sp 0.7s linear infinite;vertical-align:middle;}
@@ -187,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.9</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.1</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -195,7 +199,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   <!-- DESKTOP -->
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.9</span></div>
+      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.311.1</span></div>
       <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -214,7 +218,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
         <button class="chip" onclick="setFilter('HK',this)">🇭🇰 HKEX</button>
       </div>
       <div class="slabel notop">Market Indices <span id="liveIndM" style="font-size:0.85rem;margin-left:6px"></span></div>
-      <div id="idxGrid"><div class="msg">Loading… <span class="spin"></span></div></div>
+      <div class="idx-scroll" id="idxGrid"><div class="msg">Loading… <span class="spin"></span></div></div>
       <div class="slabel"><span class="dot"></span>AI Summary</div>
       <button class="ai-btn" id="aiBtnM" onclick="triggerSummary()">✦ Generate AI Summary</button>
       <div id="sumArea"></div>
@@ -340,7 +344,7 @@ function renderDesktop(){
           +'<button class="chip" onclick="setFilterD(\'HK\',this)">🇭🇰 HKEX</button>'
         +'</div>'
         +'<div class="slabel notop">Market Indices <span id="liveIndD" style="font-size:0.85rem;margin-left:6px"></span></div>'
-        +'<div id="idxGridD"><div class="msg">Loading… <span class="spin"></span></div></div>'
+        +'<div class="idx-scroll" id="idxGridD"><div class="msg">Loading… <span class="spin"></span></div></div>'
       +'</div>'
       +'<div class="col-right">'
         +'<div class="slabel notop"><span class="dot"></span>AI Summary</div>'
@@ -702,9 +706,9 @@ async function loadSummary(){
   setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>');
   var mktsToShow=curFilter==='all'?['US','SG','HK']:[curFilter];
   var styleInstr={
-    detailed:'For each section write 2-3 sentences on key moves and likely drivers. Be specific about % changes.',
-    concise:'One concise sentence per section covering the key move and % change.',
-    bullets:'Use 2-3 bullet points per section starting with -. Be specific about % moves.'
+    detailed:'For each market section write 3-4 sentences. Cover: (1) what moved and by how much, (2) the specific triggers or catalysts — e.g. macro data, Fed comments, earnings, geopolitical events, sector rotation, (3) any notable individual movers among the stocks listed, (4) what it means for the near-term outlook. Be analytical, not just descriptive.',
+    concise:'For each section write 2 sentences: first the key move with % change, second the main catalyst or driver.',
+    bullets:'Use 3-4 bullet points per section starting with -. First bullet = headline move, remaining bullets = specific catalysts and drivers.'
   };
   var sections=[];
   var sectionLabels={US:'🇺🇸 US Markets',SG:'🇸🇬 Singapore Markets',HK:'🇭🇰 Hong Kong Markets'};
@@ -728,7 +732,7 @@ async function loadSummary(){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1800,messages:[{role:'user',content:prompt}]})
     });
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
     var data=await resp.json();
@@ -802,13 +806,13 @@ async function genTickerAI(sym,d,resId){
     +'2. 🔍 Key Drivers\n'
     +'3. ⚠️ Key Risks\n'
     +'4. 🇸🇬 Singapore Investor Angle\n\n'
-    +'2 sentences per section. End with: "Outlook: [verdict]".';
+    +'3-4 sentences per section. For Key Drivers, identify the specific catalysts (earnings, macro, sector news, analyst actions). Be analytical and specific. End with: "Outlook: [verdict]".';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:600,
+        model:'claude-sonnet-4-20250514',
+        max_tokens:900,
         messages:[{role:'user',content:prompt}]
       })});
     var data=await resp.json();
