@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.8</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.10</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -857,6 +857,7 @@ async function loadSummary(){
     +'- HK Market Daily (Trading Economics): https://tradingeconomics.com/hong-kong/stock-market'
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
+    +'<div id="sumCountdown" class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div>'
     +'<div id="sumStream"></div></div>';
   setSumHTML(hdrHTML);
   var streamEl=document.getElementById('sumStream')||document.querySelector('[id^=sumArea] #sumStream')||document.querySelector('[id^=sumAreaD] #sumStream');
@@ -881,7 +882,7 @@ async function loadSummary(){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1800,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3}],messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2200,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3}],messages:[{role:'user',content:prompt}]})
     });
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader();
@@ -903,10 +904,11 @@ async function loadSummary(){
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             var sel=getStreamEl();
-            if(!_cdFirstToken){_cdFirstToken=true;clearInterval(window._sumCdTimer);}
+            if(!_cdFirstToken){_cdFirstToken=true;clearInterval(window._sumCdTimer);var _cdDiv=document.getElementById('sumCountdown');if(_cdDiv)_cdDiv.style.display='none';}
               if(sel){sel.innerHTML=formatSummary(cleanAIText(accumulated));
-              // Update savedSumHTML incrementally so it persists even if user switches tabs mid-stream
-              var _sa2=document.getElementById('sumArea')||document.getElementById('sumAreaD');
+              // Update savedSumHTML - prefer whichever area has more content
+              var _sa2a=document.getElementById('sumArea'),_sa2b=document.getElementById('sumAreaD');
+              var _sa2=(_sa2b&&(_sa2b.innerHTML||'').length>(_sa2a&&_sa2a.innerHTML||'').length)?_sa2b:_sa2a;
               if(_sa2&&_sa2.innerHTML&&_sa2.innerHTML.length>100) savedSumHTML=_sa2.innerHTML;
             }
           }
@@ -921,8 +923,10 @@ async function loadSummary(){
     setAIBtnVisible(true);
     // Save complete rendered HTML for persistence across tab switches
     var _sa=document.getElementById('sumArea'); var _sb=document.getElementById('sumAreaD');
-    if(_sa&&_sa.innerHTML&&_sa.innerHTML.length>100) savedSumHTML=_sa.innerHTML;
-    else if(_sb&&_sb.innerHTML&&_sb.innerHTML.length>100) savedSumHTML=_sb.innerHTML;
+    var _saLen=(_sa&&_sa.innerHTML)?_sa.innerHTML.length:0;
+    var _sbLen=(_sb&&_sb.innerHTML)?_sb.innerHTML.length:0;
+    var _best=_sbLen>_saLen?_sb:_sa;
+    if(_best&&_best.innerHTML&&_best.innerHTML.length>100) savedSumHTML=_best.innerHTML;
   }catch(e){
     setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>');
     setAIBtnVisible(true);
@@ -1024,7 +1028,7 @@ async function genTickerAI(sym,d,resId){
         try{var ev=JSON.parse(json);
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
-            if(!_tcdFirst){_tcdFirst=true;clearInterval(_tcdTimer);}
+            if(!_tcdFirst){_tcdFirst=true;clearInterval(_tcdTimer);var _tcdDiv=document.getElementById('tickCd_'+resId);if(_tcdDiv)_tcdDiv.style.display='none';}
             var ts=getTickStream();
             if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated)));
           }
@@ -1086,7 +1090,7 @@ async function triggerAboutAI(sym,resId,btn,companyName){
         try{var ev=JSON.parse(json);
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
-            if(!_acdFirst){_acdFirst=true;clearInterval(_acdTimer);}
+            if(!_acdFirst){_acdFirst=true;clearInterval(_acdTimer);var _acdDiv=document.getElementById('aboutCd_'+resId);if(_acdDiv)_acdDiv.style.display='none';}
             var ts=getAboutStream();
             if(ts) ts.innerHTML=formatSummary(cleanAIText(accumulated));
           }
