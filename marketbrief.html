@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.10</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.11</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -199,7 +199,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   <!-- DESKTOP -->
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.10</span></div>
+      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.11</span></div>
       <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -712,7 +712,7 @@ async function loadSummary(){
   };
   var sections=[];
   var sectionLabels={US:'🇺🇸 US Markets',SG:'🇸🇬 Singapore Markets',HK:'🇭🇰 Hong Kong Markets'};
-  var prompt='You are a financial market analyst writing for a Singapore-based investor.\n\n';
+  var prompt='You are a financial analyst writing for a Singapore-based investor. Use clear, plain English — avoid jargon where possible. Write like you are explaining to a smart friend who follows the markets but is not a Wall Street professional. Be direct, use real numbers, and explain the "why" behind every move.\n\n';
   mktsToShow.forEach(function(mkt){
     var d=mktData.filter(function(x){return x.mkt===mkt;});
     if(!d.length)return;
@@ -798,7 +798,7 @@ async function genTickerAI(sym,d,resId){
     :'(no price data)';
   var mktTz=(sym.endsWith('.SI')?'Asia/Singapore':sym.endsWith('.HK')?'Asia/Hong_Kong':'America/New_York');
   var mktDateStr=now.toLocaleDateString('en-SG',{timeZone:mktTz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var prompt='You are a financial analyst. In the stock\'s market timezone, today is '+mktDateStr+'. The last trading session was '+prevDay+'.\n\n'
+  var prompt='You are a financial analyst. Write in clear, accessible English — explain things like you would to a smart friend who follows markets but is not a professional trader. Mix plain language with relevant market context. Be direct and specific. In the stock\'s market timezone, today is '+mktDateStr+'. The last trading session was '+prevDay+'.\n\n'
     +'LIVE DATA for '+sym+' ('+name+'):\n'
     +priceBlock+'\n\n'
     +'CRITICAL: You MUST use the word "'+prevDay+'" when referring to the prior session. NEVER write "yesterday". Replace every instance of "yesterday" with "'+prevDay+'".\n'
@@ -808,14 +808,15 @@ async function genTickerAI(sym,d,resId){
     +'2. 🔍 Key Drivers\n'
     +'3. 📊 Volume & Participation\n'
     +'4. ⚠️ Key Risks\n'
-    +'5. 🇸🇬 Singapore Investor Angle\n\n'
-    +'3-4 sentences per section. For Key Drivers, identify specific catalysts (earnings, macro, sector news, analyst actions). For Volume & Participation, assess whether volume was elevated or light vs average, and whether the move appears institutionally driven (block trades, futures-led, sustained accumulation) or retail-driven (momentum, social sentiment). Be analytical and specific. End with: "Outlook: [verdict]".';
+    +'5. 🇸🇬 Singapore Investor Angle\n'
+    +'6. 🔮 Near-Term Outlook\n\n'
+    +'3-4 sentences per section. For Key Drivers, identify specific catalysts (earnings, macro, sector news, analyst actions). For Volume & Participation, assess whether volume was elevated or light vs average, and whether the move appears institutionally driven or retail-driven. For Near-Term Outlook, give your best assessment of likely direction over the next 5-10 trading days with reasoning — be direct and make a call, while acknowledging uncertainty. Disclaimer: this is analytical opinion, not financial advice. End with: "Outlook: [one-line verdict]".';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:900,
+        max_tokens:1100,
         messages:[{role:'user',content:prompt}]
       })});
     var data=await resp.json();
@@ -835,16 +836,27 @@ function formatSummary(txt){
   var html='';
   txt.split('\n').forEach(function(line){
     line=line.trim();
-    if(!line){html+='<div style="height:8px"></div>';return;}
-    line=line.replace(/\*\*/g,'').replace(/\*/g,'');  // strip markdown bold/italic
-    var stripped=line.replace(/^#+\s*/,'');
-    var isHeader=/^#/.test(line)||/^[1-9][.)]\s/.test(stripped)||stripped.charCodeAt(0)>255;
+    if(!line){html+='<div style="height:6px"></div>';return;}
+    line=line.replace(/\*\*/g,'').replace(/\*/g,'');
+    var stripped=line.replace(/^#+\s*/,'').replace(/^[1-9][.)\s]+/,'').trim();
+    var isHeader=/^#/.test(line)||/^[1-9][.)]\s/.test(line.trim())||stripped.charCodeAt(0)>255;
     if(isHeader){
-      html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.1rem;color:var(--orange);margin-top:16px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid rgba(249,115,22,0.3);">'+esc(stripped)+'</div>';
+      html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(249,115,22,0.25);">'+esc(stripped)+'</div>';
     } else if(/^[-•*]/.test(line)){
-      html+='<div style="display:flex;gap:8px;margin-bottom:5px;"><span style="color:var(--orange);flex-shrink:0;margin-top:2px">›</span><span style="font-size:1rem;line-height:1.75;color:var(--txt);">'+esc(line.replace(/^[-•*]\s*/,''))+'</span></div>';
+      html+='<div style="display:flex;gap:8px;margin-bottom:7px;"><span style="color:var(--orange);flex-shrink:0;margin-top:3px">›</span><span style="font-size:1.05rem;line-height:1.8;color:var(--txt);">'+esc(line.replace(/^[-•*]\s*/,''))+'</span></div>';
+    } else if(/^Outlook:/i.test(line)||/^Sentiment:/i.test(line)){
+      // Highlight Outlook/Sentiment line
+      html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+esc(line)+'</div>';
     } else {
-      html+='<div style="font-size:1rem;line-height:1.8;color:var(--txt);margin-bottom:4px;">'+esc(line)+'</div>';
+      // Split long paragraphs into individual sentences for readability
+      var sentences=line.match(/[^.!?]+[.!?]+[\s]*/g)||[line];
+      var grouped='';
+      sentences.forEach(function(s,i){
+        s=s.trim();
+        if(!s)return;
+        grouped+='<span style="display:block;margin-bottom:'+(i<sentences.length-1?'6px':'2px')+';">'+esc(s)+'</span>';
+      });
+      html+='<div style="font-size:1.05rem;line-height:1.8;color:var(--txt);margin-bottom:8px;">'+grouped+'</div>';
     }
   });
   return html;
