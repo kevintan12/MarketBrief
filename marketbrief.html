@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.21</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.22</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -306,8 +306,13 @@ function tickClock(){
 function showView(name){
   // Save search content BEFORE switching away
   if(currentView==='Search'){
-    var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
-    if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
+    // Try mobile first, then desktop; normalize IDs to always use 'tickRes' base
+    var _trM=document.getElementById('tickRes');
+    var _trD=document.getElementById('tickResD');
+    var _saved='';
+    if(_trM&&_trM.innerHTML&&_trM.innerHTML.length>200) _saved=_trM.innerHTML;
+    else if(_trD&&_trD.innerHTML&&_trD.innerHTML.length>200) _saved=_trD.innerHTML.replace(/_tickResD"/g,'_tickRes"').replace(/_tickResD'/g,"_tickRes'");
+    if(_saved) savedSearchHTML=_saved;
     var _inp=document.getElementById('ac_searchBox')||document.getElementById('ac_searchBoxD');
     if(_inp&&_inp.value) savedSearchQuery=_inp.value;
   }
@@ -395,7 +400,9 @@ function renderDesktop(){
       renderSearchBox('searchBoxD','tickResD');
       setTimeout(function(){
         var tr=document.getElementById('tickResD');
-        if(tr) tr.innerHTML=savedSearchHTML;
+        // Normalize IDs: saved HTML may use 'tickRes' (mobile) or 'tickResD' (desktop)
+        var html=savedSearchHTML.replace(/_tickRes"/g,'_tickResD"').replace(/_tickRes'/g,"_tickResD'");
+        if(tr) tr.innerHTML=html;
         var inp=document.getElementById('ac_searchBoxD');
         if(inp) inp.value=savedSearchQuery;
       },30);
@@ -953,7 +960,7 @@ async function genTickerAI(sym,d,resId){
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1100,stream:true,messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,stream:true,messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(), decoder=new TextDecoder(), buf='';
     function applyPrevDay(t){
@@ -1008,7 +1015,7 @@ async function triggerAboutAI(sym,resId,btn,companyName){
       +'Keep it concise and factual. No markdown bold (**) or section headers.'
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,stream:true,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,stream:true,messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(),decoder=new TextDecoder(),buf='';
     while(true){
