@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.7</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.8</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -541,6 +541,9 @@ async function execSearch(inpId,btnId,resId){
 
 function triggerTickerAI(sym,resId,btn){
   btn.style.display='none';
+  // Restore about button
+  var _abBtn=document.getElementById('abBtn_'+resId);
+  if(_abBtn){_abBtn.disabled=false;_abBtn.textContent='ℹ About';}
   genTickerAI(sym,null,resId);
 }
 
@@ -591,7 +594,7 @@ async function loadDash(){
   startAutoRefresh();
 }
 function setGridHTML(h){var a=document.getElementById('idxGrid'),b=document.getElementById('idxGridD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
-function setSumHTML(h){if(h&&h.length>200)savedSumHTML=h;var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
+function setSumHTML(h){var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
 
 // ── Real-time auto-refresh ────────────────────────────────────────────────────
 var autoRefreshTimer=null;
@@ -912,6 +915,8 @@ async function loadSummary(){
     }
     // Final render
     var sel=getStreamEl();
+    clearInterval(window._sumCdTimer);
+    var _cdDiv=document.getElementById('sumCountdown');if(_cdDiv)_cdDiv.style.display='none';
     if(sel)sel.innerHTML=formatSummary(cleanAIText(accumulated));
     setAIBtnVisible(true);
     // Save complete rendered HTML for persistence across tab switches
@@ -1026,6 +1031,8 @@ async function genTickerAI(sym,d,resId){
         }catch(_){}
       }
     }
+    clearInterval(_tcdTimer);
+    var _tcd2=document.getElementById('tickCd_'+resId);if(_tcd2)_tcd2.style.display='none';
     var _disc='\n\n---\n*This analysis is AI-generated for informational purposes only. Not financial advice. Do your own research before investing.*';
     var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated))+_disc);
     // Save with slight delay to ensure DOM is fully updated
@@ -1038,6 +1045,9 @@ async function genTickerAI(sym,d,resId){
 
 // ── About AI (company summary) ────────────────────────────────────────────────
 async function triggerAboutAI(sym,resId,btn,companyName){
+  // Restore analyse button if it was hidden
+  var _anBtn=document.getElementById('anBtn_'+resId)||document.querySelector('#tc_'+resId+' .analyze-btn:not(.about-btn)');
+  if(_anBtn) _anBtn.style.display='';
   btn.disabled=true; btn.textContent='Loading…';
   var el=document.getElementById('tai_'+resId); if(!el)return;
   var _acdSec=12,_acdFirst=false;
@@ -1083,6 +1093,8 @@ async function triggerAboutAI(sym,resId,btn,companyName){
         }catch(_){}
       }
     }
+    clearInterval(_acdTimer);
+    var _acd2=document.getElementById('aboutCd_'+resId);if(_acd2)_acd2.style.display='none';
     var ts=getAboutStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(accumulated));
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
@@ -1096,21 +1108,16 @@ async function triggerAboutAI(sym,resId,btn,companyName){
 }
 // ── Summary formatter ─────────────────────────────────────────────────────────
 function cleanAIText(txt){
-  // Strip meta-commentary lines at the start or anywhere
   var lines=txt.split('\n');
   var cleaned=[];
   for(var i=0;i<lines.length;i++){
-    var l=lines[i];
-    var lower=l.trim().toLowerCase();
-    // Skip lines that are AI self-commentary
-    if(/^(based on (my |the |this )?(web search|search results?|analysis|data)[^.]*[,:])/i.test(l.trim())) continue;
-    if(/^(i (can now|will now|have now|need to|should|would|am going to|let me))/i.test(l.trim())) continue;
-    if(/^(let me|here('s| is) (my|the|a) (analysis|summary|overview|breakdown))/i.test(l.trim())) continue;
-    if(/^(after (searching|reviewing|looking)[^,]*,)/i.test(l.trim())) continue;
+    var l=lines[i]; var t=l.trim().toLowerCase();
+    if(!t){cleaned.push(l);continue;}
+    // Drop any line that is pure AI meta-commentary
+    if(/^(based on|according to my|from my|using my|after (searching|reviewing|checking|looking)|i (have|can now|will now|am going to|need to|should|would|found|searched|looked)|let me |here('s| is) (my|the|a|an) (analysis|summary|overview|breakdown|look)|i'd like to|i'll |i've |great[,!]|certainly[,!]|sure[,!]|of course)/i.test(t)) continue;
     cleaned.push(l);
   }
-  // Also strip first line if it's a search preamble
-  return cleaned.join('\n').replace(/^\s+/,'');
+  return cleaned.join('\n').replace(/^[\s\n]+/,'');
 }
 function formatSummary(txt){
   var html='';
