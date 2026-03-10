@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.15</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.16</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -317,7 +317,15 @@ function showView(name){
     });
     if(name==='Search') renderSearchBox('searchBox','tickRes');
     if(name==='Settings') renderSettingsPanelTo('settingsPanel');
-    if(name==='Dash') { renderIndices(); updateLiveIndicator(); setTimeout(function(){var sa=document.getElementById('sumArea');if(sa&&savedSumHTML){sa.innerHTML=savedSumHTML;var ab=document.getElementById('aiBtnM');if(ab)ab.style.display='none';}},50); }
+    if(name==='Dash') {
+      renderIndices(); updateLiveIndicator();
+      // Restore active chip highlight
+      document.querySelectorAll('#mktChips .chip').forEach(function(b){
+        b.classList.toggle('on', b.textContent.trim().replace(/[^A-Za-z]/g,'').toLowerCase()===(curFilter==='all'?'all':curFilter.toLowerCase())||
+          (curFilter==='all'&&b.textContent.trim()==='All'));
+      });
+      setTimeout(function(){var sa=document.getElementById('sumArea');if(sa&&savedSumHTML){sa.innerHTML=savedSumHTML;var ab=document.getElementById('aiBtnM');if(ab)ab.style.display='none';}},50);
+    }
   }
 }
 
@@ -361,6 +369,11 @@ function renderDesktop(){
       +'</div>';
     renderIndices();
     setTimeout(updateLiveIndicator,50);
+    // Restore active chip
+    document.querySelectorAll('#mktChipsD .chip').forEach(function(b){
+      var t=b.textContent.trim();
+      b.classList.toggle('on',(curFilter==='all'&&t==='All')||(curFilter!=='all'&&t.indexOf(curFilter)!==-1));
+    });
     (function tryR(n){setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;var ab=document.getElementById('aiBtnD');if(ab)ab.style.display='none';}else if(n>0)tryR(n-1);},80);})(5);
   } else if(currentView==='Search'){
     dc.innerHTML='<div style="padding:24px;max-width:620px">'
@@ -702,7 +715,7 @@ function renderIndices(){
         var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
         var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
         html+='<div class="card" data-sym="'+esc(d.sym)+'"><div class="cleft"><div class="flag">'+d.flag+'</div>'
-          +'<div><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'</div></div></div>'
+          +'<div><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'<span style="margin-left:6px;color:var(--acc);font-size:0.8rem;opacity:0.75;">'+esc(d.sym)+'</span></div></div></div>'
           +'<div class="cright"><div class="cprice '+cls+'" id="cp_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'
           +'<div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')</div></div></div>';
       });
@@ -778,7 +791,9 @@ async function loadSummary(){
     +'Focus on what matters for a Singapore investor.\n\n'
     +'At the end of the analysis, add a section called "📰 Further Reading" with these links (render each on its own line as: Label: URL):\n'
     +'- Yahoo Finance Live Blog: https://finance.yahoo.com/news/live/stock-market-today-dow-sp-500-nasdaq-futures-rise-oil-slides-as-iran-war-jitters-ease-224255466.html\n'
-    +'- CNBC Markets Live: https://www.cnbc.com/2026/03/09/stock-market-today-live-updates.html'
+    +'- CNBC Markets Live: https://www.cnbc.com/2026/03/09/stock-market-today-live-updates.html\n'
+    +'- SGX Market Outlook (today): https://www.minichart.com.sg/2026/03/10/singapore-market-outlook-march-2026-bank-developer-stocks-s-reits-fund-flows-and-key-investment-opportunities/\n'
+    +'- SCMP Hang Seng Index: https://www.scmp.com/topics/hang-seng-index'
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
     +'<div id="sumStream"></div></div>';
