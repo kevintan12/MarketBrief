@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.11</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.12</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -199,7 +199,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   <!-- DESKTOP -->
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.11</span></div>
+      <div class="sidebar-logo">MarketBrief<span style="font-family:'DM Mono',monospace;font-size:0.65rem;font-weight:400;color:var(--mut);margin-left:6px">v1.310.12</span></div>
       <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -691,14 +691,29 @@ function renderIndices(){
 // ── Closing date ──────────────────────────────────────────────────────────────
 function getClosingDate(mkt){
   var tzMap={US:'America/New_York',SG:'Asia/Singapore',HK:'Asia/Hong_Kong'};
-  var closeH={US:16,SG:17,HK:16};
+  var closeH={US:16,SG:17,HK:16}; // hour in market local time after which session is done
+  var openH={US:9,SG:9,HK:9};
   var tz=tzMap[mkt]||'Asia/Singapore';
   var now=new Date();
-  var localH=parseInt(now.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}));
-  var d=new Date(now.toLocaleString('en-US',{timeZone:tz}));
-  if(localH<closeH[mkt]) d.setDate(d.getDate()-1);
-  while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()-1);
-  return d.toLocaleDateString('en-SG',{weekday:'long',year:'numeric',month:'long',day:'numeric',timeZone:tz});
+  // Get current market-local time components
+  var mktStr=now.toLocaleString('en-US',{timeZone:tz,hour:'numeric',minute:'numeric',hour12:false,year:'numeric',month:'numeric',day:'numeric',weekday:'long'});
+  var mktNow=new Date(now.toLocaleString('en-US',{timeZone:tz}));
+  var mktH=parseInt(now.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}));
+  var mktDay=mktNow.getDay(); // 0=Sun,6=Sat
+  var isWeekend=mktDay===0||mktDay===6;
+  var sessionClosed=mktH>=closeH[mkt];
+  // If today is a weekday and market has closed → today is the last session
+  // If today is a weekday and market hasn't closed yet → last session = previous trading day
+  // If weekend → last session = Friday
+  var d=new Date(mktNow);
+  if(!isWeekend&&sessionClosed){
+    // today's session is complete — use today
+  } else {
+    // step back until we hit a weekday with a closed session
+    d.setDate(d.getDate()-1);
+    while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()-1);
+  }
+  return d.toLocaleDateString('en-SG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 }
 
 // ── AI Summary ────────────────────────────────────────────────────────────────
@@ -728,19 +743,51 @@ async function loadSummary(){
     +(mktsToShow.length>1?'End the Overall Sentiment section with one line e.g. "Sentiment: Cautiously Bullish".\n':'End with one line e.g. "Sentiment: Cautiously Bullish".\n')
     +'For each market, comment on volume relative to average — was volume elevated, light, or normal? High volume on a move suggests institutional conviction; low volume suggests retail-driven or unconvinced market. Distinguish where possible between institutional (block trades, futures-led, options activity) and retail (momentum-chasing, meme-driven) participation.\n'
     +'Focus on what matters for a Singapore investor.';
+  var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
+    +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
+    +'<div id="sumStream"></div></div>';
+  setSumHTML(hdrHTML);
+  var streamEl=document.getElementById('sumStream')||document.querySelector('[id^=sumArea] #sumStream')||document.querySelector('[id^=sumAreaD] #sumStream');
+  // Find the stream element in whichever area is visible
+  function getStreamEl(){return document.getElementById('sumStream');}
+  var accumulated='';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1800,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1800,stream:true,messages:[{role:'user',content:prompt}]})
     });
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
-    var data=await resp.json();
-    var txt=(data.content&&data.content[0]&&data.content[0].text)||'No summary generated.';
-    setSumHTML('<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
-      +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:S.tz,hour:'2-digit',minute:'2-digit'})+'</span></div>'
-      +'<div>'+formatSummary(txt)+'</div></div>');
+    var reader=resp.body.getReader();
+    var decoder=new TextDecoder();
+    var buf='';
+    while(true){
+      var _r=await reader.read();
+      if(_r.done)break;
+      buf+=decoder.decode(_r.value,{stream:true});
+      var lines=buf.split('\n');
+      buf=lines.pop();
+      for(var li=0;li<lines.length;li++){
+        var line=lines[li].trim();
+        if(!line.startsWith('data:'))continue;
+        var json=line.slice(5).trim();
+        if(json==='[DONE]')continue;
+        try{
+          var ev=JSON.parse(json);
+          if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
+            accumulated+=ev.delta.text;
+            var sel=getStreamEl();
+            if(sel)sel.innerHTML=formatSummary(accumulated);
+          }
+        }catch(_){}
+      }
+    }
+    // Final render
+    var sel=getStreamEl();
+    if(sel)sel.innerHTML=formatSummary(accumulated);
+    savedSumHTML=document.getElementById('sumArea')&&document.getElementById('sumArea').innerHTML
+      ||document.getElementById('sumAreaD')&&document.getElementById('sumAreaD').innerHTML||savedSumHTML;
   }catch(e){
     setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>');
     setAIBtnVisible(true);
@@ -848,15 +895,7 @@ function formatSummary(txt){
       // Highlight Outlook/Sentiment line
       html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+esc(line)+'</div>';
     } else {
-      // Split long paragraphs into individual sentences for readability
-      var sentences=line.match(/[^.!?]+[.!?]+[\s]*/g)||[line];
-      var grouped='';
-      sentences.forEach(function(s,i){
-        s=s.trim();
-        if(!s)return;
-        grouped+='<span style="display:block;margin-bottom:'+(i<sentences.length-1?'6px':'2px')+';">'+esc(s)+'</span>';
-      });
-      html+='<div style="font-size:1.05rem;line-height:1.8;color:var(--txt);margin-bottom:8px;">'+grouped+'</div>';
+      html+='<div style="font-size:1.05rem;line-height:1.9;color:var(--txt);margin-bottom:10px;">'+esc(line)+'</div>';
     }
   });
   return html;
