@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.5</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.6</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -340,7 +340,7 @@ function showView(name){
         b.classList.toggle('on', b.textContent.trim().replace(/[^A-Za-z]/g,'').toLowerCase()===(curFilter==='all'?'all':curFilter.toLowerCase())||
           (curFilter==='all'&&b.textContent.trim()==='All'));
       });
-      setTimeout(function(){var sa=document.getElementById('sumArea');if(sa&&savedSumHTML){sa.innerHTML=savedSumHTML;var ab=document.getElementById('aiBtnM');if(ab)ab.style.display='none';}},50);
+      setTimeout(function(){var sa=document.getElementById('sumArea');if(sa&&savedSumHTML){sa.innerHTML=savedSumHTML;}},50);
     }
   }
 }
@@ -390,7 +390,7 @@ function renderDesktop(){
       var t=b.textContent.trim();
       b.classList.toggle('on',(curFilter==='all'&&t==='All')||(curFilter!=='all'&&t.indexOf(curFilter)!==-1));
     });
-    (function tryR(n){setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;var ab=document.getElementById('aiBtnD');if(ab)ab.style.display='none';}else if(n>0)tryR(n-1);},80);})(5);
+    (function tryR(n){setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;}else if(n>0)tryR(n-1);},80);})(5);
   } else if(currentView==='Search'){
     // If we have a cached search DOM, restore it directly instead of re-rendering
     if(savedSearchHTML&&savedSearchQuery){
@@ -859,26 +859,26 @@ async function loadSummary(){
   var streamEl=document.getElementById('sumStream')||document.querySelector('[id^=sumArea] #sumStream')||document.querySelector('[id^=sumAreaD] #sumStream');
   // Find the stream element in whichever area is visible
   function getStreamEl(){return document.getElementById('sumStream');}
-  // Countdown while waiting for first token
+  // Countdown — delayed so setSumHTML(hdrHTML) has time to render sumStream
   var _cdSec=20,_cdFirstToken=false;
-  (function startCd(){
+  window._sumCdTimer=null;
+  setTimeout(function(){
     var el=getStreamEl();
-    if(el) el.innerHTML='<div class="msg">Searching &amp; analysing markets… <span id="cdNum">~'+_cdSec+'s</span></div>';
-    var t=setInterval(function(){
+    if(el) el.innerHTML='<div class="msg">Searching &amp; analysing… <span id="cdNum">~'+_cdSec+'s</span></div>';
+    window._sumCdTimer=setInterval(function(){
       _cdSec--;
       var n=document.getElementById('cdNum');
       if(n&&_cdSec>0) n.textContent='~'+_cdSec+'s';
-      else if(_cdSec<=0) clearInterval(t);
+      else if(_cdSec<=0) clearInterval(window._sumCdTimer);
     },1000);
-    window._sumCdTimer=t;
-  })();
+  },50);
   var accumulated='';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1200,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3}],messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1800,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3}],messages:[{role:'user',content:prompt}]})
     });
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader();
@@ -1002,7 +1002,7 @@ async function genTickerAI(sym,d,resId){
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1100,stream:true,messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1400,stream:true,messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(), decoder=new TextDecoder(), buf='';
     function applyPrevDay(t){
@@ -1061,7 +1061,7 @@ async function triggerAboutAI(sym,resId,btn,companyName){
       +'Be specific and factual. Write in plain English. No markdown bold (**) or headers.'
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}],messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}],messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(),decoder=new TextDecoder(),buf='';
     while(true){
