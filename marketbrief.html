@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.13</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.15</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -273,6 +273,13 @@ window.onload=function(){
   renderSettingsPanelTo('settingsPanel');
   loadDash();
   startAutoRefresh();
+  // Event delegation for search result buttons
+  document.addEventListener('click',function(e){
+    var ab=e.target.closest('.analyze-btn:not(.about-btn)');
+    if(ab&&ab.dataset.sym){triggerTickerAI(ab.dataset.sym,ab.dataset.res,ab);return;}
+    var bb=e.target.closest('.about-btn');
+    if(bb&&bb.dataset.sym){triggerAboutAI(bb.dataset.sym,bb.dataset.res,bb);return;}
+  });
   var sa=window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
   if(!sa&&/android|iphone|ipad/i.test(navigator.userAgent))
     document.getElementById('pwaTip').style.display='block';
@@ -310,7 +317,7 @@ function showView(name){
     });
     if(name==='Search') renderSearchBox('searchBox','tickRes');
     if(name==='Settings') renderSettingsPanelTo('settingsPanel');
-    if(name==='Dash') { renderIndices(); updateLiveIndicator(); }
+    if(name==='Dash') { renderIndices(); updateLiveIndicator(); setTimeout(function(){var sa=document.getElementById('sumArea');if(sa&&savedSumHTML){sa.innerHTML=savedSumHTML;var ab=document.getElementById('aiBtnM');if(ab)ab.style.display='none';}},50); }
   }
 }
 
@@ -354,6 +361,7 @@ function renderDesktop(){
       +'</div>';
     renderIndices();
     setTimeout(updateLiveIndicator,50);
+    (function tryR(n){setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;var ab=document.getElementById('aiBtnD');if(ab)ab.style.display='none';}else if(n>0)tryR(n-1);},80);})(5);
   } else if(currentView==='Search'){
     dc.innerHTML='<div style="padding:24px;max-width:620px">'
       +'<div class="slabel notop">Search by Name or Ticker</div>'
@@ -473,7 +481,10 @@ async function execSearch(inpId,btnId,resId){
       +'<div class="sstat"><div class="ssl">Day Low</div><div class="ssv" id="tssv3_'+resId+'">'+fmt(d.low)+'</div></div>'
       +'</div>'
       +'</div>'
-      +(S.apiKey?'<button class="analyze-btn" id="anBtn_'+resId+'" onclick="triggerTickerAI(\''+esc(raw)+'\'\,\''+resId+'\'\,this)">✦ Analyse with AI</button>':'')
+      +(S.apiKey?'<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">'
+        +'<button class="analyze-btn" id="anBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'">✦ Analyse with AI</button>'
+        +'<button class="analyze-btn about-btn" style="background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.3);color:var(--mut);" id="abBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'">ℹ About</button>'
+        +'</div>':'')
       +'</div>'
       +'<div id="tai_'+resId+'"></div>';
   }catch(e){res.innerHTML='<div class="msg err">'+esc(e.message)+'</div>';}
@@ -532,7 +543,7 @@ async function loadDash(){
   startAutoRefresh();
 }
 function setGridHTML(h){var a=document.getElementById('idxGrid'),b=document.getElementById('idxGridD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
-function setSumHTML(h){var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
+function setSumHTML(h){savedSumHTML=h;var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
 
 // ── Real-time auto-refresh ────────────────────────────────────────────────────
 var autoRefreshTimer=null;
@@ -686,7 +697,7 @@ function renderIndices(){
         if(grpKey!==lastGroup){
           lastGroup=grpKey;
           var grpLabel=(isIdx==='idx'?groupLabels[d.mkt]+' · Indices':groupLabels[d.mkt]+' · Watchlist');
-          html+='<div style="font-size:0.78rem;letter-spacing:0.1em;color:var(--mut);text-transform:uppercase;padding:10px 4px 4px;border-top:'+(html?'1px solid var(--bor)':'none')+';">'+grpLabel+'</div>';
+          html+='<div style="font-size:0.78rem;letter-spacing:0.1em;color:var(--orange);text-transform:uppercase;padding:10px 4px 4px;border-top:'+(html?'1px solid rgba(249,115,22,0.2)':'none')+';">'+grpLabel+'</div>';
         }
         var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
         var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
@@ -765,11 +776,9 @@ async function loadSummary(){
     +(mktsToShow.length>1?'End the Overall Sentiment section with one line e.g. "Sentiment: Cautiously Bullish".\n':'End with one line e.g. "Sentiment: Cautiously Bullish".\n')
     +'For each market, comment on volume relative to average — was volume elevated, light, or normal? High volume on a move suggests institutional conviction; low volume suggests retail-driven or unconvinced market. Distinguish where possible between institutional (block trades, futures-led, options activity) and retail (momentum-chasing, meme-driven) participation.\n'
     +'Focus on what matters for a Singapore investor.\n\n'
-    +'At the end of the analysis, add a section called "📰 Further Reading" with these links:\n'
-    +'- Yahoo Finance Markets: https://finance.yahoo.com/markets/\n'
-    +'- Bloomberg Markets (today): https://www.bloomberg.com/news/articles/2026-03-09/oil-drops-as-trump-signals-iran-conflict-near-end-markets-wrap\n'
-    +'- CNBC Markets Live: https://www.cnbc.com/2026/03/09/stock-market-today-live-updates.html\n'
-    +'Format each as a plain URL on its own line with a label, e.g. Yahoo Finance Markets: https://...'
+    +'At the end of the analysis, add a section called "📰 Further Reading" with these links (render each on its own line as: Label: URL):\n'
+    +'- Yahoo Finance Live Blog: https://finance.yahoo.com/news/live/stock-market-today-dow-sp-500-nasdaq-futures-rise-oil-slides-as-iran-war-jitters-ease-224255466.html\n'
+    +'- CNBC Markets Live: https://www.cnbc.com/2026/03/09/stock-market-today-live-updates.html'
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
     +'<div id="sumStream"></div></div>';
@@ -916,6 +925,46 @@ async function genTickerAI(sym,d,resId){
     }
     var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(applyPrevDay(accumulated));
   }catch(e){el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';}
+}
+
+// ── About AI (company summary) ────────────────────────────────────────────────
+async function triggerAboutAI(sym,resId,btn){
+  btn.disabled=true; btn.textContent='Loading…';
+  var el=document.getElementById('tai_'+resId); if(!el)return;
+  el.innerHTML='<div class="msg">Loading company overview… <span class="spin"></span></div>';
+  var name=sym;
+  var aboutHdr='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge" style="background:var(--mut);">ℹ About</span><span class="sumdate" style="margin-left:6px">'+esc(sym)+'</span></div><div id="aboutStream_'+resId+'"></div></div>';
+  el.innerHTML=aboutHdr;
+  function getAboutStream(){return document.getElementById('aboutStream_'+resId);}
+  var accumulated='';
+  try{
+    var prompt='Give a clear, plain-English overview of the company or index "'+sym+'". Cover: (1) what the company does and its main business in 2-3 sentences, (2) where it is listed and its sector/industry, (3) its approximate market cap tier (large/mid/small cap), (4) 2-3 key things a Singapore investor should know about it — e.g. dividend history, key risks, main revenue drivers, geopolitical exposure. Keep it concise, factual, and accessible. No markdown bold or headers.';
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,stream:true,messages:[{role:'user',content:prompt}]})});
+    if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
+    var reader=resp.body.getReader(),decoder=new TextDecoder(),buf='';
+    while(true){
+      var _r=await reader.read(); if(_r.done)break;
+      buf+=decoder.decode(_r.value,{stream:true});
+      var lines=buf.split('\n'); buf=lines.pop();
+      for(var li=0;li<lines.length;li++){
+        var ln=lines[li].trim(); if(!ln.startsWith('data:'))continue;
+        var json=ln.slice(5).trim(); if(json==='[DONE]')continue;
+        try{var ev=JSON.parse(json);
+          if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
+            accumulated+=ev.delta.text;
+            var ts=getAboutStream(); if(ts) ts.innerHTML=formatSummary(accumulated);
+          }
+        }catch(_){}
+      }
+    }
+    var ts=getAboutStream(); if(ts) ts.innerHTML=formatSummary(accumulated);
+    btn.textContent='ℹ About'; btn.disabled=false;
+  }catch(e){
+    el.innerHTML='<div class="msg err">Error: '+esc(e.message)+'</div>';
+    btn.textContent='ℹ About'; btn.disabled=false;
+  }
 }
 // ── Summary formatter ─────────────────────────────────────────────────────────
 function formatSummary(txt){
