@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.20</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.21</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -304,6 +304,13 @@ function tickClock(){
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function showView(name){
+  // Save search content BEFORE switching away
+  if(currentView==='Search'){
+    var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
+    if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
+    var _inp=document.getElementById('ac_searchBox')||document.getElementById('ac_searchBoxD');
+    if(_inp&&_inp.value) savedSearchQuery=_inp.value;
+  }
   currentView=name;
   if(isDesktop){
     ['Dash','Search','Settings'].forEach(function(v){
