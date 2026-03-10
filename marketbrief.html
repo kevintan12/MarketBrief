@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.23</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.310.26</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -805,22 +805,42 @@ async function loadSummary(){
   setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>');
   var mktsToShow=curFilter==='all'?['US','SG','HK']:[curFilter];
   var styleInstr={
-    detailed:'For each market section write 3-4 sentences. Cover: (1) what moved and by how much, (2) the specific triggers or catalysts — e.g. macro data, Fed comments, earnings, geopolitical events, sector rotation, (3) any notable individual movers among the stocks listed, (4) what it means for the near-term outlook. Be analytical, not just descriptive.',
-    concise:'For each section write 2 sentences: first the key move with % change, second the main catalyst or driver.',
-    bullets:'Use 3-4 bullet points per section starting with -. First bullet = headline move, remaining bullets = specific catalysts and drivers.'
+    detailed:'For each market section write 3-4 sentences. If the market is LIVE (session in progress), analyse what is happening RIGHT NOW in the current session — intraday moves, what is driving price action today, and what to watch for the rest of the session. If the market is closed, analyse the completed session. Cover: (1) what moved and by how much, (2) specific triggers or catalysts (macro data, Fed comments, earnings, geopolitical events, sector rotation), (3) notable individual movers, (4) near-term outlook. Be analytical, not just descriptive.',
+    concise:'For each section write 2 sentences: first the key move with % change, second the main catalyst or driver. If LIVE, focus on current intraday action.',
+    bullets:'Use 3-4 bullet points per section starting with -. First bullet = headline move, remaining bullets = specific catalysts and drivers. If LIVE, focus on what is happening now.'
   };
   var sections=[];
   var sectionLabels={US:'🇺🇸 US Markets',SG:'🇸🇬 Singapore Markets',HK:'🇭🇰 Hong Kong Markets'};
   var prompt='You are a financial analyst writing for a Singapore-based investor. Use clear, plain English — avoid jargon where possible. Write like you are explaining to a smart friend who follows the markets but is not a Wall Street professional. Be direct, use real numbers, and explain the "why" behind every move.\n\n';
+  var liveMarkets=isAnyMarketOpen();
+  // Prepend live-search instruction if any watched market is open
+  if(liveMarkets.any){
+    var liveNames=[];
+    if(liveMarkets.US&&mktsToShow.indexOf('US')!==-1) liveNames.push('US equities');
+    if(liveMarkets.SG&&mktsToShow.indexOf('SG')!==-1) liveNames.push('Singapore (SGX)');
+    if(liveMarkets.HK&&mktsToShow.indexOf('HK')!==-1) liveNames.push('Hong Kong (HKEX)');
+    if(liveNames.length){
+      prompt='LIVE SESSION IN PROGRESS for: '+liveNames.join(', ')+'.\n'
+        +'Use web search to find the latest news and catalysts driving markets RIGHT NOW — '
+        +'macro data releases today, central bank commentary, earnings, geopolitical events, sector moves. '
+        +'Analyse the intraday price action in context of what you find. '
+        +'Do NOT reference yesterday or the previous session for live markets — focus on what is happening today.\n\n'
+        +prompt;
+    }
+  }
   mktsToShow.forEach(function(mkt){
     var d=mktData.filter(function(x){return x.mkt===mkt;});
     if(!d.length)return;
-    var dateStr=getClosingDate(mkt);
-    prompt+=sectionLabels[mkt]+' data (last close: '+dateStr+'):\n'
+    var isLive=liveMarkets[mkt]||false;
+    var now=new Date();
+    var sgTime=now.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
+    var dateStr=isLive?'LIVE as of '+sgTime+' SGT':getClosingDate(mkt);
+    var sessionCtx=isLive?'(session in progress — intraday data)':'(last close)';
+    prompt+=sectionLabels[mkt]+' data '+sessionCtx+' '+dateStr+':\n'
       +d.map(function(x){return x.name+': '+fmt(x.price)+' '+fmtP(x.pct);}).join('\n')+'\n\n';
-    sections.push({label:sectionLabels[mkt],date:dateStr});
+    sections.push({label:sectionLabels[mkt],date:dateStr,live:isLive});
   });
-  var headerList=sections.map(function(s,i){return (i+1)+'. '+s.label+' ('+s.date+')';}).join('\n');
+  var headerList=sections.map(function(s,i){return (i+1)+'. '+s.label+' ('+(s.live?'🔴 LIVE':''+s.date)+')';}).join('\n');
   if(mktsToShow.length>1) headerList+='\n'+(sections.length+1)+'. 📊 Overall Sentiment';
   prompt+='Write a structured market summary with EXACTLY these section headers (use them verbatim):\n'
     +headerList+'\n\n'+(styleInstr[S.style]||styleInstr.detailed)+'\n'
@@ -845,7 +865,7 @@ async function loadSummary(){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1800,stream:true,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify(Object.assign({model:'claude-sonnet-4-20250514',max_tokens:1800,stream:true,messages:[{role:'user',content:prompt}]},liveMarkets.any?{tools:[{type:'web_search_20250305',name:'web_search'}]}:{}))
     });
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader();
@@ -1004,13 +1024,10 @@ async function triggerAboutAI(sym,resId,btn,companyName){
   function getAboutStream(){return document.getElementById('aboutStream_'+resId);}
   var accumulated='';
   try{
-    var prompt='Search for and provide a factual overview of this company: ticker "'+sym+'", name "'+displayName+'". '
-      +'Cover: (1) what the company does and its main business, '
-      +'(2) exchange listed and sector/industry, '
-      +'(3) market cap tier (large/mid/small cap), '
-      +'(4) 2-3 things a Singapore investor should know — dividends, key risks, revenue drivers, major shareholders. '
-      +'Be specific and factual. Use web search to get accurate current details. '
-      +'Write in plain English. No markdown bold (**) or headers.'
+    var prompt='Search for "'+sym+'" ('+displayName+') and write a concise factual overview. '
+      +'Go straight into describing the company — do NOT start with a sentence like "X is the ticker for Y" or restate the company name as an opener. '
+      +'Cover: what the company does, exchange and sector, market cap tier, and 2-3 things a Singapore investor should know (dividends, key risks, revenue drivers). '
+      +'Be specific and factual. Write in plain English. No markdown bold (**) or headers.'
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,stream:true,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
