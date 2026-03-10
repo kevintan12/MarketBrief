@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.10</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.11</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -390,7 +390,7 @@ function renderDesktop(){
       var t=b.textContent.trim();
       b.classList.toggle('on',(curFilter==='all'&&t==='All')||(curFilter!=='all'&&t.indexOf(curFilter)!==-1));
     });
-    (function tryR(n){setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;}else if(n>0)tryR(n-1);},80);})(5);
+    window._tryRTimer=null;(function tryR(n){window._tryRTimer=setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;}else if(n>0)tryR(n-1);},80);})(5);
   } else if(currentView==='Search'){
     // If we have a cached search DOM, restore it directly instead of re-rendering
     if(savedSearchHTML&&savedSearchQuery){
@@ -557,6 +557,10 @@ function setAIBtnVisible(show){
 function triggerSummary(){
   if(!S.apiKey){setSumHTML('<div class="msg err">Add your Claude API key in ⚙ Settings.</div>');return;}
   if(!mktData.length){setSumHTML('<div class="msg err">Load data first — click ↻ Refresh.</div>');return;}
+  // Cancel any pending restore and clear old summary before generating fresh
+  if(window._tryRTimer){clearTimeout(window._tryRTimer);window._tryRTimer=null;}
+  savedSumHTML='';
+  setSumHTML('');
   setAIBtnVisible(false);
   loadSummary();
 }
@@ -857,25 +861,21 @@ async function loadSummary(){
     +'- HK Market Daily (Trading Economics): https://tradingeconomics.com/hong-kong/stock-market'
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
-    +'<div id="sumCountdown" class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div>'
-    +'<div id="sumStream"></div></div>';
+    +'<div id="sumStream"><div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div></div></div>';
   setSumHTML(hdrHTML);
-  var streamEl=document.getElementById('sumStream')||document.querySelector('[id^=sumArea] #sumStream')||document.querySelector('[id^=sumAreaD] #sumStream');
-  // Find the stream element in whichever area is visible
-  function getStreamEl(){return document.getElementById('sumStream');}
-  // Countdown — delayed so setSumHTML(hdrHTML) has time to render sumStream
+  // Find the VISIBLE sumStream — on desktop sumAreaD is shown, on mobile sumArea
+  function getStreamEl(){
+    var b=document.getElementById('sumAreaD'),a=document.getElementById('sumArea');
+    var el=(b&&b.offsetParent!==null)?b.querySelector('#sumStream'):(a?a.querySelector('#sumStream'):null);
+    return el||document.getElementById('sumStream');
+  }
   var _cdSec=20,_cdFirstToken=false;
-  window._sumCdTimer=null;
-  setTimeout(function(){
-    var el=getStreamEl();
-    if(el) el.innerHTML='<div class="msg">Searching &amp; analysing… <span id="cdNum">~'+_cdSec+'s</span></div>';
-    window._sumCdTimer=setInterval(function(){
-      _cdSec--;
-      var n=document.getElementById('cdNum');
-      if(n&&_cdSec>0) n.textContent='~'+_cdSec+'s';
-      else if(_cdSec<=0) clearInterval(window._sumCdTimer);
-    },1000);
-  },50);
+  window._sumCdTimer=setInterval(function(){
+    _cdSec--;
+    var n=document.getElementById('cdNum');
+    if(n&&_cdSec>0) n.textContent='~'+_cdSec+'s';
+    else if(_cdSec<=0) clearInterval(window._sumCdTimer);
+  },1000);
   var accumulated='';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
@@ -901,10 +901,12 @@ async function loadSummary(){
         if(json==='[DONE]')continue;
         try{
           var ev=JSON.parse(json);
+          if(ev.type==='content_block_start'&&ev.content_block&&ev.content_block.type==='tool_use'){
+            var _cdN=document.getElementById('cdNum');if(_cdN)_cdN.textContent='searching…';}
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             var sel=getStreamEl();
-            if(!_cdFirstToken){_cdFirstToken=true;clearInterval(window._sumCdTimer);var _cdDiv=document.getElementById('sumCountdown');if(_cdDiv)_cdDiv.style.display='none';}
+            if(!_cdFirstToken){_cdFirstToken=true;clearInterval(window._sumCdTimer);}
               if(sel){sel.innerHTML=formatSummary(cleanAIText(accumulated));
               // Update savedSumHTML - prefer whichever area has more content
               var _sa2a=document.getElementById('sumArea'),_sa2b=document.getElementById('sumAreaD');
@@ -918,7 +920,6 @@ async function loadSummary(){
     // Final render
     var sel=getStreamEl();
     clearInterval(window._sumCdTimer);
-    var _cdDiv=document.getElementById('sumCountdown');if(_cdDiv)_cdDiv.style.display='none';
     if(sel)sel.innerHTML=formatSummary(cleanAIText(accumulated));
     setAIBtnVisible(true);
     // Save complete rendered HTML for persistence across tab switches
@@ -1026,6 +1027,8 @@ async function genTickerAI(sym,d,resId){
         var ln=lines[li].trim(); if(!ln.startsWith('data:'))continue;
         var json=ln.slice(5).trim(); if(json==='[DONE]')continue;
         try{var ev=JSON.parse(json);
+          if(ev.type==='content_block_start'&&ev.content_block&&ev.content_block.type==='tool_use'){
+            var _cdN=document.getElementById('cdNum');if(_cdN)_cdN.textContent='searching…';}
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             if(!_tcdFirst){_tcdFirst=true;clearInterval(_tcdTimer);var _tcdDiv=document.getElementById('tickCd_'+resId);if(_tcdDiv)_tcdDiv.style.display='none';}
@@ -1088,6 +1091,8 @@ async function triggerAboutAI(sym,resId,btn,companyName){
         var ln=lines[li].trim(); if(!ln.startsWith('data:'))continue;
         var json=ln.slice(5).trim(); if(json==='[DONE]')continue;
         try{var ev=JSON.parse(json);
+          if(ev.type==='content_block_start'&&ev.content_block&&ev.content_block.type==='tool_use'){
+            var _cdN=document.getElementById('cdNum');if(_cdN)_cdN.textContent='searching…';}
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             if(!_acdFirst){_acdFirst=true;clearInterval(_acdTimer);var _acdDiv=document.getElementById('aboutCd_'+resId);if(_acdDiv)_acdDiv.style.display='none';}
