@@ -793,7 +793,7 @@ async function loadSummary(){
     +'- Yahoo Finance Live Blog: https://finance.yahoo.com/news/live/stock-market-today-dow-sp-500-nasdaq-futures-rise-oil-slides-as-iran-war-jitters-ease-224255466.html\n'
     +'- CNBC Markets Live: https://www.cnbc.com/2026/03/09/stock-market-today-live-updates.html\n'
     +'- SGX Market Outlook (today): https://www.minichart.com.sg/2026/03/10/singapore-market-outlook-march-2026-bank-developer-stocks-s-reits-fund-flows-and-key-investment-opportunities/\n'
-    +'- SCMP Hang Seng Index: https://www.scmp.com/topics/hang-seng-index'
+    +'- HK Market Daily (Trading Economics): https://tradingeconomics.com/hong-kong/stock-market'
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
     +'<div id="sumStream"></div></div>';
@@ -829,7 +829,11 @@ async function loadSummary(){
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             var sel=getStreamEl();
-            if(sel)sel.innerHTML=formatSummary(accumulated);
+            if(sel){sel.innerHTML=formatSummary(accumulated);
+              // Update savedSumHTML incrementally so it persists even if user switches tabs mid-stream
+              var _sa2=document.getElementById('sumArea')||document.getElementById('sumAreaD');
+              if(_sa2&&_sa2.innerHTML&&_sa2.innerHTML.length>100) savedSumHTML=_sa2.innerHTML;
+            }
           }
         }catch(_){}
       }
@@ -837,8 +841,10 @@ async function loadSummary(){
     // Final render
     var sel=getStreamEl();
     if(sel)sel.innerHTML=formatSummary(accumulated);
-    savedSumHTML=document.getElementById('sumArea')&&document.getElementById('sumArea').innerHTML
-      ||document.getElementById('sumAreaD')&&document.getElementById('sumAreaD').innerHTML||savedSumHTML;
+    // Save complete rendered HTML for persistence across tab switches
+    var _sa=document.getElementById('sumArea'); var _sb=document.getElementById('sumAreaD');
+    if(_sa&&_sa.innerHTML&&_sa.innerHTML.length>100) savedSumHTML=_sa.innerHTML;
+    else if(_sb&&_sb.innerHTML&&_sb.innerHTML.length>100) savedSumHTML=_sb.innerHTML;
   }catch(e){
     setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>');
     setAIBtnVisible(true);
