@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.2</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.3</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -887,7 +887,7 @@ async function loadSummary(){
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             var sel=getStreamEl();
-            if(sel){sel.innerHTML=formatSummary(accumulated);
+            if(sel){sel.innerHTML=formatSummary(cleanAIText(accumulated));
               // Update savedSumHTML incrementally so it persists even if user switches tabs mid-stream
               var _sa2=document.getElementById('sumArea')||document.getElementById('sumAreaD');
               if(_sa2&&_sa2.innerHTML&&_sa2.innerHTML.length>100) savedSumHTML=_sa2.innerHTML;
@@ -898,7 +898,8 @@ async function loadSummary(){
     }
     // Final render
     var sel=getStreamEl();
-    if(sel)sel.innerHTML=formatSummary(accumulated);
+    if(sel)sel.innerHTML=formatSummary(cleanAIText(accumulated));
+    setAIBtnVisible(true);
     // Save complete rendered HTML for persistence across tab switches
     var _sa=document.getElementById('sumArea'); var _sb=document.getElementById('sumAreaD');
     if(_sa&&_sa.innerHTML&&_sa.innerHTML.length>100) savedSumHTML=_sa.innerHTML;
@@ -998,12 +999,12 @@ async function genTickerAI(sym,d,resId){
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             var ts=getTickStream();
-            if(ts) ts.innerHTML=formatSummary(applyPrevDay(accumulated));
+            if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated)));
           }
         }catch(_){}
       }
     }
-    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(applyPrevDay(accumulated));
+    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated)));
     // Save with slight delay to ensure DOM is fully updated
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
@@ -1044,12 +1045,12 @@ async function triggerAboutAI(sym,resId,btn,companyName){
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             var ts=getAboutStream();
-            if(ts) ts.innerHTML=formatSummary(accumulated);
+            if(ts) ts.innerHTML=formatSummary(cleanAIText(accumulated));
           }
         }catch(_){}
       }
     }
-    var ts=getAboutStream(); if(ts) ts.innerHTML=formatSummary(accumulated);
+    var ts=getAboutStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(accumulated));
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
       if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
@@ -1061,6 +1062,23 @@ async function triggerAboutAI(sym,resId,btn,companyName){
   }
 }
 // ── Summary formatter ─────────────────────────────────────────────────────────
+function cleanAIText(txt){
+  // Strip meta-commentary lines at the start or anywhere
+  var lines=txt.split('\n');
+  var cleaned=[];
+  for(var i=0;i<lines.length;i++){
+    var l=lines[i];
+    var lower=l.trim().toLowerCase();
+    // Skip lines that are AI self-commentary
+    if(/^(based on (my |the |this )?(web search|search results?|analysis|data)[^.]*[,:])/i.test(l.trim())) continue;
+    if(/^(i (can now|will now|have now|need to|should|would|am going to|let me))/i.test(l.trim())) continue;
+    if(/^(let me|here('s| is) (my|the|a) (analysis|summary|overview|breakdown))/i.test(l.trim())) continue;
+    if(/^(after (searching|reviewing|looking)[^,]*,)/i.test(l.trim())) continue;
+    cleaned.push(l);
+  }
+  // Also strip first line if it's a search preamble
+  return cleaned.join('\n').replace(/^\s+/,'');
+}
 function formatSummary(txt){
   var html='';
   txt.split('\n').forEach(function(line){
