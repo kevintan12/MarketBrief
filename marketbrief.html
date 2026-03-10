@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.12</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.13</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -1128,6 +1128,15 @@ function cleanAIText(txt){
   }
   return cleaned.join('\n').replace(/^[\s\n]+/,'');
 }
+function linkify(s){
+  // Convert bare URLs to anchor tags (before HTML escaping)
+  return s.replace(/(https?:\/\/[^\s<>"]+)/g,function(url){
+    // Trim trailing punctuation
+    var trail=''; var m=url.match(/([.,;:!?)]+)$/);
+    if(m){trail=m[1];url=url.slice(0,url.length-m[1].length);}
+    return '<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;word-break:break-all;">'+url+'</a>'+trail;
+  });
+}
 function formatSummary(txt){
   var html='';
   txt.split('\n').forEach(function(line){
@@ -1151,6 +1160,14 @@ function formatSummary(txt){
       });
       html+='<div style="font-size:1.05rem;line-height:1.9;color:var(--txt);margin-bottom:10px;"><span>'+linked+'</span></div>';
     }
+  });
+  // Post-process: convert any plain-text URLs that made it through esc() into links
+  html=html.replace(/https?:\/\/[^\s<>"&]+(?:&amp;[^\s<>"]*|[^\s<>"&])*/g,function(url){
+    var clean=url.replace(/&amp;/g,'&');
+    var trail=''; var m=clean.match(/([.,;:!?)]+)$/);
+    if(m){trail=m[1];clean=clean.slice(0,-m[1].length);}
+    var display=clean.replace(/https?:\/\//,'').replace(/\/.*$/,'');
+    return '<a href="'+clean+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;font-size:0.9rem;">'+display+'</a>'+trail;
   });
   return html;
 }
