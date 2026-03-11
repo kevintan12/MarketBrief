@@ -195,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.27</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.27</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.28</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.28</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -249,7 +249,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.311.27';
+  var CURRENT='v1.311.28';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -298,7 +298,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.311.27'){
+        if(m&&m[1]&&m[1]!=='v1.311.28'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1261,6 +1261,15 @@ function renderSettingsPanelTo(pid){
     +'</div>'
     +'<button class="savebtn" onclick="saveSettings(\''+pid+'\')">Save Settings</button>'
     +'<div id="saveMsg_'+pid+'"></div>'
+    +'<div class="srow" style="border-color:rgba(0,212,255,0.25)">'
+      +'<div class="slbl" style="color:var(--acc)">⇅ Sync Settings</div>'
+      +'<div class="snote">Export your settings as a code to copy to another device, or paste a code here to import.</div>'
+      +'<button class="savebtn" style="margin-top:8px;background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--acc)" onclick="exportSettings(\''+pid+'\')">⬆ Export Settings Code</button>'
+      +'<div id="expOut_'+pid+'"></div>'
+      +'<textarea class="sinp" id="impInp_'+pid+'" placeholder="Paste settings code here to import…" rows="3" style="margin-top:10px;font-size:0.8rem;resize:vertical;"></textarea>'
+      +'<button class="savebtn" style="margin-top:6px;" onclick="importSettings(\''+pid+'\')">⬇ Import Settings Code</button>'
+      +'<div id="impMsg_'+pid+'"></div>'
+    +'</div>'
     +'<div class="srow" style="border-color:rgba(239,68,68,0.2)">'
       +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'
       +'<div class="snote" style="margin:0">Data via Yahoo Finance (15–20 min delay). For informational purposes only — not financial advice.</div>'
@@ -1345,6 +1354,40 @@ function moveTicker(mkt,idx,dir,pid){
   renderSettingsPanelTo(pid);
 }
 
+function exportSettings(pid){
+  var data={proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers};
+  var code=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  var out=document.getElementById('expOut_'+pid);
+  var codeId='expCode_'+pid;
+  var btnId='expCopyBtn_'+pid;
+  out.innerHTML='<div style="margin-top:8px"><textarea class="sinp" rows="3" id="'+codeId+'" style="font-size:0.75rem;resize:none;" readonly>'+code+'</textarea>'
+    +'<button class="savebtn" id="'+btnId+'" style="margin-top:4px;background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--acc)">Copy Code</button></div>';
+  document.getElementById(btnId).onclick=function(){
+    var t=document.getElementById(codeId); t.select(); t.setSelectionRange(0,99999);
+    try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');}
+    this.textContent='✓ Copied!';
+    setTimeout(function(){document.getElementById(btnId).textContent='Copy Code';},2000);
+  };
+}
+function importSettings(pid){
+  var msg=document.getElementById('impMsg_'+pid);
+  var raw=(document.getElementById('impInp_'+pid).value||'').trim();
+  if(!raw){msg.innerHTML='<div class="msg err" style="margin-top:6px">Paste a settings code first.</div>';setTimeout(function(){msg.innerHTML='';},3000);return;}
+  try{
+    var data=JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if(data.proxyUrl!==undefined) S.proxyUrl=data.proxyUrl;
+    if(data.apiKey!==undefined)   S.apiKey=data.apiKey;
+    if(data.style!==undefined)    S.style=data.style;
+    if(data.tz!==undefined)       S.tz=data.tz;
+    if(data.customTickers)        S.customTickers=data.customTickers;
+    storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
+    msg.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Settings imported! Reloading…</div>';
+    setTimeout(function(){location.reload();},1200);
+  }catch(e){
+    msg.innerHTML='<div class="msg err" style="margin-top:6px">Invalid code. Please try again.</div>';
+    setTimeout(function(){msg.innerHTML='';},3000);
+  }
+}
 function storeSave(data){
   var str=JSON.stringify(data);
   try{ localStorage.setItem('mb5',str); return 'local'; }catch(e){}
