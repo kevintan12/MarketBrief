@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.13</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.15</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -1128,14 +1128,21 @@ function cleanAIText(txt){
   }
   return cleaned.join('\n').replace(/^[\s\n]+/,'');
 }
-function linkify(s){
-  // Convert bare URLs to anchor tags (before HTML escaping)
-  return s.replace(/(https?:\/\/[^\s<>"]+)/g,function(url){
-    // Trim trailing punctuation
-    var trail=''; var m=url.match(/([.,;:!?)]+)$/);
-    if(m){trail=m[1];url=url.slice(0,url.length-m[1].length);}
-    return '<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;word-break:break-all;">'+url+'</a>'+trail;
-  });
+function safeLineHtml(line){
+  // Split line into text/url segments, esc() text only, wrap URLs in <a>
+  var result='';
+  var urlRe=/(https?:\/\/[^\s]+)/g;
+  var last=0; var m;
+  while((m=urlRe.exec(line))!==null){
+    result+=esc(line.slice(last,m.index));
+    var url=m[1].replace(/[.,;:!?)]+$/,'');
+    var display=url.replace(/^https?:\/\//,'');
+    if(display.length>55) display=display.substring(0,55)+'…';
+    result+='<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;word-break:break-all;">'+display+'</a>';
+    last=m.index+m[1].length;
+  }
+  result+=esc(line.slice(last));
+  return result;
 }
 function formatSummary(txt){
   var html='';
@@ -1149,25 +1156,12 @@ function formatSummary(txt){
     if(isHeader){
       html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(249,115,22,0.25);">'+esc(stripped)+'</div>';
     } else if(/^[-•*]/.test(line)){
-      html+='<div style="display:flex;gap:8px;margin-bottom:7px;"><span style="color:var(--orange);flex-shrink:0;margin-top:3px">›</span><span style="font-size:1.05rem;line-height:1.8;color:var(--txt);">'+esc(line.replace(/^[-•*]\s*/,''))+'</span></div>';
+      html+='<div style="display:flex;gap:8px;margin-bottom:7px;"><span style="color:var(--orange);flex-shrink:0;margin-top:3px">›</span><span style="font-size:1.05rem;line-height:1.8;color:var(--txt);">'+safeLineHtml(line.replace(/^[-•*]\s*/,''))+'</span></div>';
     } else if(/^Outlook:/i.test(line)||/^Sentiment:/i.test(line)){
-      // Highlight Outlook/Sentiment line
-      html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+esc(line)+'</div>';
+      html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+safeLineHtml(line)+'</div>';
     } else {
-      // Render URLs as clickable links
-      var linked=line.replace(/(https?:\/\/[^\s<>"]+)/g,function(url){
-        return '</span><a href="'+url+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;word-break:break-all;">'+url+'</a><span>';
-      });
-      html+='<div style="font-size:1.05rem;line-height:1.9;color:var(--txt);margin-bottom:10px;"><span>'+linked+'</span></div>';
+      html+='<div style="font-size:1.05rem;line-height:1.8;color:var(--txt);margin-bottom:4px;">'+safeLineHtml(line)+'</div>';
     }
-  });
-  // Post-process: convert any plain-text URLs that made it through esc() into links
-  html=html.replace(/https?:\/\/[^\s<>"&]+(?:&amp;[^\s<>"]*|[^\s<>"&])*/g,function(url){
-    var clean=url.replace(/&amp;/g,'&');
-    var trail=''; var m=clean.match(/([.,;:!?)]+)$/);
-    if(m){trail=m[1];clean=clean.slice(0,-m[1].length);}
-    var display=clean.replace(/https?:\/\//,'').replace(/\/.*$/,'');
-    return '<a href="'+clean+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;font-size:0.9rem;">'+display+'</a>'+trail;
   });
   return html;
 }
@@ -1318,19 +1312,35 @@ function moveTicker(mkt,idx,dir,pid){
   renderSettingsPanelTo(pid);
 }
 
+function storeSave(data){
+  var str=JSON.stringify(data);
+  try{ localStorage.setItem('mb5',str); return 'local'; }catch(e){}
+  try{ sessionStorage.setItem('mb5',str); return 'session'; }catch(e){}
+  return 'memory';
+}
+function storeLoad(){
+  try{ var v=localStorage.getItem('mb5'); if(v) return JSON.parse(v); }catch(e){}
+  try{ var v=sessionStorage.getItem('mb5'); if(v) return JSON.parse(v); }catch(e){}
+  return {};
+}
 function saveSettings(pid){
   S.proxyUrl=(document.getElementById('cfgProxy_'+pid).value||'').trim().replace(/\/+$/,'');
   S.apiKey  =(document.getElementById('cfgClaude_'+pid).value||'').trim();
   S.style   =document.getElementById('cfgStyle_'+pid).value;
   S.tz      =document.getElementById('cfgTz_'+pid).value;
-  localStorage.setItem('mb5',JSON.stringify({proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers}));
+  var result=storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
   var m=document.getElementById('saveMsg_'+pid);
-  m.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Saved.</div>';
-  setTimeout(function(){m.innerHTML='';},2000);
+  if(result==='memory'){
+    m.innerHTML='<div class="msg err" style="margin-top:6px">⚠ Storage blocked by browser — settings saved for this session only. Check Safari Settings → Privacy and disable Private Browsing or allow website data.</div>';
+    setTimeout(function(){m.innerHTML='';},6000);
+  } else {
+    m.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Saved'+(result==='session'?' (session only)':'')+'.</div>';
+    setTimeout(function(){m.innerHTML='';},2000);
+  }
 }
 function loadSettings(){
   try{
-    var s=JSON.parse(localStorage.getItem('mb5')||'{}');
+    var s=storeLoad();
     if(s.proxyUrl) S.proxyUrl=s.proxyUrl;
     if(s.apiKey)   S.apiKey=s.apiKey;
     if(s.style)    S.style=s.style;
