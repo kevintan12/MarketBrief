@@ -203,11 +203,11 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   .card{padding:10px 12px;flex-wrap:wrap;align-items:flex-start;}
   .flag{width:28px;height:28px;font-size:0.9rem;flex-shrink:0;}
   .cleft{flex-basis:100%;gap:7px;}
-  .cname{font-size:0.95rem;overflow:visible;display:block;-webkit-line-clamp:unset;}
-  .csub{font-size:0.8rem;}
+  .cname{font-size:1.05rem;overflow:visible;display:block;-webkit-line-clamp:unset;}
+  .csub{font-size:0.88rem;}
   .cright{flex-basis:100%;text-align:left;padding-left:35px;min-width:unset;margin-left:0;margin-top:2px;}
-  .cprice{font-size:0.95rem;}
-  .cchg{font-size:0.78rem;white-space:nowrap;}
+  .cprice{font-size:1.05rem;}
+  .cchg{font-size:0.88rem;white-space:nowrap;}
 }
 </style>
 </head>
@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.8</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.8</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.9</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.9</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.8';
+  var CURRENT='v1.312.9';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -318,7 +318,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.8'){
+        if(m&&m[1]&&m[1]!=='v1.312.9'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
