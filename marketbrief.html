@@ -26,7 +26,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background-size:40px 40px;}
 
 .app{position:relative;z-index:1;margin:0 auto;display:flex;flex-direction:column;}
-@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}.content{overflow-y:auto;padding-bottom:80px;}.logo{font-size:1.2rem;}.header{padding:8px 10px;}.logo-ver{display:none;}.idx-scroll{margin-bottom:60px;}.ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}.card{padding:10px 12px;}.cname{font-size:0.88rem;-webkit-line-clamp:2;}.cprice{font-size:0.95rem;}.cchg{font-size:0.75rem;white-space:nowrap;}.cright{min-width:105px;margin-left:6px;}.flag{width:28px;height:28px;font-size:0.9rem;}.cleft{gap:7px;}}
+
 @media(min-width:769px){.app{max-width:1280px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}.bnav{display:none;}.sidebar{display:flex;}.content{padding:0;flex:1;min-height:0;overflow-y:auto;}.hver{display:none;}}
 
 .header{padding:10px 16px;border-bottom:1px solid var(--bor);display:flex;align-items:center;
@@ -189,13 +189,32 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 .bitem.on{color:var(--acc);}
 .bico{font-size:1.1rem;}
 .pwatip{margin:10px 20px 0;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:9px;padding:10px 13px;font-size:1rem;color:var(--gld);line-height:1.6;}
+
+@media(max-width:768px){
+  .app{max-width:480px;}
+  .bnav{display:flex;}
+  .sidebar{display:none;}
+  .content{overflow-y:auto;padding-bottom:80px;}
+  .logo{font-size:1.2rem;}
+  .header{padding:8px 10px;}
+  .logo-ver{display:none;}
+  .idx-scroll{margin-bottom:60px;}
+  .ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}
+  .card{padding:10px 12px;}
+  .flag{width:28px;height:28px;font-size:0.9rem;}
+  .cleft{gap:7px;}
+  .cname{font-size:0.88rem;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .cprice{font-size:0.95rem;}
+  .cchg{font-size:0.75rem;white-space:nowrap;}
+  .cright{min-width:105px;margin-left:6px;}
+}
 </style>
 </head>
 <body>
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.6</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.6</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.7</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.7</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -249,7 +268,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.6';
+  var CURRENT='v1.312.7';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -298,7 +317,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.6'){
+        if(m&&m[1]&&m[1]!=='v1.312.7'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
