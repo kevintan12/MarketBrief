@@ -17,14 +17,14 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{font-size:var(--base);}
-body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:1rem;}
+html,body{height:100%;margin:0;}body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--txt);overflow:hidden;font-size:1rem;}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
   background-size:40px 40px;}
 
-.app{position:relative;z-index:1;margin:0 auto;padding-bottom:90px;}
-@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}}
-@media(min-width:769px){.app{max-width:1280px;display:flex;flex-direction:column;}.bnav{display:none;}.sidebar{display:flex;}.content{padding:0;}}
+.app{position:relative;z-index:1;margin:0 auto;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}.content{flex:1;min-height:0;overflow-y:auto;padding-bottom:72px;}}
+@media(min-width:769px){.app{max-width:1280px;display:flex;flex-direction:column;}.bnav{display:none;}.sidebar{display:flex;}.content{padding:0;flex:1;min-height:0;overflow-y:auto;}}
 
 .header{padding:16px 24px 13px;border-bottom:1px solid var(--bor);display:flex;align-items:center;
   justify-content:space-between;position:sticky;top:0;background:rgba(10,15,30,0.96);
@@ -35,7 +35,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 .sidebar{flex-direction:column;gap:4px;padding:24px 16px;width:210px;flex-shrink:0;
   border-right:1px solid var(--bor);position:sticky;top:61px;height:calc(100vh - 61px);background:rgba(10,15,30,0.6);}
-.sidebar-wrap{display:flex;}
+.sidebar-wrap{display:flex;flex:1;min-height:0;overflow:hidden;}
 .sidebar-content{flex:1;overflow-y:auto;}
 .snav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;border:1px solid transparent;
   background:transparent;color:var(--mut);font-family:'DM Mono',monospace;font-size:1rem;cursor:pointer;transition:all 0.15s;width:100%;text-align:left;}
@@ -45,7 +45,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .sidebar-logo{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;color:var(--acc);padding:0 14px 18px;border-bottom:1px solid var(--bor);margin-bottom:12px;}
 
 .content{padding:16px 20px;}
-@media(min-width:769px){.desktop-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px;}}
+@media(min-width:769px){.desktop-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px;height:100%;box-sizing:border-box;}.col-left{display:flex;flex-direction:column;min-height:0;}.col-right{display:flex;flex-direction:column;min-height:0;}}
 
 .slabel{font-size:0.9rem;letter-spacing:0.12em;color:var(--mut);text-transform:uppercase;margin-bottom:10px;margin-top:22px;}
 .slabel.notop{margin-top:0;}
@@ -77,8 +77,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .up{color:var(--grn);}.dn{color:var(--red);}.neu{color:var(--mut);}
 
 .msg{background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:14px 16px;font-size:1rem;color:var(--mut);line-height:1.7;margin-bottom:8px;}
-.idx-scroll{max-height:340px;overflow-y:auto;overflow-x:hidden;border-radius:11px;scrollbar-width:thin;scrollbar-color:var(--bor) transparent;}
+.idx-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;border-radius:11px;scrollbar-width:thin;scrollbar-color:var(--bor) transparent;}
 .idx-scroll::-webkit-scrollbar{width:4px;}
+
 .idx-scroll::-webkit-scrollbar-track{background:transparent;}
 .idx-scroll::-webkit-scrollbar-thumb{background:var(--bor);border-radius:4px;}
 .msg.err{border-color:var(--red);color:var(--red);}
@@ -191,7 +192,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.18</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.20</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
