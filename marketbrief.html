@@ -191,7 +191,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.15</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.17</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -818,7 +818,7 @@ async function loadSummary(){
   };
   var sections=[];
   var sectionLabels={US:'🇺🇸 US Markets',SG:'🇸🇬 Singapore Markets',HK:'🇭🇰 Hong Kong Markets'};
-  var prompt='You are a financial analyst writing for a Singapore-based investor. Use clear, plain English — avoid jargon where possible. Write like you are explaining to a smart friend who follows the markets but is not a Wall Street professional. Be direct, use real numbers, and explain the "why" behind every move.\n\n';
+  var prompt='You are a financial analyst writing for a Singapore-based investor. The price and change data below is live-fetched from Yahoo Finance — treat it as accurate and current. Do NOT question the data or claim you lack real-time access. Search the web for today\'s market news and catalysts, then write your analysis directly. Be direct, use plain English and real numbers, explain the why behind every move.\n\n';
   var liveMarkets=isAnyMarketOpen();
   // Prepend live-search instruction if any watched market is open
   if(liveMarkets.any){
@@ -1298,8 +1298,8 @@ function closeSettAcDrop(wid){
 function addTickerDirect(mkt,sym,name,pid){
   var all=getAllTickers().map(function(t){return t.sym;});
   if(all.indexOf(sym)>-1)return;
-  var flag={'US':'🇺🇸','SG':'🇸🇬','HK':'🇭🇰'}[mkt]||'🌐';
-  var sub={'US':'US · NYSE/Nasdaq','SG':'SG · SGX','HK':'HK · HKEX'}[mkt]||'';
+  var flag=sym.endsWith('.L')?'🇬🇧':({'US':'🇺🇸','SG':'🇸🇬','HK':'🇭🇰'}[mkt]||'🌐');
+  var sub=sym.endsWith('.L')?'UK · LSE':({'US':'US · NYSE/Nasdaq','SG':'SG · SGX','HK':'HK · HKEX'}[mkt]||'');
   S.customTickers[mkt].push({sym:sym,name:name||sym,sub:sub,flag:flag,mkt:mkt});
   renderSettingsPanelTo(pid);
 }
