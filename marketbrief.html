@@ -192,7 +192,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.20</span></div>
+    <div class="logo">Market<span>Brief</span><span style="font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--mut);margin-left:8px;align-self:flex-end;padding-bottom:3px">v1.311.21</span></div>
     <div class="htime" id="hTime"></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
@@ -350,13 +350,15 @@ function setFilter(f,btn){
   curFilter=f;
   document.querySelectorAll('#mktChips .chip').forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on');
-  renderIndices();
+  clearTimeout(window._riTimer);
+  window._riTimer=setTimeout(renderIndices,80);
 }
 function setFilterD(f,btn){
   curFilter=f;
   document.querySelectorAll('#mktChipsD .chip').forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on');
-  renderIndices();
+  clearTimeout(window._riTimer);
+  window._riTimer=setTimeout(renderIndices,80);
 }
 
 // ── Desktop ───────────────────────────────────────────────────────────────────
@@ -920,6 +922,7 @@ async function loadSummary(){
     var sel=getStreamEl();
     clearInterval(window._sumCdTimer);
     if(sel)sel.innerHTML=formatSummary(cleanAIText(accumulated));
+    _sumInFlight=false;
     setAIBtnVisible(true);
     // Save complete rendered HTML for persistence across tab switches
     var _sa=document.getElementById('sumArea'); var _sb=document.getElementById('sumAreaD');
@@ -929,6 +932,7 @@ async function loadSummary(){
     if(_best&&_best.innerHTML&&_best.innerHTML.length>100) savedSumHTML=_best.innerHTML;
   }catch(e){
     setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>');
+    _sumInFlight=false;
     setAIBtnVisible(true);
   }
 }
