@@ -49,7 +49,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 .content{padding:16px 20px;}
 @media(min-width:769px){.desktop-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px;height:100%;box-sizing:border-box;}.col-left{display:flex;flex-direction:column;min-height:0;}.col-right{display:flex;flex-direction:column;min-height:0;}}
-
+continue MarketBrief
 .slabel{font-size:0.9rem;letter-spacing:0.12em;color:var(--mut);text-transform:uppercase;margin-bottom:10px;margin-top:22px;}
 .slabel.notop{margin-top:0;}
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--grn);margin-right:6px;animation:pulse 2s ease infinite;}
@@ -70,10 +70,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .card:nth-child(3){animation-delay:.12s}.card:nth-child(4){animation-delay:.16s}
 .card:nth-child(5){animation-delay:.20s}.card:nth-child(6){animation-delay:.24s}
 .card:nth-child(7){animation-delay:.28s}.card:nth-child(8){animation-delay:.32s}
-.cleft{display:flex;align-items:center;gap:11px;min-width:0;flex:1;}
+.cleft{display:flex;align-items:center;gap:11px;}
 .flag{width:34px;height:34px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
-.cname{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.csub{font-size:0.9rem;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cname{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;}
+.csub{font-size:0.9rem;color:var(--mut);margin-top:2px;}
 .cright{text-align:right;}
 .cprice{font-family:'Syne',sans-serif;font-weight:700;font-size:1.15rem;}
 .cchg{font-size:0.95rem;margin-top:2px;}
@@ -195,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.30</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.30</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.29</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.29</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -249,7 +249,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.311.30';
+  var CURRENT='v1.311.29';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -791,7 +791,7 @@ function renderIndices(){
         var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
         var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
         html+='<div class="card" data-sym="'+esc(d.sym)+'"><div class="cleft"><div class="flag">'+d.flag+'</div>'
-          +'<div style="min-width:0"><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'<span style="margin-left:6px;color:var(--acc);font-size:0.8rem;opacity:0.75;">'+esc(d.sym)+'</span></div></div></div>'
+          +'<div><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'<span style="margin-left:6px;color:var(--acc);font-size:0.8rem;opacity:0.75;">'+esc(d.sym)+'</span></div></div></div>'
           +'<div class="cright"><div class="cprice '+cls+'" id="cp_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'
           +'<div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')</div></div></div>';
       });
@@ -1425,7 +1425,7 @@ function loadSettings(){
   }catch(e){}
 }
 
-function fmt(n){if(n===null||n===undefined)return '—';return Number(n).toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3});}
+function fmt(n){if(n===null||n===undefined)return '—';return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtVol(v){
   if(v===null||v===undefined||v===0||v==='0')return '—';
   var n=Number(v);
