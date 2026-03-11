@@ -26,7 +26,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background-size:40px 40px;}
 
 .app{position:relative;z-index:1;margin:0 auto;display:flex;flex-direction:column;}
-@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}.content{overflow-y:auto;padding-bottom:80px;}.logo{font-size:1.2rem;}.header{padding:8px 10px;}.logo-ver{display:none;}.idx-scroll{margin-bottom:60px;}.ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}.card{padding:10px 12px;gap:6px;}.cname{font-size:0.9rem;}.cprice{font-size:0.95rem;}.cchg{font-size:0.78rem;white-space:nowrap;}.cright{width:110px;}.flag{width:28px;height:28px;font-size:0.95rem;}}
+@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}.content{overflow-y:auto;padding-bottom:80px;}.logo{font-size:1.2rem;}.header{padding:8px 10px;}.logo-ver{display:none;}.idx-scroll{margin-bottom:60px;}.ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}.cname{font-size:0.95rem;}.cchg{white-space:nowrap;}}
 @media(min-width:769px){.app{max-width:1280px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}.bnav{display:none;}.sidebar{display:flex;}.content{padding:0;flex:1;min-height:0;overflow-y:auto;}.hver{display:none;}}
 
 .header{padding:10px 16px;border-bottom:1px solid var(--bor);display:flex;align-items:center;
@@ -70,13 +70,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .card:nth-child(3){animation-delay:.12s}.card:nth-child(4){animation-delay:.16s}
 .card:nth-child(5){animation-delay:.20s}.card:nth-child(6){animation-delay:.24s}
 .card:nth-child(7){animation-delay:.28s}.card:nth-child(8){animation-delay:.32s}
-.cleft{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;overflow:hidden;}
-.flag{width:34px;height:34px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
-.cname{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;line-height:1.35;word-break:break-word;}
-.csub{font-size:0.9rem;color:var(--mut);margin-top:2px;}
-.cright{text-align:right;flex-shrink:0;width:120px;}
+.cleft{display:none;}
+.flag{width:26px;height:26px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;}
+.cname{font-family:'Syne',sans-serif;font-weight:700;font-size:1.05rem;line-height:1.35;word-break:break-word;width:100%;}
+.cbottom{display:flex;align-items:center;gap:8px;width:100%;}.csub{font-size:0.85rem;color:var(--mut);flex:1;min-width:0;}.csym{margin-left:6px;color:var(--acc);font-size:0.8rem;opacity:0.75;}
+.cright{text-align:right;flex-shrink:0;}
 .cprice{font-family:'Syne',sans-serif;font-weight:700;font-size:1.15rem;}
-.cchg{font-size:0.95rem;margin-top:2px;}
+.cchg{font-size:0.88rem;margin-top:1px;}
 .up{color:var(--grn);}.dn{color:var(--red);}.neu{color:var(--mut);}
 
 .msg{background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:14px 16px;font-size:1rem;color:var(--mut);line-height:1.7;margin-bottom:8px;}
@@ -195,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.34</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.34</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.1</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.1</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -249,7 +249,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.311.34';
+  var CURRENT='v1.312.1';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -298,7 +298,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.311.34'){
+        if(m&&m[1]&&m[1]!=='v1.312.1'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -790,11 +790,7 @@ function renderIndices(){
         }
         var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');
         var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
-        html+='<div class="card" data-sym="'+esc(d.sym)+'"><div class="cleft"><div class="flag">'+d.flag+'</div>'
-          +'<div style="min-width:0"><div class="cname">'+esc(d.name)+'</div><div class="csub">'+esc(d.sub)+'<span style="margin-left:6px;color:var(--acc);font-size:0.8rem;opacity:0.75;">'+esc(d.sym)+'</span></div></div></div>'
-          +'<div class="cright"><div class="cprice '+cls+'" id="cp_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'
-          +'<div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')</div></div></div>';
-      });
+        html+='<div class="card" data-sym="'+esc(d.sym)+'"><div class="cname">'+esc(d.name)+'</div><div class="cbottom"><div class="flag">'+d.flag+'</div><div class="csub">'+esc(d.sub)+'<span class="csym">'+esc(d.sym)+'</span></div><div class="cright"><div class="cprice '+cls+'" id="cp_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div><div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')</div></div></div></div>';
       g.innerHTML=html;
       return;
     }
