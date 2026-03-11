@@ -26,7 +26,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background-size:40px 40px;}
 
 .app{position:relative;z-index:1;margin:0 auto;display:flex;flex-direction:column;}
-@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}.content{overflow-y:auto;padding-bottom:80px;}.logo{font-size:1.2rem;}.header{padding:8px 10px;}.logo-ver{display:none;}.ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}}
+@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}.content{overflow-y:auto;padding-bottom:80px;}.logo{font-size:1.2rem;}.header{padding:8px 10px;}.logo-ver{display:none;}.idx-scroll{margin-bottom:60px;}.ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}}
 @media(min-width:769px){.app{max-width:1280px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}.bnav{display:none;}.sidebar{display:flex;}.content{padding:0;flex:1;min-height:0;overflow-y:auto;}.hver{display:none;}}
 
 .header{padding:10px 16px;border-bottom:1px solid var(--bor);display:flex;align-items:center;
@@ -195,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.28</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.28</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.29</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.29</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -249,7 +249,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.311.28';
+  var CURRENT='v1.311.29';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -298,7 +298,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.311.28'){
+        if(m&&m[1]&&m[1]!=='v1.311.29'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
