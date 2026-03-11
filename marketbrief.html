@@ -194,11 +194,11 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   .app{max-width:480px;}
   .bnav{display:flex;}
   .sidebar{display:none;}
-  .content{overflow-y:auto;padding-bottom:80px;}
+  .content{overflow-y:auto;padding-bottom:110px;}
   .logo{font-size:1.2rem;}
   .header{padding:8px 10px;}
   .logo-ver{display:none;}
-  .idx-scroll{margin-bottom:20px;}
+  .idx-scroll{margin-bottom:0;}
   .ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}
   .card{padding:10px 12px;flex-wrap:wrap;align-items:flex-start;}
   .flag{width:28px;height:28px;font-size:14px;flex-shrink:0;}
@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.15</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.15</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.16</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.16</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.15';
+  var CURRENT='v1.312.16';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -318,7 +318,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.15'){
+        if(m&&m[1]&&m[1]!=='v1.312.16'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
