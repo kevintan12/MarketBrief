@@ -198,7 +198,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   .logo{font-size:1.2rem;}
   .header{padding:8px 10px;}
   .logo-ver{display:none;}
-  .idx-scroll{margin-bottom:60px;}
+  .idx-scroll{margin-bottom:8px;}
   .ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}
   .card{padding:10px 12px;flex-wrap:wrap;align-items:flex-start;}
   .flag{width:28px;height:28px;font-size:0.9rem;flex-shrink:0;}
@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.9</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.9</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.10</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.10</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.9';
+  var CURRENT='v1.312.10';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -318,7 +318,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.9'){
+        if(m&&m[1]&&m[1]!=='v1.312.10'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
