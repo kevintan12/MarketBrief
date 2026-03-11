@@ -26,7 +26,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background-size:40px 40px;}
 
 .app{position:relative;z-index:1;margin:0 auto;display:flex;flex-direction:column;}
-@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}.content{overflow-y:auto;padding-bottom:80px;}.logo{font-size:1.2rem;}.header{padding:8px 10px;}.logo-ver{display:none;}.idx-scroll{margin-bottom:60px;}.ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}.card{display:block;padding:10px 12px;}.cleft{display:none;}.cright{display:none;}.cmob{display:block;}.cmob-name{font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;line-height:1.35;margin-bottom:6px;}.cmob-bottom{display:flex;align-items:center;gap:7px;}.flag-sm{width:24px;height:24px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;}.cmob-bottom .csub{flex:1;min-width:0;font-size:0.78rem;color:var(--mut);}.cmob-bottom .cright{display:block;min-width:unset;text-align:right;flex-shrink:0;}.cmob-bottom .cprice{font-size:0.95rem;font-family:'Syne',sans-serif;font-weight:700;}.cmob-bottom .cchg{font-size:0.76rem;white-space:nowrap;margin-top:1px;}}
+@media(max-width:768px){.app{max-width:480px;}.bnav{display:flex;}.sidebar{display:none;}.content{overflow-y:auto;padding-bottom:80px;}.logo{font-size:1.2rem;}.header{padding:8px 10px;}.logo-ver{display:none;}.idx-scroll{margin-bottom:60px;}.ai-btn{position:sticky;bottom:68px;z-index:10;backdrop-filter:blur(10px);}.card{display:block;padding:10px 12px;}.cleft{display:none;}.cright{display:none;}.cmob{display:block;}.cmob-name{font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;line-height:1.35;margin-bottom:6px;}.cmob-bottom{display:flex;align-items:center;gap:7px;}.flag-sm{width:24px;height:24px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;}.cmob-bottom .csub{flex:1;min-width:0;font-size:0.78rem;color:var(--mut);}.cmob-price{text-align:right;flex-shrink:0;}.cmob-price .cprice{font-size:0.95rem;font-family:'Syne',sans-serif;font-weight:700;}.cmob-price .cchg{font-size:0.76rem;white-space:nowrap;margin-top:1px;}}
 @media(min-width:769px){.app{max-width:1280px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}.bnav{display:none;}.sidebar{display:flex;}.content{padding:0;flex:1;min-height:0;overflow-y:auto;}.hver{display:none;}}
 
 .header{padding:10px 16px;border-bottom:1px solid var(--bor);display:flex;align-items:center;
@@ -73,7 +73,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .cleft{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;overflow:hidden;}
 .flag{width:34px;height:34px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
 .cname{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;line-height:1.35;word-break:break-word;}
-.cbottom{display:none;}.csub{font-size:0.9rem;color:var(--mut);margin-top:2px;}.csym{margin-left:6px;color:var(--acc);font-size:0.8rem;opacity:0.75;}.cmob{display:none;}.flag-sm{display:none;}
+.cbottom{display:none;}.csub{font-size:0.9rem;color:var(--mut);margin-top:2px;}.csym{margin-left:6px;color:var(--acc);font-size:0.8rem;opacity:0.75;}.cmob{display:none;}.flag-sm{display:none;}.cmob-price{text-align:right;flex-shrink:0;}
 .cright{text-align:right;flex-shrink:0;min-width:120px;}
 .cprice{font-family:'Syne',sans-serif;font-weight:700;font-size:1.15rem;}
 .cchg{font-size:0.95rem;margin-top:2px;}
@@ -195,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.2</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.2</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.3</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.3</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -249,7 +249,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.2';
+  var CURRENT='v1.312.3';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -298,7 +298,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.2'){
+        if(m&&m[1]&&m[1]!=='v1.312.3'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -799,7 +799,7 @@ function renderIndices(){
           '<div class="cmob"><div class="cmob-name">'+esc(d.name)+'</div>'+
           '<div class="cmob-bottom"><div class="flag-sm">'+d.flag+'</div>'+
           '<div class="csub">'+esc(d.sub)+'<span class="csym">'+esc(d.sym)+'</span></div>'+
-          '<div class="cright"><div class="cprice '+cls+'" id="cp2_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'+
+          '<div class="cmob-price"><div class="cprice '+cls+'" id="cp2_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'+
           '<div class="cchg '+cls+'" id="cc2_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')</div></div></div></div>'+
           '</div>';
       });
