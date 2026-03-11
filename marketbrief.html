@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0f1e">
@@ -192,7 +195,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.26</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.26</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.311.27</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.311.27</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -244,6 +247,22 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 </div>
 
 <script>
+// ── Version cache-bust ────────────────────────────────────────────────────────
+(function(){
+  var CURRENT='v1.311.27';
+  try{
+    var last=sessionStorage.getItem('mb_ver');
+    if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
+    else if(!last){sessionStorage.setItem('mb_ver',CURRENT);}
+  }catch(e){}
+  // Fetch the live page with no-cache to check if a newer version exists
+  if('serviceWorker' in navigator) return; // skip if SW handles it
+  fetch(location.href,{cache:'no-store',method:'HEAD'}).then(function(r){
+    var ver=r.headers.get('x-app-version')||'';
+    // GitHub Pages won't return custom headers, so instead we reload once per session
+    // if the page was loaded from cache (performance.navigation.type===2 means back/forward)
+  }).catch(function(){});
+})();
 // ── State ─────────────────────────────────────────────────────────────────────
 var S = {
   proxyUrl:'', apiKey:'', style:'detailed', tz:'Asia/Singapore',
@@ -273,6 +292,18 @@ window.onload=function(){
   renderSettingsPanelTo('settingsPanel');
   loadDash();
   startAutoRefresh();
+  // Force fresh content check — reload if a newer version is deployed
+  setTimeout(function(){
+    fetch(location.href,{cache:'no-store'})
+      .then(function(r){return r.text();})
+      .then(function(html){
+        var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
+        if(m&&m[1]&&m[1]!=='v1.311.27'){
+          console.log('New version '+m[1]+' available, reloading…');
+          location.reload(true);
+        }
+      }).catch(function(){});
+  }, 3000);
   // Event delegation for search result buttons
   document.addEventListener('click',function(e){
     var ab=e.target.closest('.analyze-btn:not(.about-btn)');
