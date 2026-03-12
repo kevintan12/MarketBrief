@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.45</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.45</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.46</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.46</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.45';
+  var CURRENT='v1.312.46';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.45'){
+        if(m&&m[1]&&m[1]!=='v1.312.46'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1133,9 +1133,9 @@ async function genTickerAI(sym,d,resId){
     +'MB Value: average of valid results only.\n\n'
     +'Write EXACTLY these sections:\n'
     +'1. 💰 Intrinsic Value\n'
-    +'Two lines only:\n'
-    +'DCF-20: $X | DFCF-20: $X | Mean P/B: $X\n'
-    +'MB Value: $X | Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n\n'
+    +'Two lines only (all monetary values to 3 decimal places e.g. $12.345):\n'
+    +'DCF-20: $X.XXX | DFCF-20: $X.XXX | Mean P/B: $X.XXX\n'
+    +'MB Value: $X.XXX | Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n\n'
     +'2. 📈 Price Action\n'
     +'3. 🔍 Key Drivers\n'
     +'4. 📊 Volume & Participation\n'
