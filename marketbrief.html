@@ -1253,7 +1253,7 @@ function cleanAIText(txt){
 }
 function applyInlineMarkdown(escaped){
   return escaped
-    .replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:'DM Mono',monospace;font-weight:500;color:var(--acc);">$1</strong>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:DM Mono,monospace;font-weight:500;color:var(--acc);">$1</strong>')
     .replace(/\*([^*]+)\*/g,'<em>$1</em>');
 }
 function safeLineHtml(line){
@@ -1281,7 +1281,7 @@ function formatSummary(txt){
     var stripped=line.replace(/^#+\s*/,'').replace(/^[1-9][.)\s]+/,'').trim();
     var isHeader=/^#/.test(line)||/^[1-9][.)]\s/.test(line.trim())||stripped.charCodeAt(0)>255;
     if(isHeader&&line.indexOf('**')===-1){
-      html+='<div style="font-family:'DM Mono',monospace;font-weight:500;font-size:1.05rem;color:var(--orange);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(249,115,22,0.25);">'+esc(stripped)+'</div>';
+      html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(249,115,22,0.25);">'+esc(stripped)+'</div>';
     } else if(/^[-•*]/.test(line)){
       html+='<div style="display:flex;gap:8px;margin-bottom:7px;"><span style="color:var(--orange);flex-shrink:0;margin-top:3px">›</span><span style="font-size:1.05rem;line-height:1.8;color:var(--txt);">'+safeLineHtml(line.replace(/^[-•*]\s*/,''))+'</span></div>';
     } else if(/^Outlook:/i.test(line)||/^Sentiment:/i.test(line)){
