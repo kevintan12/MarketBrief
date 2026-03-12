@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.41</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.41</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.42</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.42</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.41';
+  var CURRENT='v1.312.42';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.41'){
+        if(m&&m[1]&&m[1]!=='v1.312.42'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1112,7 +1112,8 @@ async function genTickerAI(sym,d,resId){
   var mktTz=(sym.endsWith('.SI')?'Asia/Singapore':sym.endsWith('.HK')?'Asia/Hong_Kong':'America/New_York');
   var mktDateStr=now.toLocaleDateString('en-SG',{timeZone:mktTz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
   var prompt='You are a financial analyst covering '+sym+' ('+name+'). Today ('+mktDateStr+'), last session: '+prevDay+'. No title. No **bold**. No pre-'+yr+' events.\n\n'
-    +'Use web search to fetch latest annual financials: EPS, FCF/share, BVPS, 5-yr avg P/B, analyst EPS growth rate. Compute silently, show NO working:\n'
+    +'RULE: Always produce a best-effort valuation. Never refuse or list missing data. If exact figures are unavailable, use the best available estimate (e.g. trailing EPS, sector-average growth rate, or industry P/B). Mark estimated inputs with (est) inline. A rough estimate is more useful than no answer.\n\n'
+    +'Use web search to fetch latest annual financials for '+sym+': EPS, FCF/share, BVPS, 5-yr avg P/B, analyst EPS growth rate. Compute silently, show NO working:\n'
     +'DCF-20: EPS x discounted growth (yrs 1-10 analyst rate, 11-20 half rate, 10% discount) + terminal (yr20 EPS x rate x 15 / 1.1^20).\n'
     +'DFCF-20: Same using FCF/share, 15x terminal.\n'
     +'Mean P/B: 5-yr avg P/B x BVPS.\n'
