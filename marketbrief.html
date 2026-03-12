@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.22</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.22</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.23</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.23</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.22';
+  var CURRENT='v1.312.23';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -301,6 +301,7 @@ var S = {
   }
 };
 var mktData=[], curFilter='all', isDesktop=false, currentView='Dash';
+var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^STI':1,'^HSI':1};
 var acTimers={};  // debounce timers keyed by input id
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -318,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.22'){
+        if(m&&m[1]&&m[1]!=='v1.312.23'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
