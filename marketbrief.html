@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.35</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.35</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.36</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.36</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.35';
+  var CURRENT='v1.312.36';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.35'){
+        if(m&&m[1]&&m[1]!=='v1.312.36'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -894,18 +894,18 @@ async function loadSummary(){
   }
   // Further Reading instruction — placed early so searches happen before budget runs out
   prompt+=(function(){
-    var _y=new Date();_y.setDate(_y.getDate()-1);
-    var _yy=_y.getFullYear();
-    var _mm=String(_y.getMonth()+1).padStart(2,'0');
-    var _dd=String(_y.getDate()).padStart(2,'0');
+    var _today=new Date();
+    var _yy=_today.getFullYear();
+    var _mm=String(_today.getMonth()+1).padStart(2,'0');
+    var _dd=String(_today.getDate()).padStart(2,'0');
     var _ymd=_yy+'/'+_mm+'/'+_dd;
     var _dateStr=_yy+'-'+_mm+'-'+_dd;
     var _cnbc='https://www.cnbc.com/'+_ymd+'/stock-market-today-live-updates.html';
     return 'IMPORTANT — 📰 Further Reading section instructions (do these web searches now, before writing the analysis):\n'
-      +'Search 1: search for "yahoo finance stock market today '+_dateStr+'" — find the finance.yahoo.com/news/live/ article whose headline starts with "Stock market today:" published on '+_dateStr+'. This is the live blog recap. Do NOT use Motley Fool, Zacks or other third-party sites.\n'
+      +'Search 1: Search for "Stock market today site:finance.yahoo.com/news/live" to find today\'s Yahoo Finance live markets blog. You are looking for an article whose URL matches the pattern: https://finance.yahoo.com/news/live/stock-market-today-[slug]-[id].html and whose title starts with "Stock market today:". The article should be dated '+_dateStr+'. Do NOT use any other domain — only finance.yahoo.com/news/live/ URLs qualify.\n'
       +'Search 2: search for "site:minichart.com.sg market '+_dateStr+'" — find the minichart.com.sg article URL published on '+_dateStr+'. Only use minichart.com.sg URLs.\n'
       +'At the end of the analysis, output the 📰 Further Reading section with ALL 4 of these links in this exact order, each as Label: URL on its own line:\n'
-      +'Yahoo Finance Stock Market Today: [URL from Search 1, fallback: https://finance.yahoo.com/topic/stock-market-news/]\n'
+      +'Yahoo Finance Stock Market Today: [full finance.yahoo.com/news/live/stock-market-today-* URL from Search 1, fallback: https://finance.yahoo.com/topic/stock-market-news/]\n'
       +'CNBC Daily Market Recap: '+_cnbc+'\n'
       +'SGX Market Recap: [URL from Search 2, fallback: https://www.minichart.com.sg]\n'
       +'HK Market Daily: https://tradingeconomics.com/hong-kong/stock-market\n'
