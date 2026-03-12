@@ -1174,6 +1174,7 @@ async function genTickerAI(sym,d,resId){
   }catch(e){el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';}
 }
 
+
 // ── Intrinsic Value Calculator ───────────────────────────────────────────────
 async function triggerIV(sym,resId,btn,companyName,currentPrice){
   btn.disabled=true; btn.textContent='Calculating…';
@@ -1181,90 +1182,8 @@ async function triggerIV(sym,resId,btn,companyName,currentPrice){
   var displayName=companyName&&companyName!==sym?companyName:sym;
   var now=new Date();
   var dateStr=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',weekday:'long',year:'numeric',month:'long',day:'numeric'});
-
-  el.innerHTML='<div class="sumbox" style="margin-top:10px;border-color:rgba(16,185,129,0.3);background:linear-gradient(135deg,rgba(16,185,129,0.06),rgba(0,212,255,0.04));">'
-    +'<div class="sumhdr"><span class="badge" style="background:var(--grn);color:#000;">◈ Intrinsic Value</span>'
-    +'<span class="sumdate" style="margin-left:6px">'+esc(displayName)+' · '+esc(dateStr)+'</span></div>'
-    +'<div id="ivLoading_'+resId+'" class="msg">Fetching fundamentals… <span class="spin"></span></div>'
-    +'<div id="ivResult_'+resId+'"></div></div>';
-
-  var prompt = 'You are a financial analyst calculating intrinsic value for '+sym+' ('+displayName+').'
-    +' Current market price: '+currentPrice+'. Today: '+dateStr+'.'
-    +' Use web search to find the LATEST available annual financials for '+sym+':'
-    +' (1) EPS (earnings per share), (2) Free Cash Flow per share (FCF/shares outstanding),'
-    +' (3) Book Value per Share (BVPS), (4) historical average P/B ratio (use 5-year average if available),'
-    +' (5) analyst consensus EPS growth rate (next 5 years), (6) shares outstanding.'
-    +' If any data point is unavailable, state NA and exclude that IV method.'
-    +'
-
-Calculate these 3 intrinsic value methods. Show your working clearly:'
-    +'
-
-METHOD 1 — DCF-20 (Earnings-based DCF, 20-year horizon):'
-    +' Use EPS as the base. Apply analyst consensus growth rate for years 1-10, then half that rate for years 11-20.'
-    +' Discount rate: 10%. Terminal P/E: 15x. Formula: sum of discounted EPS for 20 years + discounted terminal value.'
-    +' Show: Base EPS, growth rates used, discount rate, terminal value, and final DCF-20 value.'
-    +'
-
-METHOD 2 — DFCF-20 (Free Cash Flow-based DCF, 20 years):'
-    +' Use FCF per share as the base. Same growth rate and discount rate as Method 1. Terminal multiple: 15x FCF.'
-    +' Show: Base FCF/share, growth rates, discount rate, terminal value, and final DFCF-20 value.'
-    +'
-
-METHOD 3 — Mean P/B Ratio:'
-    +' Formula: Mean historical P/B ratio × current Book Value per Share.'
-    +' Show: BVPS, mean P/B used, and final value.'
-    +'
-
-MB VALUE: Calculate the average of whichever methods returned a valid number (exclude NA methods).'
-    +' Then assess: is the stock Undervalued, Fairly Valued, or Overvalued vs current price of '+currentPrice+'?'
-    +' Margin of safety = (MB Value - Current Price) / MB Value × 100%.'
-    +'
-
-OUTPUT FORMAT — respond with ONLY this exact structure, no preamble:'
-    +'
-Data Used'
-    +'
-EPS: [value or NA]'
-    +'
-FCF/Share: [value or NA]'
-    +'
-BVPS: [value or NA]'
-    +'
-Mean P/B: [value or NA]'
-    +'
-Growth Rate: [value]%'
-    +'
-Source Period: [e.g. FY2024]'
-    +'
-'
-    +'
-DCF-20: [value or NA]'
-    +'
-DFCF-20: [value or NA]'
-    +'
-Mean P/B Value: [value or NA]'
-    +'
-'
-    +'
-MB Value: [average]'
-    +'
-Current Price: '+currentPrice
-    +'
-Margin of Safety: [X]%'
-    +'
-Verdict: [Undervalued / Fairly Valued / Overvalued]'
-    +'
-'
-    +'
-Notes'
-    +'
-[2-3 sentences on data quality, key assumptions, and any caveats for this specific stock]'
-    +'
-'
-    +'
-Disclaimer: Intrinsic value estimates are based on publicly available data and standard valuation models. Not financial advice. Do your own research.';
-
+  el.innerHTML='<div class="sumbox" style="margin-top:10px;border-color:rgba(16,185,129,0.3);background:linear-gradient(135deg,rgba(16,185,129,0.06),rgba(0,212,255,0.04));"><div class="sumhdr"><span class="badge" style="background:var(--grn);color:#000;">◈ Intrinsic Value</span><span class="sumdate" style="margin-left:6px">'+esc(displayName)+' · '+esc(dateStr)+'</span></div><div id="ivLoading_'+resId+'" class="msg">Fetching fundamentals… <span class="spin"></span></div><div id="ivResult_'+resId+'"></div></div>';
+  var prompt='You are a financial analyst calculating intrinsic value for '+sym+' ('+displayName+'). Current market price: '+currentPrice+'. Today: '+dateStr+'. Use web search to find the LATEST available annual financials for '+sym+': (1) EPS, (2) Free Cash Flow per share (FCF/shares outstanding), (3) Book Value per Share (BVPS), (4) historical average P/B ratio (5-year average if available), (5) analyst consensus EPS growth rate next 5 years, (6) shares outstanding. If any data point is unavailable state NA and exclude that method.\n\nCalculate these 3 intrinsic value methods showing your working:\n\nMETHOD 1 — DCF-20 (Earnings-based DCF 20-year horizon): Use EPS as base. Apply analyst consensus growth rate for years 1-10 then half that rate for years 11-20. Discount rate 10%. Terminal P/E 15x. Show base EPS, growth rates, discount rate, terminal value, final DCF-20 value.\n\nMETHOD 2 — DFCF-20 (Free Cash Flow DCF 20 years): Use FCF per share as base. Same growth rate and discount rate. Terminal multiple 15x FCF. Show base FCF/share, growth rates, discount rate, terminal value, final DFCF-20 value.\n\nMETHOD 3 — Mean P/B Ratio: Formula = Mean historical P/B x current BVPS. Show BVPS, mean P/B used, final value.\n\nMB VALUE: Average of valid methods only. Assess Undervalued/Fairly Valued/Overvalued vs current price. Margin of safety = (MB Value - Current Price) / MB Value x 100%.\n\nRespond with ONLY this exact structure no preamble:\nData Used\nEPS: [value or NA]\nFCF/Share: [value or NA]\nBVPS: [value or NA]\nMean P/B: [value or NA]\nGrowth Rate: [value]%\nSource Period: [e.g. FY2024]\n\nDCF-20: [value or NA]\nDFCF-20: [value or NA]\nMean P/B Value: [value or NA]\n\nMB Value: [average]\nCurrent Price: '+currentPrice+'\nMargin of Safety: [X]%\nVerdict: [Undervalued / Fairly Valued / Overvalued]\n\nNotes\n[2-3 sentences on data quality, assumptions, caveats]\n\nDisclaimer: Intrinsic value estimates are based on publicly available data and standard valuation models. Not financial advice. Do your own research.';
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -1273,23 +1192,19 @@ Disclaimer: Intrinsic value estimates are based on publicly available data and s
         messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var data=await resp.json();
-    // Extract text from content blocks
     var text='';
     (data.content||[]).forEach(function(block){if(block.type==='text')text+=block.text;});
-
     var loading=document.getElementById('ivLoading_'+resId);
-    if(loading) loading.style.display='none';
+    if(loading)loading.style.display='none';
     var resultEl=document.getElementById('ivResult_'+resId);
-    if(resultEl) resultEl.innerHTML=renderIV(text,currentPrice);
-
-    // Save for persistence
+    if(resultEl)resultEl.innerHTML=renderIV(text,currentPrice);
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
-      if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
+      if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200)savedSearchHTML=_tr.innerHTML;
     },100);
   }catch(e){
     var loading=document.getElementById('ivLoading_'+resId);
-    if(loading) loading.innerHTML='<span style="color:var(--red)">Error: '+esc(e.message)+'</span>';
+    if(loading)loading.innerHTML='<span style="color:var(--red)">Error: '+esc(e.message)+'</span>';
   }
   btn.disabled=false; btn.textContent='◈ Intrinsic Value';
 }
@@ -1297,72 +1212,52 @@ Disclaimer: Intrinsic value estimates are based on publicly available data and s
 function renderIV(text,currentPrice){
   var lines=text.split('\n');
   var html='';
-  var inData=false,inResults=false,inNotes=false;
-
-  // Parse key values for the summary card
   var vals={};
   lines.forEach(function(l){
     var m;
-    if((m=l.match(/^DCF-20:\s*([\d.,]+)/i))) vals.dcf=parseFloat(m[1].replace(/,/g,''));
-    if((m=l.match(/^DFCF-20:\s*([\d.,]+)/i))) vals.dfcf=parseFloat(m[1].replace(/,/g,''));
-    if((m=l.match(/^Mean P\/B Value:\s*([\d.,]+)/i))) vals.pb=parseFloat(m[1].replace(/,/g,''));
-    if((m=l.match(/^MB Value:\s*([\d.,]+)/i))) vals.mb=parseFloat(m[1].replace(/,/g,''));
-    if((m=l.match(/^Margin of Safety:\s*([\-\d.,]+)%/i))) vals.mos=parseFloat(m[1]);
-    if((m=l.match(/^Verdict:\s*(.+)/i))) vals.verdict=m[1].trim();
+    if((m=l.match(/^DCF-20:\s*([\d.,]+)/i)))vals.dcf=parseFloat(m[1].replace(/,/g,''));
+    if((m=l.match(/^DFCF-20:\s*([\d.,]+)/i)))vals.dfcf=parseFloat(m[1].replace(/,/g,''));
+    if((m=l.match(/^Mean P.B Value:\s*([\d.,]+)/i)))vals.pb=parseFloat(m[1].replace(/,/g,''));
+    if((m=l.match(/^MB Value:\s*([\d.,]+)/i)))vals.mb=parseFloat(m[1].replace(/,/g,''));
+    if((m=l.match(/^Margin of Safety:\s*([\-\d.,]+)%/i)))vals.mos=parseFloat(m[1]);
+    if((m=l.match(/^Verdict:\s*(.+)/i)))vals.verdict=m[1].trim();
   });
-
-  // Summary card at top
   if(vals.mb){
-    var verdictColor=vals.verdict&&/undervalued/i.test(vals.verdict)?'var(--grn)':vals.verdict&&/overvalued/i.test(vals.verdict)?'var(--red)':'var(--gld)';
-    var mosColor=vals.mos>0?'var(--grn)':vals.mos<0?'var(--red)':'var(--mut)';
+    var vc=vals.verdict&&/undervalued/i.test(vals.verdict)?'var(--grn)':vals.verdict&&/overvalued/i.test(vals.verdict)?'var(--red)':'var(--gld)';
+    var mc=vals.mos>0?'var(--grn)':'var(--red)';
     html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">';
-    if(vals.dcf) html+='<div class="sstat"><div class="ssl">DCF-20</div><div class="ssv">'+fmtIV(vals.dcf)+'</div></div>';
-    if(vals.dfcf) html+='<div class="sstat"><div class="ssl">DFCF-20</div><div class="ssv">'+fmtIV(vals.dfcf)+'</div></div>';
-    if(vals.pb) html+='<div class="sstat"><div class="ssl">Mean P/B</div><div class="ssv">'+fmtIV(vals.pb)+'</div></div>';
-    html+='<div class="sstat" style="border-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.08);">'
-      +'<div class="ssl" style="color:var(--grn)">MB Value</div>'
-      +'<div class="ssv" style="color:var(--grn);font-size:1.15rem;">'+fmtIV(vals.mb)+'</div></div>';
+    if(vals.dcf)html+='<div class="sstat"><div class="ssl">DCF-20</div><div class="ssv">'+fmtIV(vals.dcf)+'</div></div>';
+    if(vals.dfcf)html+='<div class="sstat"><div class="ssl">DFCF-20</div><div class="ssv">'+fmtIV(vals.dfcf)+'</div></div>';
+    if(vals.pb)html+='<div class="sstat"><div class="ssl">Mean P/B</div><div class="ssv">'+fmtIV(vals.pb)+'</div></div>';
+    html+='<div class="sstat" style="border-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.08);"><div class="ssl" style="color:var(--grn)">MB Value</div><div class="ssv" style="color:var(--grn);font-size:1.15rem;">'+fmtIV(vals.mb)+'</div></div>';
     html+='</div>';
     html+='<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">';
-    html+='<div style="flex:1;min-width:120px;background:var(--sur2);border-radius:8px;padding:10px 14px;border:1px solid var(--bor);">'
-      +'<div style="font-size:0.85rem;color:var(--mut);letter-spacing:0.08em;text-transform:uppercase;">Current Price</div>'
-      +'<div style="font-size:1.2rem;font-family:Syne,sans-serif;font-weight:700;margin-top:4px;">'+fmtIV(currentPrice)+'</div></div>';
-    html+='<div style="flex:1;min-width:120px;background:var(--sur2);border-radius:8px;padding:10px 14px;border:1px solid var(--bor);">'
-      +'<div style="font-size:0.85rem;color:var(--mut);letter-spacing:0.08em;text-transform:uppercase;">Margin of Safety</div>'
-      +'<div style="font-size:1.2rem;font-family:Syne,sans-serif;font-weight:700;color:'+mosColor+';margin-top:4px;">'+(vals.mos>0?'+':'')+vals.mos.toFixed(1)+'%</div></div>';
-    html+='<div style="flex:1;min-width:120px;background:var(--sur2);border-radius:8px;padding:10px 14px;border:1px solid var(--bor);">'
-      +'<div style="font-size:0.85rem;color:var(--mut);letter-spacing:0.08em;text-transform:uppercase;">Verdict</div>'
-      +'<div style="font-size:1.05rem;font-family:Syne,sans-serif;font-weight:700;color:'+verdictColor+';margin-top:4px;">'+(vals.verdict||'—')+'</div></div>';
+    html+='<div style="flex:1;min-width:120px;background:var(--sur2);border-radius:8px;padding:10px 14px;border:1px solid var(--bor);"><div style="font-size:0.85rem;color:var(--mut);letter-spacing:0.08em;text-transform:uppercase;">Current Price</div><div style="font-size:1.2rem;font-family:Syne,sans-serif;font-weight:700;margin-top:4px;">'+fmtIV(currentPrice)+'</div></div>';
+    html+='<div style="flex:1;min-width:120px;background:var(--sur2);border-radius:8px;padding:10px 14px;border:1px solid var(--bor);"><div style="font-size:0.85rem;color:var(--mut);letter-spacing:0.08em;text-transform:uppercase;">Margin of Safety</div><div style="font-size:1.2rem;font-family:Syne,sans-serif;font-weight:700;color:'+mc+';margin-top:4px;">'+(vals.mos>0?'+':'')+vals.mos.toFixed(1)+'%</div></div>';
+    html+='<div style="flex:1;min-width:120px;background:var(--sur2);border-radius:8px;padding:10px 14px;border:1px solid var(--bor);"><div style="font-size:0.85rem;color:var(--mut);letter-spacing:0.08em;text-transform:uppercase;">Verdict</div><div style="font-size:1.05rem;font-family:Syne,sans-serif;font-weight:700;color:'+vc+';margin-top:4px;">'+(vals.verdict||'—')+'</div></div>';
     html+='</div>';
     html+='<hr style="border:none;border-top:1px solid var(--bor);margin:4px 0 12px">';
   }
-
-  // Render full working detail
   lines.forEach(function(line){
     line=line.trim();
     if(!line){html+='<div style="height:4px"></div>';return;}
-    if(line==='---'){html+='<hr style="border:none;border-top:1px solid var(--bor);margin:6px 0">';return;}
-    // Section headers
     if(/^(Data Used|Notes|Disclaimer)/i.test(line)){
-      html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1rem;color:var(--orange);margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid rgba(249,115,22,0.2);">'+esc(line)+'</div>';
-      return;
+      html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1rem;color:var(--orange);margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid rgba(249,115,22,0.2);">'+esc(line)+'</div>';return;
     }
-    // Key value lines (Label: value)
-    if(/^(DCF-20|DFCF-20|Mean P\/B Value|MB Value|Current Price|Margin of Safety|Verdict|EPS|FCF\/Share|BVPS|Mean P\/B|Growth Rate|Source Period):/i.test(line)){
+    if(/^(DCF-20|DFCF-20|Mean P.B Value|MB Value|Current Price|Margin of Safety|Verdict|EPS|FCF.Share|BVPS|Mean P.B|Growth Rate|Source Period):/i.test(line)){
       var ci=line.indexOf(':');
       var lbl=line.slice(0,ci).trim();
       var val=line.slice(ci+1).trim();
-      var isKey=/^(DCF-20|DFCF-20|Mean P\/B Value|MB Value|Verdict|Margin of Safety)$/i.test(lbl);
+      var isKey=/^(DCF-20|DFCF-20|Mean P.B Value|MB Value|Verdict|Margin of Safety)$/i.test(lbl);
       var valColor='var(--txt)';
-      if(/^MB Value$/i.test(lbl)) valColor='var(--grn)';
-      else if(/^Verdict$/i.test(lbl)) valColor=/undervalued/i.test(val)?'var(--grn)':/overvalued/i.test(val)?'var(--red)':'var(--gld)';
-      else if(/^Margin of Safety$/i.test(lbl)) valColor=parseFloat(val)>0?'var(--grn)':'var(--red)';
-      html+='<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;'+(isKey?'font-family:Syne,sans-serif;font-weight:600;':'')+'border-bottom:1px solid rgba(30,45,69,0.5);">'
+      if(/MB Value/i.test(lbl))valColor='var(--grn)';
+      else if(/Verdict/i.test(lbl))valColor=/undervalued/i.test(val)?'var(--grn)':/overvalued/i.test(val)?'var(--red)':'var(--gld)';
+      else if(/Margin of Safety/i.test(lbl))valColor=parseFloat(val)>0?'var(--grn)':'var(--red)';
+      html+='<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid rgba(30,45,69,0.5);">'
         +'<span style="color:var(--mut);font-size:0.95rem;">'+esc(lbl)+'</span>'
-        +'<span style="color:'+valColor+';font-size:'+(isKey?'1.05':'0.95')+'rem;">'+esc(val)+'</span></div>';
+        +'<span style="color:'+valColor+';font-size:'+(isKey?'1.05':'0.95')+'rem;'+(isKey?'font-family:Syne,sans-serif;font-weight:600;':'')+'">'+esc(val)+'</span></div>';
       return;
     }
-    // Normal text (notes etc)
     html+='<div style="font-size:0.95rem;line-height:1.75;color:var(--mut);margin-bottom:3px;">'+esc(line)+'</div>';
   });
   return html;
