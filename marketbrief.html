@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.28</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.28</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.29</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.29</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.28';
+  var CURRENT='v1.312.29';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.28'){
+        if(m&&m[1]&&m[1]!=='v1.312.29'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -959,14 +959,14 @@ async function loadSummary(){
       var _mm=String(_y.getMonth()+1).padStart(2,'0');
       var _dd=String(_y.getDate()).padStart(2,'0');
       var _ymd=_yy+'/'+_mm+'/'+_dd;
-      var _cnbc='https://www.cnbc.com/'+_ymd+'/stock-market-today-live-updates.html';
       var _dateStr=_yy+'-'+_mm+'-'+_dd;
-      return 'At the end of the analysis, add a 📰 Further Reading section with exactly 4 links in this order, each on its own line as Label: URL:\n'
-        +'1. Use web search to find yesterday\'s ('+_dateStr+') Yahoo Finance Stock Market Today live blog — search "yahoo finance stock market today '+_dateStr+'" and return the specific finance.yahoo.com/news/live/ article URL from that date.\n'
+      var _cnbc='https://www.cnbc.com/'+_ymd+'/stock-market-today-live-updates.html';
+      return 'At the end of the analysis, add a 📰 Further Reading section with exactly 4 links, each on its own line formatted as Label: URL. Use this exact order:\n'
+        +'1. Yahoo Finance Stock Market Today: search "yahoo finance \"stock market today:\" '+_dateStr+'" and find the finance.yahoo.com/news/live/ URL whose title starts with \"Stock market today:\" from '+_dateStr+'. Do NOT use Motley Fool or Zacks articles.\n'
         +'2. CNBC Daily Market Recap: '+_cnbc+'\n'
-        +'3. Use web search to find yesterday\'s ('+_dateStr+') SGX market recap on minichart.com.sg — search "site:minichart.com.sg singapore market '+_dateStr+'" and return the specific article URL from that date.\n'
+        +'3. SGX Market Recap: search "site:minichart.com.sg '+_dateStr+'" and return the most relevant minichart.com.sg article URL from that date. Only use minichart.com.sg URLs.\n'
         +'4. HK Market Daily: https://tradingeconomics.com/hong-kong/stock-market\n'
-        +'Only use real URLs found via search. Never fabricate URLs.';
+        +'Never fabricate URLs. If a search returns no result for that date, omit that link.';
     })()
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
@@ -1277,6 +1277,12 @@ function formatSummary(txt){
       html+='<div style="display:flex;gap:8px;margin-bottom:7px;"><span style="color:var(--orange);flex-shrink:0;margin-top:3px">›</span><span style="font-size:1.05rem;line-height:1.8;color:var(--txt);">'+safeLineHtml(line.replace(/^[-•*]\s*/,''))+'</span></div>';
     } else if(/^Outlook:/i.test(line)||/^Sentiment:/i.test(line)){
       html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+safeLineHtml(line)+'</div>';
+    } else if(/^[^:]{3,60}:\s*https?:\/\//.test(line)){
+      var _ci=line.indexOf(':');
+      var _label=line.slice(0,_ci).trim();
+      var _url=line.slice(_ci+1).trim();
+      var _urlClean=_url.replace(/[.,;:!?)]+$/,'');
+      html+='<div style="margin-bottom:8px;"><a href="'+_urlClean+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;font-size:1.05rem;line-height:1.8;">'+esc(_label)+'</a></div>';
     } else {
       html+='<div style="font-size:1.05rem;line-height:1.8;color:var(--txt);margin-bottom:4px;">'+safeLineHtml(line)+'</div>';
     }
