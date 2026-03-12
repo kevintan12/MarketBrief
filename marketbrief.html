@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.34</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.34</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.35</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.35</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.34';
+  var CURRENT='v1.312.35';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.34'){
+        if(m&&m[1]&&m[1]!=='v1.312.35'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1253,7 +1253,7 @@ function cleanAIText(txt){
 }
 function applyInlineMarkdown(escaped){
   return escaped
-    .replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:Syne,sans-serif;font-weight:700;color:var(--acc);">$1</strong>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:\'DM Mono\',monospace;font-weight:500;color:var(--acc);">$1</strong>')
     .replace(/\*([^*]+)\*/g,'<em>$1</em>');
 }
 function safeLineHtml(line){
