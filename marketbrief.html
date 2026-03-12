@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.43</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.43</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.44</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.44</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.43';
+  var CURRENT='v1.312.44';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.43'){
+        if(m&&m[1]&&m[1]!=='v1.312.44'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1051,6 +1051,17 @@ async function loadSummary(){
     _sumInFlight=false;
     setAIBtnVisible(true);
   }
+}
+
+// ── Strip IV preamble ────────────────────────────────────────────
+function stripIVPreamble(txt){
+  var markers=['1. 💰','💰 Intrinsic','📈 Price Action','1. 📈'];
+  var earliest=txt.length;
+  for(var i=0;i<markers.length;i++){
+    var pos=txt.indexOf(markers[i]);
+    if(pos!==-1&&pos<earliest) earliest=pos;
+  }
+  return earliest<txt.length?txt.slice(earliest):txt;
 }
 
 // ── Ticker AI (manual button) ─────────────────────────────────────────────────
