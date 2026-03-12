@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.20</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.20</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.22</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.22</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.20';
+  var CURRENT='v1.312.22';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -318,7 +318,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.20'){
+        if(m&&m[1]&&m[1]!=='v1.312.22'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -864,6 +864,7 @@ function getClosingDate(mkt){
 
 // ── AI Summary ────────────────────────────────────────────────────────────────
 async function loadSummary(){
+  console.log('MB: loadSummary started');
   setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>');
   var mktsToShow=curFilter==='all'?['US','SG','HK']:[curFilter];
   var styleInstr={
@@ -919,6 +920,7 @@ async function loadSummary(){
   var regionalSyms=['^KS11','^KLSE','^TWII','^N225'];
   var regionalNames={'^KS11':'KOSPI (South Korea)','^KLSE':'Bursa Malaysia (KLCI)','^TWII':'TAIEX (Taiwan)','^N225':'Nikkei 225 (Japan)'};
   var regionalLines='REGIONAL MARKETS DATA (fetched live):\n';
+  console.log('MB: starting regional fetch');
   try{
     var regResults=await Promise.allSettled(regionalSyms.map(function(sym){return Promise.race([fetchQuote(sym),new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},5000);})]);  }));
     regResults.forEach(function(r,i){
@@ -935,6 +937,7 @@ async function loadSummary(){
     regionalLines+='(regional data fetch failed)\n';
   }
   regionalLines+='\n';
+  console.log('MB: regional fetch done');
   prompt+=regionalLines;
 
   var headerList=sections.map(function(s,i){return (i+1)+'. '+s.label+' ('+(s.live?'🔴 LIVE':''+s.date)+')';}).join('\n');
@@ -969,13 +972,16 @@ async function loadSummary(){
   },1000);
   var accumulated='';
   try{
+    console.log('MB: prompt built, length=',prompt.length);
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3}],messages:[{role:'user',content:prompt}]})
     });
+    console.log('MB: API response status=',resp.status);
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
+    console.log('MB: reader loop starting');
     var reader=resp.body.getReader();
     var decoder=new TextDecoder();
     var buf='';
@@ -1103,9 +1109,11 @@ async function genTickerAI(sym,d,resId){
   function getTickStream(){return document.getElementById('tickStream_'+resId);}
   var accumulated='';
   try{
+    console.log('MB: prompt built, length=',prompt.length);
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1400,stream:true,messages:[{role:'user',content:prompt}]})});
+    console.log('MB: API response status=',resp.status);
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(), decoder=new TextDecoder(), buf='';
     function applyPrevDay(t){
@@ -1171,9 +1179,11 @@ async function triggerAboutAI(sym,resId,btn,companyName){
       +'Go straight into describing the company — do NOT start with a sentence like "X is the ticker for Y" or restate the company name as an opener. '
       +'Cover: what the company does, exchange and sector, market cap tier, and 2-3 things a Singapore investor should know (dividends, key risks, revenue drivers). '
       +'Be specific and factual. Write in plain English. No markdown bold (**) or headers.'
+    console.log('MB: prompt built, length=',prompt.length);
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}],messages:[{role:'user',content:prompt}]})});
+    console.log('MB: API response status=',resp.status);
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(),decoder=new TextDecoder(),buf='';
     while(true){
