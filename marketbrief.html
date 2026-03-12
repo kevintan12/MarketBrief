@@ -1130,7 +1130,7 @@ async function genTickerAI(sym,d,resId){
     +'DFCF-20: Same structure but use FCF per share as base with 15x terminal FCF multiple.\n'
     +'Mean P/B Value: 5-year average P/B ratio x current BVPS.\n'
     +'MB Value: Average of all valid methods (exclude any where data is unavailable).\n'
-    +'Show results as: DCF-20: X | DFCF-20: X | Mean P/B: X | MB Value: X | vs Current Price: '+currentPrice+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued.\n'
+    +'Show results as: DCF-20: X | DFCF-20: X | Mean P/B: X | MB Value: X | vs Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued.\n'
     +'State the source period (e.g. FY2024) and note any data limitations in 1 sentence. End with: "MB Value: [value]".';
   var tickerHdrHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><div id="tickStream_'+resId+'"></div></div>';
   el.innerHTML=tickerHdrHTML;
