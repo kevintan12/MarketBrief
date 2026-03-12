@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.46</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.46</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.313.00</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.313.00</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.46';
+  var CURRENT='v1.313.00';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.46'){
+        if(m&&m[1]&&m[1]!=='v1.313.00'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1305,8 +1305,10 @@ function formatSummary(txt){
       html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(249,115,22,0.25);">'+esc(stripped)+'</div>';
     } else if(/^[-•*]/.test(line)){
       html+='<div style="display:flex;gap:8px;margin-bottom:7px;"><span style="color:var(--orange);flex-shrink:0;margin-top:3px">›</span><span style="font-size:1.05rem;line-height:1.8;color:var(--txt);">'+safeLineHtml(line.replace(/^[-•*]\s*/,''))+'</span></div>';
-    } else if(/^Outlook:/i.test(line)||/^Sentiment:/i.test(line)||/^MB Value:/i.test(line)){
-      html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+safeLineHtml(line)+'</div>';
+    } else if(/^Outlook:/i.test(line)||/^Sentiment:/i.test(line)||/^MB Value:/i.test(line)||/^Verdict:/i.test(line)){
+      var _ln2=line.replace(/^(MB Value:)/i,'\u00b6$1');
+      var _html2=safeLineHtml(_ln2).replace('\u00b6MB Value:','<strong style="text-decoration:underline">MB Value:</strong>').replace('\u00b6mb value:','<strong style="text-decoration:underline">MB Value:</strong>');
+      html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+_html2+'</div>';
     } else if(/^[^:]{3,60}:\s*https?:\/\//.test(line)){
       var _ci=line.indexOf(':');
       var _label=line.slice(0,_ci).trim();
