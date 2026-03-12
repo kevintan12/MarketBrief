@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.18</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.18</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.19</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.19</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.18';
+  var CURRENT='v1.312.19';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -318,7 +318,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.18'){
+        if(m&&m[1]&&m[1]!=='v1.312.19'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -920,7 +920,7 @@ async function loadSummary(){
   var regionalNames={'^KS11':'KOSPI (South Korea)','^KLSE':'Bursa Malaysia (KLCI)','^TWII':'TAIEX (Taiwan)','^N225':'Nikkei 225 (Japan)'};
   var regionalLines='REGIONAL MARKETS DATA (fetched live):\n';
   try{
-    var regResults=await Promise.allSettled(regionalSyms.map(function(sym){return fetchQuote(sym);}));
+    var regResults=await Promise.allSettled(regionalSyms.map(function(sym){return Promise.race([fetchQuote(sym),new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},5000);})]);  }));
     regResults.forEach(function(r,i){
       var sym=regionalSyms[i];
       if(r.status==='fulfilled'&&r.value&&r.value.price!=null){
@@ -973,7 +973,7 @@ async function loadSummary(){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3}],messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:5}],messages:[{role:'user',content:prompt}]})
     });
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader();
