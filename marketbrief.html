@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.33</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.33</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.34</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.34</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.33';
+  var CURRENT='v1.312.34';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.33'){
+        if(m&&m[1]&&m[1]!=='v1.312.34'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1251,20 +1251,25 @@ function cleanAIText(txt){
   }
   return cleaned.join('\n').replace(/^[\s\n]+/,'');
 }
+function applyInlineMarkdown(escaped){
+  return escaped
+    .replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:Syne,sans-serif;font-weight:700;color:var(--acc);">$1</strong>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>');
+}
 function safeLineHtml(line){
   // Split line into text/url segments, esc() text only, wrap URLs in <a>
   var result='';
   var urlRe=/(https?:\/\/[^\s]+)/g;
   var last=0; var m;
   while((m=urlRe.exec(line))!==null){
-    result+=esc(line.slice(last,m.index));
+    result+=applyInlineMarkdown(esc(line.slice(last,m.index)));
     var url=m[1].replace(/[.,;:!?)]+$/,'');
     var display=url.replace(/^https?:\/\//,'');
     if(display.length>55) display=display.substring(0,55)+'…';
     result+='<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;word-break:break-all;">'+display+'</a>';
     last=m.index+m[1].length;
   }
-  result+=esc(line.slice(last));
+  result+=applyInlineMarkdown(esc(line.slice(last)));
   return result;
 }
 function formatSummary(txt){
@@ -1273,7 +1278,6 @@ function formatSummary(txt){
     line=line.trim();
     if(!line){html+='<div style="height:6px"></div>';return;}
     if(line==='---'){html+='<hr style="border:none;border-top:1px solid var(--bor);margin:8px 0">';return;}
-    line=line.replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:Syne,sans-serif;font-weight:700;color:var(--acc);">$1</strong>').replace(/\*([^*]+)\*/g,'<em>$1</em>');
     var stripped=line.replace(/^#+\s*/,'').replace(/^[1-9][.)\s]+/,'').trim();
     var isHeader=/^#/.test(line)||/^[1-9][.)]\s/.test(line.trim())||stripped.charCodeAt(0)>255;
     if(isHeader){
