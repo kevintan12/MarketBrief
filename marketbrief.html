@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.38</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.38</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.36</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.36</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.38';
+  var CURRENT='v1.312.36';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.38'){
+        if(m&&m[1]&&m[1]!=='v1.312.36'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -902,7 +902,7 @@ async function loadSummary(){
     var _dateStr=_yy+'-'+_mm+'-'+_dd;
     var _cnbc='https://www.cnbc.com/'+_ymd+'/stock-market-today-live-updates.html';
     return 'IMPORTANT — 📰 Further Reading section instructions (do these web searches now, before writing the analysis):\n'
-      +'Search 1: Search for "Stock market today site:finance.yahoo.com/news/live" to find today\'s Yahoo Finance live markets blog. You are looking for an article whose URL matches the pattern: https://finance.yahoo.com/news/live/stock-market-today-[slug]-[id].html and whose title starts with "Stock market today:". The article should be dated '+_dateStr+'. Do NOT use any other domain — only finance.yahoo.com/news/live/ URLs qualify.\n'
+      +'Search 1: Search for "Stock market today site:finance.yahoo.com/news/live" to find today\'s Yahoo Finance live markets blog. The URL format is: https://finance.yahoo.com/news/live/stock-market-today-[slug]-[numeric-id].html and the title starts with "Stock market today:". Pick the article dated '+_dateStr+'. Do NOT use any other domain.\n'
       +'Search 2: search for "site:minichart.com.sg market '+_dateStr+'" — find the minichart.com.sg article URL published on '+_dateStr+'. Only use minichart.com.sg URLs.\n'
       +'At the end of the analysis, output the 📰 Further Reading section with ALL 4 of these links in this exact order, each as Label: URL on its own line:\n'
       +'Yahoo Finance Stock Market Today: [full finance.yahoo.com/news/live/stock-market-today-* URL from Search 1, fallback: https://finance.yahoo.com/topic/stock-market-news/]\n'
@@ -1253,7 +1253,7 @@ function cleanAIText(txt){
 }
 function applyInlineMarkdown(escaped){
   return escaped
-    .replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:\'DM Mono\',monospace;font-weight:500;color:var(--acc);">$1</strong>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:'DM Mono',monospace;font-weight:500;color:var(--acc);">$1</strong>')
     .replace(/\*([^*]+)\*/g,'<em>$1</em>');
 }
 function safeLineHtml(line){
@@ -1279,8 +1279,8 @@ function formatSummary(txt){
     if(!line){html+='<div style="height:6px"></div>';return;}
     if(line==='---'){html+='<hr style="border:none;border-top:1px solid var(--bor);margin:8px 0">';return;}
     var stripped=line.replace(/^#+\s*/,'').replace(/^[1-9][.)\s]+/,'').trim();
-    var isHeader=(/^#/.test(line)||(stripped.charCodeAt(0)>255&&stripped.length<100&&stripped.indexOf('**')===-1));
-    if(isHeader&&stripped.indexOf('**')===-1){
+    var isHeader=/^#/.test(line)||/^[1-9][.)]\s/.test(line.trim())||stripped.charCodeAt(0)>255;
+    if(isHeader&&line.indexOf('**')===-1){
       html+='<div style="font-family:'DM Mono',monospace;font-weight:500;font-size:1.05rem;color:var(--orange);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(249,115,22,0.25);">'+esc(stripped)+'</div>';
     } else if(/^[-•*]/.test(line)){
       html+='<div style="display:flex;gap:8px;margin-bottom:7px;"><span style="color:var(--orange);flex-shrink:0;margin-top:3px">›</span><span style="font-size:1.05rem;line-height:1.8;color:var(--txt);">'+safeLineHtml(line.replace(/^[-•*]\s*/,''))+'</span></div>';
