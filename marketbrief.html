@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.39</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.39</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.41</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.41</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.39';
+  var CURRENT='v1.312.41';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.39'){
+        if(m&&m[1]&&m[1]!=='v1.312.41'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1111,28 +1111,24 @@ async function genTickerAI(sym,d,resId){
     :'(no price data)';
   var mktTz=(sym.endsWith('.SI')?'Asia/Singapore':sym.endsWith('.HK')?'Asia/Hong_Kong':'America/New_York');
   var mktDateStr=now.toLocaleDateString('en-SG',{timeZone:mktTz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var prompt='You are a financial analyst. Write in clear, accessible English — explain things like you would to a smart friend who follows markets but is not a professional trader. Mix plain language with relevant market context. Be direct and specific. In the stock\'s market timezone, today is '+mktDateStr+'. The last trading session was '+prevDay+'.\n\n'
-    +'LIVE DATA for '+sym+' ('+name+'):\n'
-    +priceBlock+'\n\n'
-    +'CRITICAL: You MUST use the word "'+prevDay+'" when referring to the prior session. NEVER write "yesterday". Replace every instance of "yesterday" with "'+prevDay+'".\n'
-    +'(No title. No **bold**. No pre-'+yr+' events.)\n\n'
-    +'Use web search to silently fetch latest annual financials for '+sym+': EPS, FCF/share, BVPS, 5-yr avg P/B, analyst EPS growth rate. Compute these 3 valuations, show NO working:\n'
-    +'DCF-20: EPS x discounted growth sum (yrs 1-10 analyst rate, 11-20 half rate, 10% discount) + terminal (yr20 EPS x rate x 15 / 1.1^20).\n'
+  var prompt='You are a financial analyst covering '+sym+' ('+name+'). Today ('+mktDateStr+'), last session: '+prevDay+'. No title. No **bold**. No pre-'+yr+' events.\n\n'
+    +'Use web search to fetch latest annual financials: EPS, FCF/share, BVPS, 5-yr avg P/B, analyst EPS growth rate. Compute silently, show NO working:\n'
+    +'DCF-20: EPS x discounted growth (yrs 1-10 analyst rate, 11-20 half rate, 10% discount) + terminal (yr20 EPS x rate x 15 / 1.1^20).\n'
     +'DFCF-20: Same using FCF/share, 15x terminal.\n'
     +'Mean P/B: 5-yr avg P/B x BVPS.\n'
     +'MB Value: average of valid results only.\n\n'
-    +'Write EXACTLY these sections in this order:\n'
+    +'Write EXACTLY these sections:\n'
     +'1. 💰 Intrinsic Value\n'
-    +'Output ONLY these two lines, no explanation:\n'
+    +'Two lines only:\n'
     +'DCF-20: $X | DFCF-20: $X | Mean P/B: $X\n'
-    +'MB Value: $X vs Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n\n'
+    +'MB Value: $X | Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n\n'
     +'2. 📈 Price Action\n'
     +'3. 🔍 Key Drivers\n'
     +'4. 📊 Volume & Participation\n'
     +'5. ⚠️ Key Risks\n'
     +'6. 🇸🇬 Singapore Investor Angle\n'
     +'7. 🔮 Near-Term Outlook\n\n'
-    +'3-4 sentences per section. For Key Drivers, identify specific catalysts (earnings, macro, sector news, analyst actions). For Volume & Participation, assess whether volume was elevated or light vs average, and whether the move appears institutionally driven or retail-driven. For Near-Term Outlook, give your best assessment of likely direction over the next 5-10 trading days with reasoning — be direct and make a call, while acknowledging uncertainty. Disclaimer: this is analytical opinion, not financial advice. End with: "Outlook: [one-line verdict]".';
+    +'3-4 sentences per section. Use "'+prevDay+'" not "yesterday". For Near-Term Outlook make a direct call on likely direction over 5-10 trading days. End with: "Outlook: [one-line verdict]".';
   var tickerHdrHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><div id="tickStream_'+resId+'"></div></div>';
   el.innerHTML=tickerHdrHTML;
   function getTickStream(){return document.getElementById('tickStream_'+resId);}
@@ -1141,7 +1137,7 @@ async function genTickerAI(sym,d,resId){
     console.log('MB: prompt built, length=',prompt.length);
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2000,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:4}],messages:[{role:'user',content:prompt}]})});
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}],messages:[{role:'user',content:prompt}]})});
     console.log('MB: API response status=',resp.status);
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
     var reader=resp.body.getReader(), decoder=new TextDecoder(), buf='';
