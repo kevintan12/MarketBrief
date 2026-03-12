@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.16</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.16</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.18</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.18</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.16';
+  var CURRENT='v1.312.18';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -318,7 +318,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.16'){
+        if(m&&m[1]&&m[1]!=='v1.312.18'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -902,18 +902,54 @@ async function loadSummary(){
       +d.map(function(x){return x.name+': '+fmt(x.price)+' '+fmtP(x.pct);}).join('\n')+'\n\n';
     sections.push({label:sectionLabels[mkt],date:dateStr,live:isLive});
   });
+  // ── Watchlist data for prompt ──
+  var watchTickers=mktData.filter(function(x){return !FIXED_SYMS[x.sym];});
+  var watchLines='';
+  if(watchTickers.length){
+    watchLines='MY WATCHLIST DATA:\n';
+    watchTickers.forEach(function(x){
+      var arr=x.pct>=0?'▲':'▼';
+      watchLines+=x.name+' ('+x.sym+'): '+fmt(x.price)+' '+arr+' '+fmtD(x.chg)+' ('+fmtP(x.pct)+')\n';
+    });
+    watchLines+='\n';
+  }
+  prompt+=watchLines;
+
+  // ── Fetch regional indices ──
+  var regionalSyms=['^KS11','^KLSE','^TWII','^N225'];
+  var regionalNames={'^KS11':'KOSPI (South Korea)','^KLSE':'Bursa Malaysia (KLCI)','^TWII':'TAIEX (Taiwan)','^N225':'Nikkei 225 (Japan)'};
+  var regionalLines='REGIONAL MARKETS DATA (fetched live):\n';
+  try{
+    var regResults=await Promise.allSettled(regionalSyms.map(function(sym){return fetchQuote(sym);}));
+    regResults.forEach(function(r,i){
+      var sym=regionalSyms[i];
+      if(r.status==='fulfilled'&&r.value&&r.value.price!=null){
+        var d=r.value;
+        var arr=d.pct>=0?'▲':'▼';
+        regionalLines+=regionalNames[sym]+': '+fmt(d.price)+' '+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')\n';
+      } else {
+        regionalLines+=regionalNames[sym]+': data unavailable\n';
+      }
+    });
+  } catch(e){
+    regionalLines+='(regional data fetch failed)\n';
+  }
+  regionalLines+='\n';
+  prompt+=regionalLines;
+
   var headerList=sections.map(function(s,i){return (i+1)+'. '+s.label+' ('+(s.live?'🔴 LIVE':''+s.date)+')';}).join('\n');
-  if(mktsToShow.length>1) headerList+='\n'+(sections.length+1)+'. 📊 Overall Sentiment';
+  var sectionCount=sections.length;
+  if(mktsToShow.length>1) { headerList+='\n'+(++sectionCount)+'. 📊 Overall Sentiment'; }
+  if(watchTickers.length)  { headerList+='\n'+(++sectionCount)+'. 💼 My Watchlist'; }
+  headerList+='\n'+(++sectionCount)+'. 🌏 Regional Markets';
   prompt+='Write a structured market summary with EXACTLY these section headers (use them verbatim):\n'
     +headerList+'\n\n'+(styleInstr[S.style]||styleInstr.detailed)+'\n'
     +(mktsToShow.length>1?'End the Overall Sentiment section with one line e.g. "Sentiment: Cautiously Bullish".\n':'End with one line e.g. "Sentiment: Cautiously Bullish".\n')
     +'For each market, comment on volume relative to average — was volume elevated, light, or normal? High volume on a move suggests institutional conviction; low volume suggests retail-driven or unconvinced market. Distinguish where possible between institutional (block trades, futures-led, options activity) and retail (momentum-chasing, meme-driven) participation.\n'
     +'Focus on what matters for a Singapore investor.\n\n'
-    +'At the end of the analysis, add a section called "📰 Further Reading" with these links (render each on its own line as: Label: URL):\n'
-    +'- Yahoo Finance Live Blog: https://finance.yahoo.com/news/live/stock-market-today-dow-sp-500-nasdaq-futures-rise-oil-slides-as-iran-war-jitters-ease-224255466.html\n'
-    +'- CNBC Markets Live: https://www.cnbc.com/2026/03/09/stock-market-today-live-updates.html\n'
-    +'- SGX Market Outlook (today): https://www.minichart.com.sg/2026/03/10/singapore-market-outlook-march-2026-bank-developer-stocks-s-reits-fund-flows-and-key-investment-opportunities/\n'
-    +'- HK Market Daily (Trading Economics): https://tradingeconomics.com/hong-kong/stock-market'
+    +(watchTickers.length?'For the 💼 My Watchlist section: assess the overall sentiment of the watchlist (how many stocks are up vs down, breadth). Highlight the top 2-3 movers by % change — name them, give the % move, and one-line reason if identifiable. Keep to 3-4 sentences.\\n':'')
+    +'For the 🌏 Regional Markets section: write one paragraph (3-4 sentences) summarising the KOSPI, Bursa Malaysia, TAIEX, and Nikkei using the data provided. Note overall direction, any standout market, and key drivers. Use web search if needed.\\n'
+    +"At the end of the analysis, add a section called '📰 Further Reading'. Use web search to find today's actual live blog URLs for Yahoo Finance and CNBC — do not reuse old URLs from previous days. Search for: 'yahoo finance stock market today' and 'cnbc stock market live updates' to get today's links. Also search for today's SGX market outlook on minichart.com.sg. For HK always use: https://tradingeconomics.com/hong-kong/stock-market. Render each as: Label: URL on its own line. Only include real URLs found via search — never fabricate URLs." 
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
     +'<div id="sumStream"><div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div></div></div>';
