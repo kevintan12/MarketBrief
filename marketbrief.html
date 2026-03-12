@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.29</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.29</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.312.32</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.312.32</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.312.29';
+  var CURRENT='v1.312.32';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.312.29'){
+        if(m&&m[1]&&m[1]!=='v1.312.32'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -892,6 +892,25 @@ async function loadSummary(){
         +prompt;
     }
   }
+  // Further Reading instruction — placed early so searches happen before budget runs out
+  prompt+=(function(){
+    var _y=new Date();_y.setDate(_y.getDate()-1);
+    var _yy=_y.getFullYear();
+    var _mm=String(_y.getMonth()+1).padStart(2,'0');
+    var _dd=String(_y.getDate()).padStart(2,'0');
+    var _ymd=_yy+'/'+_mm+'/'+_dd;
+    var _dateStr=_yy+'-'+_mm+'-'+_dd;
+    var _cnbc='https://www.cnbc.com/'+_ymd+'/stock-market-today-live-updates.html';
+    return 'IMPORTANT — 📰 Further Reading section instructions (do these web searches now, before writing the analysis):\n'
+      +'Search 1: search for "yahoo finance stock market today '+_dateStr+'" — find the finance.yahoo.com/news/live/ article whose headline starts with "Stock market today:" published on '+_dateStr+'. This is the live blog recap. Do NOT use Motley Fool, Zacks or other third-party sites.\n'
+      +'Search 2: search for "site:minichart.com.sg market '+_dateStr+'" — find the minichart.com.sg article URL published on '+_dateStr+'. Only use minichart.com.sg URLs.\n'
+      +'At the end of the analysis, output the 📰 Further Reading section with ALL 4 of these links in this exact order, each as Label: URL on its own line:\n'
+      +'Yahoo Finance Stock Market Today: [URL from Search 1, fallback: https://finance.yahoo.com/topic/stock-market-news/]\n'
+      +'CNBC Daily Market Recap: '+_cnbc+'\n'
+      +'SGX Market Recap: [URL from Search 2, fallback: https://www.minichart.com.sg]\n'
+      +'HK Market Daily: https://tradingeconomics.com/hong-kong/stock-market\n'
+      +'You MUST output all 4 links. Use the fallback URL if the search did not find a specific article.\n\n';
+  })();
   mktsToShow.forEach(function(mkt){
     var d=mktData.filter(function(x){return x.mkt===mkt;});
     if(!d.length)return;
@@ -953,21 +972,7 @@ async function loadSummary(){
     +'Focus on what matters for a Singapore investor.\n\n'
     +(watchTickers.length?'For the 💼 My Watchlist section: assess the overall sentiment of the watchlist (how many stocks are up vs down, breadth). Highlight the top 2-3 movers by % change — name them, give the % move, and one-line reason if identifiable. Keep to 3-4 sentences.\\n':'')
     +'For the 🌏 Regional Markets section: write one paragraph (3-4 sentences) summarising the KOSPI, Bursa Malaysia, TAIEX, and Nikkei using the data provided. Note overall direction, any standout market, and key drivers. Use web search if needed.\\n'
-    +(function(){
-      var _y=new Date();_y.setDate(_y.getDate()-1);
-      var _yy=_y.getFullYear();
-      var _mm=String(_y.getMonth()+1).padStart(2,'0');
-      var _dd=String(_y.getDate()).padStart(2,'0');
-      var _ymd=_yy+'/'+_mm+'/'+_dd;
-      var _dateStr=_yy+'-'+_mm+'-'+_dd;
-      var _cnbc='https://www.cnbc.com/'+_ymd+'/stock-market-today-live-updates.html';
-      return 'At the end of the analysis, add a 📰 Further Reading section with exactly 4 links, each on its own line formatted as Label: URL. Use this exact order:\n'
-        +'1. Yahoo Finance Stock Market Today: search "yahoo finance \"stock market today:\" '+_dateStr+'" and find the finance.yahoo.com/news/live/ URL whose title starts with \"Stock market today:\" from '+_dateStr+'. Do NOT use Motley Fool or Zacks articles.\n'
-        +'2. CNBC Daily Market Recap: '+_cnbc+'\n'
-        +'3. SGX Market Recap: search "site:minichart.com.sg '+_dateStr+'" and return the most relevant minichart.com.sg article URL from that date. Only use minichart.com.sg URLs.\n'
-        +'4. HK Market Daily: https://tradingeconomics.com/hong-kong/stock-market\n'
-        +'Never fabricate URLs. If a search returns no result for that date, omit that link.';
-    })()
+
   var hdrHTML='<div class="sumbox"><div class="sumhdr"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div>'
     +'<div id="sumStream"><div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div></div></div>';
@@ -992,7 +997,7 @@ async function loadSummary(){
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:5}],messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:8}],messages:[{role:'user',content:prompt}]})
     });
     console.log('MB: API response status=',resp.status);
     if(!resp.ok){var e=await resp.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'API error '+resp.status);}
