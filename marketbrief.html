@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.313.04</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.313.04</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.313.05</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.313.05</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.313.04';
+  var CURRENT='v1.313.05';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.313.04'){
+        if(m&&m[1]&&m[1]!=='v1.313.05'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1288,50 +1288,46 @@ function exportToPDF(type){
       var btn=document.querySelector('.pdf-btn[data-export="'+type+'"]');
       if(btn){btn.textContent='Generating…';btn.disabled=true;}
 
-      // Build clean off-screen div with strong dark-on-white styling
       var wrapper=document.createElement('div');
-      wrapper.style.cssText='position:fixed;left:-9999px;top:0;width:760px;background:#ffffff;color:#111111;font-family:"DM Mono",monospace;font-size:13px;line-height:1.75;padding:40px;box-sizing:border-box;';
+      wrapper.style.cssText='position:fixed;left:-9999px;top:0;width:760px;background:#ffffff;color:#000000;font-family:"DM Mono",monospace;font-size:13px;line-height:1.75;padding:40px;box-sizing:border-box;';
 
       var hdr=document.createElement('div');
-      hdr.style.cssText='display:flex;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #111111;';
-      hdr.innerHTML='<div style="font-family:Syne,sans-serif;font-weight:800;font-size:22px;color:#111111;">Market<span style="color:#005b8e;">Brief</span></div>'
-        +'<div style="text-align:right;font-size:11px;color:#444444;"><div>'+title+'</div><div>'+ds+' · '+ts+' SGT</div></div>';
+      hdr.style.cssText='display:flex;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #000000;';
+      hdr.innerHTML='<div style="font-family:Syne,sans-serif;font-weight:800;font-size:22px;color:#000000;">Market<span style="color:#005b8e;">Brief</span></div>'
+        +'<div style="text-align:right;font-size:11px;color:#000000;"><div>'+title+'</div><div>'+ds+' · '+ts+' SGT</div></div>';
       wrapper.appendChild(hdr);
 
       var body=document.createElement('div');
       body.innerHTML=contentEl.innerHTML;
 
-      // Remap all CSS variable colors to strong print-safe values
-      body.querySelectorAll('[style]').forEach(function(el){
-        var st=el.getAttribute('style');
-        st=st
-          .replace(/color:var\(--acc\)/g,        'color:#005b8e')
-          .replace(/color:var\(--orange\)/g,      'color:#8b3a00')
-          .replace(/color:var\(--txt\)/g,         'color:#111111')
-          .replace(/color:var\(--mut\)/g,         'color:#444444')
-          .replace(/color:var\(--grn\)/g,         'color:#146b3a')
-          .replace(/color:var\(--red\)/g,         'color:#b91c1c')
-          .replace(/background:rgba\(0,212,255,0\.07\)/g,  'background:#e8f4fb')
-          .replace(/background:rgba\(0,212,255,0\.1[0-9]*\)/g,'background:#e8f4fb')
-          .replace(/border-left:3px solid var\(--acc\)/g,  'border-left:3px solid #005b8e')
-          .replace(/border-bottom:1px solid rgba\(249,115,22,0\.25\)/g,'border-bottom:1px solid #c07040')
-          .replace(/border-color:var\(--bor\)/g,  'border-color:#cccccc')
-          .replace(/background:var\(--sur\)/g,    'background:#f8f8f8')
-          .replace(/background:var\(--sur2\)/g,   'background:#f0f0f0');
+      // Force ALL elements to black text, then selectively colour headers/accents
+      body.querySelectorAll('*').forEach(function(el){
+        // Strip all existing color/background styles first
+        var st=el.getAttribute('style')||'';
+        // Replace all color declarations with black
+        st=st.replace(/color:[^;]+;?/g,'color:#000000;');
+        // Replace all background declarations with white
+        st=st.replace(/background:[^;]+;?/g,'background:#ffffff;');
+        // Keep border-left for accent boxes but make it dark
+        st=st.replace(/border-left:[^;]+;?/g,'border-left:3px solid #000000;');
+        // Keep border-bottom for section headers
+        st=st.replace(/border-bottom:[^;]+;?/g,'border-bottom:1px solid #cccccc;');
+        // Remove margin-top compression that hides content
         el.setAttribute('style',st);
       });
 
-      // Fix inline color on text nodes via span elements
+      // Re-apply targeted colours for readability
       body.querySelectorAll('a').forEach(function(a){
         a.style.color='#005b8e';
         a.style.textDecoration='underline';
       });
       body.querySelectorAll('strong').forEach(function(s){
-        s.style.color='#005b8e';
-        s.style.fontWeight='600';
+        s.style.color='#000000';
+        s.style.fontWeight='700';
+        s.style.textDecoration='underline';
       });
       body.querySelectorAll('em').forEach(function(e){
-        e.style.color='#444444';
+        e.style.color='#333333';
         e.style.fontStyle='italic';
       });
 
@@ -1346,18 +1342,14 @@ function exportToPDF(type){
         var pageH=pdf.internal.pageSize.getHeight();
         var margin=30;
         var printW=pageW-margin*2;
-        // Scale factor: canvas px to pdf pts
         var scale=printW/canvas.width;
-        var printH=canvas.height*scale;
         var pageContentH=pageH-margin*2;
-        var totalPages=Math.ceil(printH/pageContentH);
+        var totalPages=Math.ceil(canvas.height*scale/pageContentH);
 
         for(var i=0;i<totalPages;i++){
           if(i>0) pdf.addPage();
-          // Source slice in canvas pixels
           var srcY=(i*pageContentH)/scale;
-          var srcH=Math.min(pageContentH/scale, canvas.height-srcY);
-          // Create a slice canvas
+          var srcH=Math.min(pageContentH/scale,canvas.height-srcY);
           var slice=document.createElement('canvas');
           slice.width=canvas.width;
           slice.height=srcH;
@@ -1365,8 +1357,7 @@ function exportToPDF(type){
           ctx.fillStyle='#ffffff';
           ctx.fillRect(0,0,slice.width,slice.height);
           ctx.drawImage(canvas,0,srcY,canvas.width,srcH,0,0,canvas.width,srcH);
-          var sliceData=slice.toDataURL('image/png');
-          pdf.addImage(sliceData,'PNG',margin,margin,printW,srcH*scale);
+          pdf.addImage(slice.toDataURL('image/png'),'PNG',margin,margin,printW,srcH*scale);
         }
 
         var fname=title.replace(/[^a-zA-Z0-9 ]/g,'_').replace(/\s+/g,'_').toLowerCase()+'.pdf';
