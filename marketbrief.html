@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.313.06</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.313.06</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.313.09</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.313.09</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.313.06';
+  var CURRENT='v1.313.09';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.313.06'){
+        if(m&&m[1]&&m[1]!=='v1.313.09'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1274,53 +1274,127 @@ function exportToPDF(type){
     title='MarketBrief Analysis'+(sym?' — '+sym.textContent:'');
   }
   if(!contentEl||!contentEl.innerHTML)return;
+
+  var btn=document.querySelector('.pdf-btn[data-export="'+type+'"]');
+  if(btn){btn.textContent='Generating…';btn.disabled=true;}
+
   var now=new Date();
   var ds=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',year:'numeric',month:'short',day:'numeric'});
   var ts=now.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
 
-  // Convert innerHTML: replace all CSS variable references with hardcoded print colours
+  // Remap all CSS variable colour references to hardcoded print values
   var html=contentEl.innerHTML
     .replace(/color:var\(--acc\)/g,'color:#005b8e')
-    .replace(/color:var\(--orange\)/g,'color:#8b3a00')
-    .replace(/color:var\(--txt\)/g,'color:#000000')
-    .replace(/color:var\(--mut\)/g,'color:#333333')
+    .replace(/color:var\(--orange\)/g,'color:#7c2d00')
+    .replace(/color:var\(--txt\)/g,'color:#111111')
+    .replace(/color:var\(--mut\)/g,'color:#444444')
     .replace(/color:var\(--grn\)/g,'color:#146b3a')
     .replace(/color:var\(--red\)/g,'color:#b91c1c')
     .replace(/color:var\(--gld\)/g,'color:#92610a')
     .replace(/color:var\(--bg\)/g,'color:#000000')
+    .replace(/background:linear-gradient[^;"]+/g,'background:#f0f4ff')
     .replace(/background:rgba\(0,212,255[^)]*\)/g,'background:#e8f4fb')
     .replace(/background:rgba\(124,58,237[^)]*\)/g,'background:#f0eeff')
     .replace(/background:rgba\(16,185,129[^)]*\)/g,'background:#e8f8f0')
     .replace(/background:rgba\(100,116,139[^)]*\)/g,'background:#f0f0f0')
-    .replace(/background:rgba\([^)]*\)/g,'background:#f8f8f8')
+    .replace(/background:rgba\([^)]*\)/g,'background:#f5f5f5')
     .replace(/border-left:3px solid var\(--acc\)/g,'border-left:3px solid #005b8e')
-    .replace(/border-bottom:1px solid rgba\(249,115,22,0\.25\)/g,'border-bottom:1px solid #c07040')
-    .replace(/border-top:1px solid var\(--bor\)/g,'border-top:1px solid #cccccc');
+    .replace(/border-bottom:1px solid rgba\(249,115,22[^)]*\)/g,'border-bottom:1px solid #c07040')
+    .replace(/border-top:1px solid var\(--bor\)/g,'border-top:1px solid #cccccc')
+    .replace(/border:1px solid var\(--bor\)/g,'border:1px solid #cccccc')
+    .replace(/border:1px solid rgba\(0,212,255[^)]*\)/g,'border:1px solid #a0cce0')
+    .replace(/border:1px solid rgba\([^)]*\)/g,'border:1px solid #dddddd');
 
-  var w=window.open('','_blank');
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+title+'</title>'
+  // Full self-contained HTML with no CSS variable references
+  var pageHtml='<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0;}'
-    +'body{font-family:"DM Mono",monospace;background:#ffffff;color:#000000;padding:40px;font-size:13px;line-height:1.75;}'
-    +'.pdf-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #000000;}'
-    +'.pdf-logo{font-family:"Syne",sans-serif;font-weight:800;font-size:22px;color:#000000;}'
-    +'.pdf-logo span{color:#005b8e;}'
-    +'.pdf-meta{text-align:right;font-size:11px;color:#000000;}'
-    +'a{color:#005b8e;text-decoration:underline;}'
+    +'body{font-family:"DM Mono",monospace;background:#ffffff;color:#111111;font-size:13px;line-height:1.75;width:760px;padding:40px;}'
+    +'a{color:#005b8e;text-decoration:underline;word-break:break-all;}'
     +'strong{color:#005b8e;font-weight:700;}'
-    +'em{color:#333333;font-style:italic;font-size:0.92em;}'
+    +'em{color:#444444;font-style:italic;font-size:0.92em;}'
     +'hr{border:none;border-top:1px solid #cccccc;margin:8px 0;}'
-    +'@media print{body{padding:20px;}@page{margin:15mm;size:A4;}}'
     +'</style></head><body>'
-    +'<div class="pdf-hdr">'
-    +'<div class="pdf-logo">Market<span>Brief</span></div>'
-    +'<div class="pdf-meta"><div>'+title+'</div><div>'+ds+' · '+ts+' SGT</div></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #111111;">'
+    +'<div style="font-family:Syne,sans-serif;font-weight:800;font-size:22px;color:#111111;">Market<span style="color:#005b8e;">Brief</span></div>'
+    +'<div style="text-align:right;font-size:11px;color:#444444;line-height:1.6;"><div style="font-weight:600;color:#111111;">'+title+'</div><div>'+ds+' · '+ts+' SGT</div></div>'
     +'</div>'
-    +html
-    +'</body></html>');
-  w.document.close();
-  setTimeout(function(){w.print();},800);
+    +'<div id="pdfcontent" style="color:#111111;">'+html+'</div>'
+    +'</body></html>';
+
+  function loadScript(src,cb){
+    if(document.querySelector('script[src="'+src+'"]')){cb();return;}
+    var s=document.createElement('script');s.src=src;s.onload=cb;document.head.appendChild(s);
+  }
+
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',function(){
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',function(){
+
+      // Create iframe — must be in DOM and have real dimensions for html2canvas to work.
+      // We use opacity:0 + pointer-events:none so it's invisible but laid out correctly.
+      var iframe=document.createElement('iframe');
+      iframe.style.cssText='position:fixed;top:0;left:0;width:760px;height:900px;border:none;opacity:0;pointer-events:none;z-index:-1;';
+      document.body.appendChild(iframe);
+
+      var idoc=iframe.contentDocument||iframe.contentWindow.document;
+      idoc.open(); idoc.write(pageHtml); idoc.close();
+
+      // Wait for fonts + layout to settle inside iframe
+      setTimeout(function(){
+        var iBody=idoc.body;
+        var naturalH=iBody.scrollHeight||900;
+        iframe.style.height=naturalH+'px';
+
+        // Give layout one more tick after height set
+        setTimeout(function(){
+          window.html2canvas(iBody,{
+            scale:2,
+            useCORS:true,
+            backgroundColor:'#ffffff',
+            logging:false,
+            width:760,
+            height:naturalH,
+            windowWidth:760,
+            windowHeight:naturalH,
+            scrollX:0,
+            scrollY:0
+          }).then(function(canvas){
+            document.body.removeChild(iframe);
+            var jspdf=window.jspdf||window.jsPDF;
+            var pdf=new (jspdf.jsPDF||jspdf)({orientation:'portrait',unit:'pt',format:'a4'});
+            var pageW=pdf.internal.pageSize.getWidth();
+            var pageH=pdf.internal.pageSize.getHeight();
+            var margin=30;
+            var printW=pageW-margin*2;
+            var imgScale=printW/canvas.width;
+            var sliceH=Math.floor((pageH-margin*2)/imgScale); // canvas px per PDF page
+            var totalPages=Math.ceil(canvas.height/sliceH);
+            for(var i=0;i<totalPages;i++){
+              if(i>0) pdf.addPage();
+              var sy=i*sliceH;
+              var sh=Math.min(sliceH,canvas.height-sy);
+              var slice=document.createElement('canvas');
+              slice.width=canvas.width;
+              slice.height=sh;
+              var ctx2=slice.getContext('2d');
+              ctx2.fillStyle='#ffffff';
+              ctx2.fillRect(0,0,slice.width,sh);
+              ctx2.drawImage(canvas,0,sy,canvas.width,sh,0,0,canvas.width,sh);
+              pdf.addImage(slice.toDataURL('image/png'),'PNG',margin,margin,printW,sh*imgScale);
+            }
+            var fname=title.replace(/[^a-zA-Z0-9 ]/g,'_').replace(/\s+/g,'_').toLowerCase()+'.pdf';
+            pdf.save(fname);
+            if(btn){btn.textContent='PDF';btn.disabled=false;}
+          }).catch(function(err){
+            console.error('PDF error:',err);
+            document.body.removeChild(iframe);
+            if(btn){btn.textContent='PDF';btn.disabled=false;}
+          });
+        },100);
+      },1500);
+    });
+  });
 }
 
 // ── Summary formatter ─────────────────────────────────────────────────────────
