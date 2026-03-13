@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.313.02</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.313.02</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.313.03</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.313.03</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.313.02';
+  var CURRENT='v1.313.03';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.313.02'){
+        if(m&&m[1]&&m[1]!=='v1.313.03'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1277,25 +1277,80 @@ function exportToPDF(type){
   var now=new Date();
   var ds=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',year:'numeric',month:'short',day:'numeric'});
   var ts=now.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
-  var w=window.open('','_blank');
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+title+'</title>'
-    +'<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<style>*{box-sizing:border-box;margin:0;padding:0;}'
-    +'body{font-family:DM Mono,monospace;background:#fff;color:#1a1a2e;padding:32px;font-size:13px;line-height:1.7;}'
-    +'.pdf-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #1a1a2e;}'
-    +'.pdf-logo{font-family:Syne,sans-serif;font-weight:800;font-size:22px;}'
-    +'.pdf-logo span{color:#0077aa;}'
-    +'.pdf-meta{text-align:right;font-size:11px;color:#555;}'
-    +'a{color:#0077aa;text-decoration:underline;}'
-    +'strong{font-weight:600;}em{font-style:italic;color:#555;font-size:0.9em;}'
-    +'hr{border:none;border-top:1px solid #ddd;margin:10px 0;}'
-    +'@media print{body{padding:20px;}@page{margin:15mm;size:A4;}}'
-    +'</style></head><body>'
-    +'<div class="pdf-hdr"><div class="pdf-logo">Market<span>Brief</span></div>'
-    +'<div class="pdf-meta"><div>'+title+'</div><div>'+ds+' · '+ts+' SGT</div></div></div>'
-    +contentEl.innerHTML+'</body></html>');
-  w.document.close();
-  setTimeout(function(){w.print();},600);
+
+  // Load jsPDF + html2canvas on demand
+  function loadScript(src,cb){
+    if(document.querySelector('script[src="'+src+'"]')){cb();return;}
+    var s=document.createElement('script');s.src=src;s.onload=cb;document.head.appendChild(s);
+  }
+
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',function(){
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',function(){
+      var btn=document.querySelector('.pdf-btn[data-export="'+type+'"]');
+      if(btn){btn.textContent='Generating…';btn.disabled=true;}
+
+      // Build a clean off-screen div with light styling for capture
+      var wrapper=document.createElement('div');
+      wrapper.style.cssText='position:fixed;left:-9999px;top:0;width:794px;background:#ffffff;color:#1a1a2e;font-family:DM Mono,monospace;font-size:13px;line-height:1.7;padding:40px;box-sizing:border-box;';
+
+      // Header
+      var hdr=document.createElement('div');
+      hdr.style.cssText='display:flex;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #1a1a2e;';
+      hdr.innerHTML='<div style="font-family:Syne,sans-serif;font-weight:800;font-size:22px;">Market<span style="color:#0077aa;">Brief</span></div>'
+        +'<div style="text-align:right;font-size:11px;color:#555;"><div>'+title+'</div><div>'+ds+' · '+ts+' SGT</div></div>';
+      wrapper.appendChild(hdr);
+
+      // Content — convert dark theme colors to print-friendly
+      var body=document.createElement('div');
+      body.innerHTML=contentEl.innerHTML;
+      // Restyle for light background
+      body.querySelectorAll('*').forEach(function(el){
+        var st=el.getAttribute('style')||'';
+        st=st.replace(/color:var\(--acc\)/g,'color:#0077aa')
+             .replace(/color:var\(--orange\)/g,'color:#c05000')
+             .replace(/color:var\(--txt\)/g,'color:#1a1a2e')
+             .replace(/color:var\(--mut\)/g,'color:#555555')
+             .replace(/color:var\(--grn\)/g,'color:#059669')
+             .replace(/color:var\(--red\)/g,'color:#dc2626')
+             .replace(/background:rgba\(0,212,255,0\.07\)/g,'background:#f0f8ff')
+             .replace(/border-left:3px solid var\(--acc\)/g,'border-left:3px solid #0077aa')
+             .replace(/border-bottom:1px solid rgba\(249,115,22,0\.25\)/g,'border-bottom:1px solid #e0c0a0')
+             .replace(/color:#[0-9a-f]{6}/gi,function(m){return m;});
+        if(st) el.setAttribute('style',st);
+      });
+      // Fix links
+      body.querySelectorAll('a').forEach(function(a){
+        a.style.color='#0077aa';
+      });
+      wrapper.appendChild(body);
+      document.body.appendChild(wrapper);
+
+      window.html2canvas(wrapper,{scale:2,useCORS:true,backgroundColor:'#ffffff'}).then(function(canvas){
+        document.body.removeChild(wrapper);
+        var imgData=canvas.toDataURL('image/png');
+        var jspdf=window.jspdf||window.jsPDF;
+        var pdf=new (jspdf.jsPDF||jspdf)({orientation:'portrait',unit:'mm',format:'a4'});
+        var pageW=pdf.internal.pageSize.getWidth();
+        var pageH=pdf.internal.pageSize.getHeight();
+        var margin=10;
+        var imgW=pageW-margin*2;
+        var imgH=canvas.height*imgW/canvas.width;
+        var y=margin;
+        // Multi-page support
+        while(y<imgH+margin){
+          if(y>margin) pdf.addPage();
+          pdf.addImage(imgData,'PNG',margin,margin-(y-margin),imgW,imgH);
+          y+=pageH-margin*2;
+        }
+        var fname=title.replace(/[^a-zA-Z0-9— ]/g,'').replace(/\s+/g,'_').toLowerCase()+'.pdf';
+        pdf.save(fname);
+        if(btn){btn.textContent='PDF';btn.disabled=false;}
+      }).catch(function(err){
+        console.error('PDF error:',err);
+        if(btn){btn.textContent='PDF';btn.disabled=false;}
+      });
+    });
+  });
 }
 
 // ── Summary formatter ─────────────────────────────────────────────────────────
