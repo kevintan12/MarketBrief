@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.19</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.19</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.20</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.20</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.19';
+  var CURRENT='v1.314.20';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.19'){
+        if(m&&m[1]&&m[1]!=='v1.314.20'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1099,10 +1099,16 @@ async function fetchFinnhubValuation(sym, currentPrice){
       var terminal=(ev2*(1+termG)/(disc-termG))/Math.pow(1+disc,20);
       return pv+terminal;
     }
-    var dcf   = dcf20(eps, growthRate);
-    var dfcf  = dcf20(fcfps, growthRate);
-    var meanpb= (pb&&bvps&&pb>0&&bvps>0)?(pb*bvps):null;
-    var valid=[dcf,dfcf,meanpb].filter(function(v){return v&&v>0;});
+    var dcf    = dcf20(eps, growthRate);
+    var dfcf   = dcf20(fcfps, growthRate);
+    var meanpb = (pb&&bvps&&pb>0&&bvps>0)?(pb*bvps):null;
+    // Graham Formula: EPS x (8.5 + 2g) where g is growth rate as percentage
+    var gPct   = growthRate*100;
+    var graham = (eps&&eps>0)?(eps*(8.5+2*gPct)):null;
+    // Graham Number: sqrt(22.5 x EPS x BVPS)
+    var gnVal  = (eps&&eps>0&&bvps&&bvps>0)?(22.5*eps*bvps):null;
+    var gnum   = (gnVal&&gnVal>0)?Math.sqrt(gnVal):null;
+    var valid=[dcf,dfcf,meanpb,graham,gnum].filter(function(v){return v&&v>0;});
     if(!valid.length) return null;
     var mbVal=valid.reduce(function(a,b){return a+b;},0)/valid.length;
     var mos=currentPrice>0?((mbVal-currentPrice)/mbVal*100):null;
@@ -1110,6 +1116,7 @@ async function fetchFinnhubValuation(sym, currentPrice){
     function f3(v){return v?'$'+v.toFixed(3):'N/A';}
     function fp(v){return v!==null?(v>=0?'+':'')+v.toFixed(1)+'%':'N/A';}
     return 'DCF-20: '+f3(dcf)+' | DFCF-20: '+f3(dfcf)+' | P/B Value: '+f3(meanpb)+'\n'
+      +'Graham Formula: '+f3(graham)+' | Graham Number: '+f3(gnum)+'\n'
       +'MB Value: '+f3(mbVal)+' | Current Price: '+(currentPrice?fmt(currentPrice):'N/A')+' | Margin of Safety: '+fp(mos)+' | Verdict: '+verdict+'\n'
       +'_Generated with Finnhub data_';
   }catch(e){
