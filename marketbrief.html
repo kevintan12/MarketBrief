@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.09</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.09</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.12</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.12</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.09';
+  var CURRENT='v1.314.12';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -285,7 +285,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 })();
 // ── State ─────────────────────────────────────────────────────────────────────
 var S = {
-  proxyUrl:'', apiKey:'', fmpKey:'', style:'detailed', tz:'Asia/Singapore',
+  proxyUrl:'', apiKey:'', style:'detailed', tz:'Asia/Singapore',
   // DJI first, then IXIC, then GSPC for US order
   fixedTickers:[
     {sym:'^DJI',  name:'Dow Jones', sub:'US · DJIA',              flag:'🇺🇸', mkt:'US'},
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.09'){
+        if(m&&m[1]&&m[1]!=='v1.314.12'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1068,54 +1068,36 @@ function stripIVPreamble(txt){
   return txt.slice(earliest);
 }
 
-// ── FMP Intrinsic Value ──────────────────────────────────────────────────────
-async function fetchFMPValuation(sym, currentPrice){
-  if(!S.fmpKey) return null;
-  // FMP free tier supports US stocks only
-  if(sym.endsWith('.SI')||sym.endsWith('.HK')) return null;
-  var base='https://financialmodelingprep.com/api/v3';
-  var k='?apikey='+encodeURIComponent(S.fmpKey);
+// ── Yahoo Intrinsic Value ────────────────────────────────────────────────────
+async function fetchYahooValuation(sym, currentPrice){
+  if(!S.proxyUrl) return null;
+  // Only for stocks — skip indices
+  if(sym.startsWith('^')) return null;
   try{
-    var [incR,cfR,bsR,kmR]=await Promise.all([
-      fetch(base+'/income-statement/'+sym+k+'&limit=5&period=annual').then(function(r){return r.json();}),
-      fetch(base+'/cash-flow-statement/'+sym+k+'&limit=5&period=annual').then(function(r){return r.json();}),
-      fetch(base+'/balance-sheet-statement/'+sym+k+'&limit=5&period=annual').then(function(r){return r.json();}),
-      fetch(base+'/key-metrics/'+sym+k+'&limit=5&period=annual').then(function(r){return r.json();})
-    ]);
-    console.log('FMP incR sample:',JSON.stringify(incR&&incR[0]||incR));
-    if(!Array.isArray(incR)||!incR.length){console.warn('FMP: no income data for',sym,incR);return null;}
+    var r=await fetch(S.proxyUrl+'/api/financials?symbol='+encodeURIComponent(sym));
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var d=await r.json();
+    if(d.error) throw new Error(d.error);
 
-    // EPS — most recent annual
-    var eps=incR[0].eps||incR[0].epsdiluted||null;
-    if(!eps||eps<=0) eps=null;
+    var eps    = d.trailingEps||null;
+    var fcfps  = d.fcfps||null;
+    var bvps   = d.bvps||null;
+    var pb     = d.pb||null;
+    var hist   = d.epsHistory||[];
 
-    // FCF/share — most recent annual
-    var fcf=cfR[0]&&cfR[0].freeCashFlow||null;
-    var shares=incR[0].weightedAverageShsOutDil||incR[0].weightedAverageShsOut||null;
-    var fcfps=(fcf&&shares&&shares>0)?(fcf/shares):null;
-
-    // BVPS — most recent
-    var bvps=bsR[0]&&bsR[0].bookValuePerShare||null;
-    if(!bvps||bvps<=0) bvps=null;
-
-    // 5yr avg P/B from key-metrics
-    var pbVals=(kmR||[]).map(function(x){return x.pbRatio||x.priceToBookRatio||0;}).filter(function(v){return v>0;});
-    var avgPB=pbVals.length?pbVals.reduce(function(a,b){return a+b;},0)/pbVals.length:null;
-
-    // Growth rate — 5yr EPS CAGR capped at 25%
-    var growthRate=0.08; // default
-    if(incR.length>=2){
-      var epsOld=incR[incR.length-1].eps||incR[incR.length-1].epsdiluted||null;
-      var epsNew=incR[0].eps||incR[0].epsdiluted||null;
-      if(epsOld&&epsNew&&epsOld>0&&epsNew>0){
-        var cagr=Math.pow(epsNew/epsOld,1/(incR.length-1))-1;
+    // Growth rate: analyst estimate first, then historical CAGR, default 8%
+    var growthRate=0.08;
+    if(d.analystGrowth&&d.analystGrowth>0&&d.analystGrowth<=0.25){
+      growthRate=d.analystGrowth;
+    } else if(hist.length>=2){
+      var epsOld=hist[hist.length-1], epsNew=hist[0];
+      if(epsOld>0&&epsNew>0){
+        var cagr=Math.pow(epsNew/epsOld,1/(hist.length-1))-1;
         growthRate=Math.min(Math.max(cagr,0.03),0.25);
       }
     }
 
     var disc=0.10;
-
-    // DCF-20 using EPS
     function dcf20(e,g){
       if(!e||e<=0) return null;
       var pv=0,ev=e;
@@ -1126,11 +1108,10 @@ async function fetchFMPValuation(sym, currentPrice){
       return pv+terminal;
     }
 
-    var dcf=dcf20(eps,growthRate);
-    var dfcf=dcf20(fcfps,growthRate);
-    var meanpb=(avgPB&&bvps)?(avgPB*bvps):null;
+    var dcf   = dcf20(eps, growthRate);
+    var dfcf  = dcf20(fcfps, growthRate);
+    var meanpb= (pb&&bvps&&pb>0&&bvps>0)?(pb*bvps):null;
 
-    // MB Value = average of valid (positive) results
     var valid=[dcf,dfcf,meanpb].filter(function(v){return v&&v>0;});
     if(!valid.length) return null;
     var mbVal=valid.reduce(function(a,b){return a+b;},0)/valid.length;
@@ -1141,14 +1122,15 @@ async function fetchFMPValuation(sym, currentPrice){
     function f3(v){return v?'$'+v.toFixed(3):'N/A';}
     function fp(v){return v!==null?(v>=0?'+':'')+v.toFixed(1)+'%':'N/A';}
 
-    return 'DCF-20: '+f3(dcf)+' | DFCF-20: '+f3(dfcf)+' | Mean P/B: '+f3(meanpb)+'\n'
+    return 'DCF-20: '+f3(dcf)+' | DFCF-20: '+f3(dfcf)+' | P/B Value: '+f3(meanpb)+'\n'
       +'MB Value: '+f3(mbVal)+' | Current Price: '+(currentPrice?fmt(currentPrice):'N/A')+' | Margin of Safety: '+fp(mos)+' | Verdict: '+verdict+'\n'
-      +'_Generated with FMP data_';
+      +'_Generated with Yahoo Finance data_';
   }catch(e){
-    console.warn('FMP fetch failed:',e.message||e);
+    console.warn('Yahoo financials failed:',e.message||e);
     return null;
   }
 }
+
 
 // ── Ticker AI (manual button) ─────────────────────────────────────────────────
 async function genTickerAI(sym,d,resId){
@@ -1208,20 +1190,20 @@ async function genTickerAI(sym,d,resId){
     :'(no price data)';
   var mktTz=(sym.endsWith('.SI')?'Asia/Singapore':sym.endsWith('.HK')?'Asia/Hong_Kong':'America/New_York');
   var mktDateStr=now.toLocaleDateString('en-SG',{timeZone:mktTz,weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  // Fetch FMP valuation before building prompt
-  var fmpIV=null;
-  try{ fmpIV=await fetchFMPValuation(sym, liveData&&liveData.price?liveData.price:0); }catch(e){}
+  // Fetch Yahoo valuation before building prompt
+  var yahooIV=null;
+  try{ yahooIV=await fetchYahooValuation(sym, liveData&&liveData.price?liveData.price:0); }catch(e){}
 
-  // fmpAttempted = FMP key is set AND ticker is US (FMP was tried but may have failed)
-  var fmpAttempted=S.fmpKey&&!sym.endsWith('.SI')&&!sym.endsWith('.HK');
+  // yahooAttempted = proxy set AND ticker is not an index
+  var yahooAttempted=S.proxyUrl&&!sym.startsWith('^');
 
-  var ivSections=fmpIV
+  var ivSections=yahooIV
     ? '2. 📈 Price Action\n3. 🔍 Key Drivers\n4. 📊 Volume & Participation\n5. ⚠️ Key Risks\n6. 🇸🇬 Singapore Investor Angle\n7. 🔮 Near-Term Outlook'
     : '1. 💰 Intrinsic Value\nTwo lines only (all monetary values to 3 decimal places e.g. $12.345):\nDCF-20: $X.XXX | DFCF-20: $X.XXX | Mean P/B: $X.XXX\nMB Value: $X.XXX | Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n_Generated with search results_\n\n2. 📈 Price Action\n3. 🔍 Key Drivers\n4. 📊 Volume & Participation\n5. ⚠️ Key Risks\n6. 🇸🇬 Singapore Investor Angle\n7. 🔮 Near-Term Outlook';
 
-  // If FMP was attempted but failed, do not fall back to AI — show unavailable instead
-  var ivRule=fmpIV?''
-    :fmpAttempted?''
+  // If Yahoo was attempted but failed, do not fall back to AI — show unavailable instead
+  var ivRule=yahooIV?''
+    :yahooAttempted?''
     :'RULE: Always produce a best-effort valuation. Never refuse or list missing data. If exact figures are unavailable, use the best available estimate (e.g. trailing EPS, sector-average growth rate, or industry P/B). Mark estimated inputs with (est) inline. A rough estimate is more useful than no answer. NEVER show valuation inputs, working, or any intermediate data — output the two result lines only.\n\n'
     +'Use web search to fetch latest annual financials for '+sym+': EPS, FCF/share, BVPS, 5-yr avg P/B, analyst EPS growth rate. Compute silently, show NO working:\n'
     +'DCF-20: EPS x discounted growth (yrs 1-10 analyst rate, 11-20 half rate, 10% discount) + terminal (yr20 EPS x rate x 15 / 1.1^20).\n'
@@ -1234,10 +1216,10 @@ async function genTickerAI(sym,d,resId){
     +'Write EXACTLY these sections:\n'
     +ivSections+'\n\n'
     +'3-4 sentences per section. Use "'+prevDay+'" not "yesterday". For Near-Term Outlook make a direct call on likely direction over 5-10 trading days. End with: "Outlook: [one-line verdict]".';
-  var fmpIVHtml=fmpIV?formatSummary('1. 💰 Intrinsic Value\n'+fmpIV)
-    :fmpAttempted?formatSummary('1. 💰 Intrinsic Value\nIV data unavailable — FMP did not return data for this ticker.\n_Generated with FMP data_'):
+  var yahooIVHtml=yahooIV?formatSummary('1. 💰 Intrinsic Value\n'+yahooIV)
+    :yahooAttempted?formatSummary('1. 💰 Intrinsic Value\nIV data unavailable — could not retrieve financial data for this ticker.\n_Generated with Yahoo Finance data_'):
     '';
-  var tickerHdrHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><button class="pdf-btn" data-export="tick_'+resId+'" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'+fmpIVHtml+'<div id="tickStream_'+resId+'"></div></div>';
+  var tickerHdrHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><button class="pdf-btn" data-export="tick_'+resId+'" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'+yahooIVHtml++'<div id="tickStream_'+resId+'"></div></div>';
   el.innerHTML=tickerHdrHTML;
   function getTickStream(){return document.getElementById('tickStream_'+resId);}
   var accumulated='';
@@ -1594,11 +1576,7 @@ function renderSettingsPanelTo(pid){
       +'<input class="sinp" type="password" id="cfgClaude_'+pid+'" placeholder="sk-ant-api03-..." value="'+esc(S.apiKey)+'">'
       +'<div class="snote">Get your key at <strong style="color:var(--txt)">console.anthropic.com</strong></div>'
     +'</div>'
-    +'<div class="srow">'
-      +'<div class="slbl">FMP API Key</div>'
-      +'<input class="sinp" type="password" id="cfgFMP_'+pid+'" placeholder="Your FMP API key" value="'+esc(S.fmpKey)+'">'
-      +'<div class="snote">Free key from <strong style="color:var(--txt)">financialmodelingprep.com</strong> — used for deterministic intrinsic value calculations (US stocks only).</div>'
-    +'</div>'
+
     +'<div class="srow">'
       +'<div class="slbl">Watchlist — by Market</div>'
       +'<div class="snote" style="margin-bottom:12px">🔒 Index tickers are fixed. Use ↑↓ to reorder. Search by name to add.</div>'
@@ -1719,7 +1697,7 @@ function moveTicker(mkt,idx,dir,pid){
 }
 
 function exportSettings(pid){
-  var data={proxyUrl:S.proxyUrl,apiKey:S.apiKey,fmpKey:S.fmpKey,style:S.style,tz:S.tz,customTickers:S.customTickers};
+  var data={proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers};
   var code=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
   var out=document.getElementById('expOut_'+pid);
   var codeId='expCode_'+pid;
@@ -1741,11 +1719,10 @@ function importSettings(pid){
     var data=JSON.parse(decodeURIComponent(escape(atob(raw))));
     if(data.proxyUrl!==undefined) S.proxyUrl=data.proxyUrl;
     if(data.apiKey!==undefined)   S.apiKey=data.apiKey;
-    if(data.fmpKey!==undefined)   S.fmpKey=data.fmpKey;
     if(data.style!==undefined)    S.style=data.style;
     if(data.tz!==undefined)       S.tz=data.tz;
     if(data.customTickers)        S.customTickers=data.customTickers;
-    storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,fmpKey:S.fmpKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
+    storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
     msg.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Settings imported! Reloading…</div>';
     setTimeout(function(){location.reload();},1200);
   }catch(e){
@@ -1767,10 +1744,9 @@ function storeLoad(){
 function saveSettings(pid){
   S.proxyUrl=(document.getElementById('cfgProxy_'+pid).value||'').trim().replace(/\/+$/,'');
   S.apiKey  =(document.getElementById('cfgClaude_'+pid).value||'').trim();
-  S.fmpKey  =(document.getElementById('cfgFMP_'+pid).value||'').trim();
   S.style   =document.getElementById('cfgStyle_'+pid).value;
   S.tz      =document.getElementById('cfgTz_'+pid).value;
-  var result=storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,fmpKey:S.fmpKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
+  var result=storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
   var m=document.getElementById('saveMsg_'+pid);
   if(result==='memory'){
     m.innerHTML='<div class="msg err" style="margin-top:6px">⚠ Storage blocked by browser — settings saved for this session only. Check Safari Settings → Privacy and disable Private Browsing or allow website data.</div>';
@@ -1785,7 +1761,6 @@ function loadSettings(){
     var s=storeLoad();
     if(s.proxyUrl) S.proxyUrl=s.proxyUrl;
     if(s.apiKey)   S.apiKey=s.apiKey;
-    if(s.fmpKey)   S.fmpKey=s.fmpKey;
     if(s.style)    S.style=s.style;
     if(s.tz)       S.tz=s.tz;
     if(s.customTickers)['US','SG','HK'].forEach(function(m){if(s.customTickers[m])S.customTickers[m]=s.customTickers[m];});
