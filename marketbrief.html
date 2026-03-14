@@ -233,7 +233,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.02</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.02</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.03</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.03</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -351,7 +351,7 @@ function initPIN(){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.315.02';
+  var CURRENT='v1.315.03';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -402,7 +402,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.315.02'){
+        if(m&&m[1]&&m[1]!=='v1.315.03'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -663,7 +663,7 @@ async function execSearch(inpId,btnId,resId){
       +'<div class="sstat"><div class="ssl">Day Low</div><div class="ssv" id="tssv3_'+resId+'">'+fmt(d.low)+'</div></div>'
       +'</div>'
       +'</div>'
-      '<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">'
+      +'<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">'
         +'<button class="analyze-btn" id="anBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'">✦ Analyse with AI</button>'
         +'<button class="analyze-btn about-btn" style="background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.3);color:var(--mut);" id="abBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'" data-name="'+esc(d.name)+'">ℹ About</button>'
         +'</div>'
