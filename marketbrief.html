@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.04</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.04</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.07</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.07</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.04';
+  var CURRENT='v1.314.07';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.04'){
+        if(m&&m[1]&&m[1]!=='v1.314.07'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1143,7 +1143,7 @@ async function fetchFMPValuation(sym, currentPrice){
 
     return 'DCF-20: '+f3(dcf)+' | DFCF-20: '+f3(dfcf)+' | Mean P/B: '+f3(meanpb)+'\n'
       +'MB Value: '+f3(mbVal)+' | Current Price: '+(currentPrice?fmt(currentPrice):'N/A')+' | Margin of Safety: '+fp(mos)+' | Verdict: '+verdict+'\n'
-      +'_Generated with FMP data_';
+      +'*Generated with FMP data*';
   }catch(e){
     console.warn('FMP fetch failed:',e.message||e);
     return null;
@@ -1217,7 +1217,7 @@ async function genTickerAI(sym,d,resId){
 
   var ivSections=fmpIV
     ? '2. 📈 Price Action\n3. 🔍 Key Drivers\n4. 📊 Volume & Participation\n5. ⚠️ Key Risks\n6. 🇸🇬 Singapore Investor Angle\n7. 🔮 Near-Term Outlook'
-    : '1. 💰 Intrinsic Value\nTwo lines only (all monetary values to 3 decimal places e.g. $12.345):\nDCF-20: $X.XXX | DFCF-20: $X.XXX | Mean P/B: $X.XXX\nMB Value: $X.XXX | Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n\n2. 📈 Price Action\n3. 🔍 Key Drivers\n4. 📊 Volume & Participation\n5. ⚠️ Key Risks\n6. 🇸🇬 Singapore Investor Angle\n7. 🔮 Near-Term Outlook';
+    : '1. 💰 Intrinsic Value\nTwo lines only (all monetary values to 3 decimal places e.g. $12.345):\nDCF-20: $X.XXX | DFCF-20: $X.XXX | Mean P/B: $X.XXX\nMB Value: $X.XXX | Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n*Generated with search results*\n\n2. 📈 Price Action\n3. 🔍 Key Drivers\n4. 📊 Volume & Participation\n5. ⚠️ Key Risks\n6. 🇸🇬 Singapore Investor Angle\n7. 🔮 Near-Term Outlook';
 
   // If FMP was attempted but failed, do not fall back to AI — show unavailable instead
   var ivRule=fmpIV?''
@@ -1235,7 +1235,7 @@ async function genTickerAI(sym,d,resId){
     +ivSections+'\n\n'
     +'3-4 sentences per section. Use "'+prevDay+'" not "yesterday". For Near-Term Outlook make a direct call on likely direction over 5-10 trading days. End with: "Outlook: [one-line verdict]".';
   var fmpIVHtml=fmpIV?formatSummary('1. 💰 Intrinsic Value\n'+fmpIV)
-    :fmpAttempted?formatSummary('1. 💰 Intrinsic Value\nIV data unavailable — FMP did not return data for this ticker.\n_Generated with FMP data_'):
+    :fmpAttempted?formatSummary('1. 💰 Intrinsic Value\nIV data unavailable — FMP did not return data for this ticker.\n*Generated with FMP data*'):
     '';
   var tickerHdrHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><button class="pdf-btn" data-export="tick_'+resId+'" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'+fmpIVHtml+'<div id="tickStream_'+resId+'"></div></div>';
   el.innerHTML=tickerHdrHTML;
@@ -1274,7 +1274,7 @@ async function genTickerAI(sym,d,resId){
     }
     clearInterval(_tcdTimer);
     var _tcd2=document.getElementById('tickCd_'+resId);if(_tcd2)_tcd2.style.display='none';
-    var _disc='\n\n---\n_This analysis is AI-generated for informational purposes only. Not financial advice. Do your own research before investing._';
+    var _disc='\n\n---\n*This analysis is AI-generated for informational purposes only. Not financial advice. Do your own research before investing.*';
     var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(stripIVPreamble(accumulated)))+_disc);
     // Save with slight delay to ensure DOM is fully updated
     setTimeout(function(){
