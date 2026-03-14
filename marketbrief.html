@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.12</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.12</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.13</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.13</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.12';
+  var CURRENT='v1.314.13';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.12'){
+        if(m&&m[1]&&m[1]!=='v1.314.13'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1219,7 +1219,7 @@ async function genTickerAI(sym,d,resId){
   var yahooIVHtml=yahooIV?formatSummary('1. 💰 Intrinsic Value\n'+yahooIV)
     :yahooAttempted?formatSummary('1. 💰 Intrinsic Value\nIV data unavailable — could not retrieve financial data for this ticker.\n_Generated with Yahoo Finance data_'):
     '';
-  var tickerHdrHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><button class="pdf-btn" data-export="tick_'+resId+'" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'+yahooIVHtml++'<div id="tickStream_'+resId+'"></div></div>';
+  var tickerHdrHTML='<div class="sumbox" style="margin-top:10px"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI Analysis</span><span class="sumdate" style="margin-left:6px">'+esc(dateStr)+'</span></div><button class="pdf-btn" data-export="tick_'+resId+'" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'+yahooIVHtml+'<div id="tickStream_'+resId+'"></div></div>';
   el.innerHTML=tickerHdrHTML;
   function getTickStream(){return document.getElementById('tickStream_'+resId);}
   var accumulated='';
