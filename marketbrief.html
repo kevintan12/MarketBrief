@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.18</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.18</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.19</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.19</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.18';
+  var CURRENT='v1.314.19';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.18'){
+        if(m&&m[1]&&m[1]!=='v1.314.19'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1087,14 +1087,16 @@ async function fetchFinnhubValuation(sym, currentPrice){
     // Finnhub returns growth as percentage (e.g. 12.24 = 12.24%), divide by 100
     if(g3&&g3>0) growthRate=Math.min(Math.max(g3/100,0.03),0.25);
     else if(g5&&g5>0) growthRate=Math.min(Math.max(g5/100,0.03),0.25);
-    var disc=0.10;
+    var disc=0.10, termG=0.03;
     function dcf20(e,g){
       if(!e||e<=0) return null;
+      g=Math.min(g,0.15); // cap growth at 15% for conservatism
       var pv=0,ev=e;
       for(var yr=1;yr<=10;yr++){ev*=(1+g);pv+=ev/Math.pow(1+disc,yr);}
       var ev2=ev;
       for(var yr2=11;yr2<=20;yr2++){ev2*=(1+g/2);pv+=ev2/Math.pow(1+disc,yr2);}
-      var terminal=ev2*15/Math.pow(1+disc,20);
+      // Gordon Growth terminal value: more conservative than fixed P/E exit multiple
+      var terminal=(ev2*(1+termG)/(disc-termG))/Math.pow(1+disc,20);
       return pv+terminal;
     }
     var dcf   = dcf20(eps, growthRate);
