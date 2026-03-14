@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.08</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.08</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.09</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.09</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.08';
+  var CURRENT='v1.314.09';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.08'){
+        if(m&&m[1]&&m[1]!=='v1.314.09'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1767,6 +1767,7 @@ function storeLoad(){
 function saveSettings(pid){
   S.proxyUrl=(document.getElementById('cfgProxy_'+pid).value||'').trim().replace(/\/+$/,'');
   S.apiKey  =(document.getElementById('cfgClaude_'+pid).value||'').trim();
+  S.fmpKey  =(document.getElementById('cfgFMP_'+pid).value||'').trim();
   S.style   =document.getElementById('cfgStyle_'+pid).value;
   S.tz      =document.getElementById('cfgTz_'+pid).value;
   var result=storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,fmpKey:S.fmpKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
