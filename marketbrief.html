@@ -212,10 +212,28 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 </style>
 </head>
 <body>
+<div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
+  <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
+  <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
+  <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
+  <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
+    <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
+    <button onclick="pinKey('4')" class="pk">4</button><button onclick="pinKey('5')" class="pk">5</button><button onclick="pinKey('6')" class="pk">6</button>
+    <button onclick="pinKey('7')" class="pk">7</button><button onclick="pinKey('8')" class="pk">8</button><button onclick="pinKey('9')" class="pk">9</button>
+    <button onclick="pinKey('C')" class="pk" style="color:#ef4444;">&#x2715;</button><button onclick="pinKey('0')" class="pk">0</button><button onclick="pinKey('OK')" class="pk" style="color:#00d4ff;">&#x2713;</button>
+  </div>
+  <div id="pinErr" style="color:#ef4444;font-size:0.9rem;font-family:'DM Mono',monospace;min-height:20px;"></div>
+</div>
+<style>
+.pk{width:72px;height:72px;border-radius:50%;border:1px solid #1e2d45;background:#111827;color:#e2e8f0;font-family:'Syne',sans-serif;font-size:1.4rem;cursor:pointer;transition:all 0.15s;}
+.pk:hover{background:#1a2236;border-color:#00d4ff;color:#00d4ff;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.pin-shake{animation:shake 0.4s ease;}
+</style>
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.23</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.23</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.02</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.02</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -267,9 +285,73 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 </div>
 
 <script>
+// ── PIN Protection ───────────────────────────────────────────────────────────
+var _pinBuffer='';
+var _defaultPinHash='8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
+async function sha256(str){
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+function getStoredPinHash(){
+  try{return localStorage.getItem('mb_pin_hash')||_defaultPinHash;}catch(e){return _defaultPinHash;}
+}
+function pinKey(k){
+  var err=document.getElementById('pinErr');
+  if(err) err.textContent='';
+  if(k==='C'){_pinBuffer=_pinBuffer.slice(0,-1);updatePinDots();return;}
+  if(k==='OK'){checkPin();return;}
+  if(_pinBuffer.length>=6) return;
+  _pinBuffer+=k;
+  updatePinDots();
+  if(_pinBuffer.length===6) setTimeout(checkPin,80);
+}
+function updatePinDots(){
+  var dots=document.querySelectorAll('.pd');
+  dots.forEach(function(d,i){
+    d.style.background=i<_pinBuffer.length?'#00d4ff':'transparent';
+    d.style.borderColor=i<_pinBuffer.length?'#00d4ff':'#1e2d45';
+  });
+}
+async function checkPin(){
+  var hash=await sha256(_pinBuffer);
+  if(hash===getStoredPinHash()){
+    try{sessionStorage.setItem('mb_auth','1');}catch(e){}
+    document.getElementById('pinOverlay').style.display='none';
+  } else {
+    _pinBuffer='';
+    updatePinDots();
+    var pad=document.getElementById('pinPad');
+    var err=document.getElementById('pinErr');
+    if(pad){pad.classList.add('pin-shake');setTimeout(function(){pad.classList.remove('pin-shake');},400);}
+    if(err) err.textContent='Incorrect PIN';
+  }
+}
+async function changePIN(current,newPin,confirm){
+  if(newPin.length!==6) return 'PIN must be 6 digits';
+  if(newPin!==confirm) return 'New PINs do not match';
+  var currentHash=await sha256(current);
+  if(currentHash!==getStoredPinHash()) return 'Current PIN incorrect';
+  var newHash=await sha256(newPin);
+  try{localStorage.setItem('mb_pin_hash',newHash);}catch(e){return 'Could not save PIN';}
+  return 'ok';
+}
+function initPIN(){
+  var authed=false;
+  try{authed=sessionStorage.getItem('mb_auth')==='1';}catch(e){}
+  if(!authed){
+    document.getElementById('pinOverlay').style.display='flex';
+    document.addEventListener('keydown',function(e){
+      if(document.getElementById('pinOverlay').style.display==='none') return;
+      if(e.key>='0'&&e.key<='9') pinKey(e.key);
+      else if(e.key==='Backspace') pinKey('C');
+      else if(e.key==='Enter') pinKey('OK');
+    });
+  }
+}
+
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.23';
+  var CURRENT='v1.315.02';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -285,7 +367,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 })();
 // ── State ─────────────────────────────────────────────────────────────────────
 var S = {
-  proxyUrl:'', apiKey:'', finnhubKey:'', style:'detailed', tz:'Asia/Singapore',
+  proxyUrl:'', style:'detailed', tz:'Asia/Singapore',
   // DJI first, then IXIC, then GSPC for US order
   fixedTickers:[
     {sym:'^DJI',  name:'Dow Jones', sub:'US · DJIA',              flag:'🇺🇸', mkt:'US'},
@@ -306,6 +388,7 @@ var acTimers={};  // debounce timers keyed by input id
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 window.onload=function(){
+  initPIN();
   loadSettings();
   detectLayout();
   window.addEventListener('resize',detectLayout);
@@ -319,7 +402,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.23'){
+        if(m&&m[1]&&m[1]!=='v1.315.02'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -580,10 +663,10 @@ async function execSearch(inpId,btnId,resId){
       +'<div class="sstat"><div class="ssl">Day Low</div><div class="ssv" id="tssv3_'+resId+'">'+fmt(d.low)+'</div></div>'
       +'</div>'
       +'</div>'
-      +(S.apiKey?'<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">'
+      '<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">'
         +'<button class="analyze-btn" id="anBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'">✦ Analyse with AI</button>'
         +'<button class="analyze-btn about-btn" style="background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.3);color:var(--mut);" id="abBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'" data-name="'+esc(d.name)+'">ℹ About</button>'
-        +'</div>':'')
+        +'</div>'
       +'</div>'
       +'<div id="tai_'+resId+'"></div>';
   }catch(e){res.innerHTML='<div class="msg err">'+esc(e.message)+'</div>';}
@@ -609,7 +692,7 @@ function setAIBtnVisible(show){
   });
 }
 function triggerSummary(){
-  if(!S.apiKey){setSumHTML('<div class="msg err">Add your Claude API key in ⚙ Settings.</div>');return;}
+  if(!S.proxyUrl){setSumHTML('<div class="msg err">Add your Proxy URL in ⚙ Settings.</div>');return;}
   if(!mktData.length){setSumHTML('<div class="msg err">Load data first — click ↻ Refresh.</div>');return;}
   // Cancel any pending restore and clear old summary before generating fresh
   if(window._tryRTimer){clearTimeout(window._tryRTimer);window._tryRTimer=null;}
@@ -995,10 +1078,9 @@ async function loadSummary(){
   var accumulated='';
   try{
     console.log('MB: prompt built, length=',prompt.length);
-    var resp=await fetch('https://api.anthropic.com/v1/messages',{
+    var resp=await fetch(S.proxyUrl+'/api/quote?claude=1',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':S.apiKey,
-        'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:10}],messages:[{role:'user',content:prompt}]})
     });
     console.log('MB: API response status=',resp.status);
@@ -1070,10 +1152,10 @@ function stripIVPreamble(txt){
 
 // ── Finnhub Intrinsic Value ──────────────────────────────────────────────────
 async function fetchFinnhubValuation(sym, currentPrice){
-  if(!S.finnhubKey) return null;
+  if(!S.proxyUrl) return null;
   if(sym.startsWith('^')) return null;
   try{
-    var r=await fetch('https://finnhub.io/api/v1/stock/metric?symbol='+encodeURIComponent(sym)+'&metric=all&token='+encodeURIComponent(S.finnhubKey));
+    var r=await fetch(S.proxyUrl+'/api/quote?finnhub=1&symbol='+encodeURIComponent(sym));
     if(!r.ok) throw new Error('HTTP '+r.status);
     var d=await r.json();
     if(!d.metric) throw new Error('No metric data');
@@ -1189,11 +1271,11 @@ async function genTickerAI(sym,d,resId){
   try{ finnhubIV=await fetchFinnhubValuation(sym, liveData&&liveData.price?liveData.price:0); }catch(e){}
 
   // finnhubAttempted = Finnhub key set AND ticker is not an index
-  var finnhubAttempted=S.finnhubKey&&!sym.startsWith('^');
+  var finnhubAttempted=S.proxyUrl&&!sym.startsWith('^');
 
   var ivSections=finnhubIV
     ? '2. 📈 Price Action\n3. 🔍 Key Drivers\n4. 📊 Volume & Participation\n5. ⚠️ Key Risks\n6. 🇸🇬 Singapore Investor Angle\n7. 🔮 Near-Term Outlook'
-    : '1. 💰 Intrinsic Value\nTwo lines only (all monetary values to 3 decimal places e.g. $12.345):\nDCF-20: $X.XXX | DFCF-20: $X.XXX | Fwd P/E: $X.XXX\nMB Value: $X.XXX | Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n_Generated with search results_\n\n2. 📈 Price Action\n3. 🔍 Key Drivers\n4. 📊 Volume & Participation\n5. ⚠️ Key Risks\n6. 🇸🇬 Singapore Investor Angle\n7. 🔮 Near-Term Outlook';
+    : '1. 💰 Intrinsic Value\nTwo lines only (all monetary values to 3 decimal places e.g. $12.345):\nDCF-20: $X.XXX | DFCF-20: $X.XXX | DNI-20: $X.XXX\nMB Value: $X.XXX | Current Price: '+(liveData&&liveData.price?fmt(liveData.price):'N/A')+' | Margin of Safety: X% | Verdict: Undervalued/Fairly Valued/Overvalued\n_Generated with search results_\n\n2. 📈 Price Action\n3. 🔍 Key Drivers\n4. 📊 Volume & Participation\n5. ⚠️ Key Risks\n6. 🇸🇬 Singapore Investor Angle\n7. 🔮 Near-Term Outlook';
 
   // If Yahoo was attempted but failed, do not fall back to AI — show unavailable instead
   var ivRule=finnhubIV?''
@@ -1219,8 +1301,8 @@ async function genTickerAI(sym,d,resId){
   var accumulated='';
   try{
     console.log('MB: prompt built, length=',prompt.length);
-    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    var resp=await fetch(S.proxyUrl+'/api/quote?claude=1',{method:'POST',
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}],messages:[{role:'user',content:prompt}]})});
     console.log('MB: API response status=',resp.status);
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
@@ -1290,8 +1372,8 @@ async function triggerAboutAI(sym,resId,btn,companyName){
       +'Cover: what the company does, exchange and sector, market cap tier, and 2-3 things a Singapore investor should know (dividends, key risks, revenue drivers). '
       +'Be specific and factual. Write in plain English. No markdown bold (**) or headers.'
     console.log('MB: prompt built, length=',prompt.length);
-    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    var resp=await fetch(S.proxyUrl+'/api/quote?claude=1',{method:'POST',
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,stream:true,tools:[{type:'web_search_20250305',name:'web_search',max_uses:2}],messages:[{role:'user',content:prompt}]})});
     console.log('MB: API response status=',resp.status);
     if(!resp.ok){var er=await resp.json().catch(function(){return{};});throw new Error((er.error&&er.error.message)||'API error '+resp.status);}
@@ -1535,6 +1617,24 @@ function formatSummary(txt){
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
+function doChangePIN(pid){
+  var cur=document.getElementById('cfgCurPin_'+pid).value||'';
+  var nw=document.getElementById('cfgNewPin_'+pid).value||'';
+  var cf=document.getElementById('cfgConPin_'+pid).value||'';
+  var msg=document.getElementById('pinChgMsg_'+pid);
+  changePIN(cur,nw,cf).then(function(result){
+    if(result==='ok'){
+      msg.innerHTML='<div class="msg ok" style="margin-top:4px">&#x2713; PIN updated.</div>';
+      document.getElementById('cfgCurPin_'+pid).value='';
+      document.getElementById('cfgNewPin_'+pid).value='';
+      document.getElementById('cfgConPin_'+pid).value='';
+    } else {
+      msg.innerHTML='<div class="msg err" style="margin-top:4px">'+esc(result)+'</div>';
+    }
+    setTimeout(function(){msg.innerHTML='';},3000);
+  });
+}
+
 function renderSettingsPanelTo(pid){
   var el=document.getElementById(pid); if(!el)return;
 
@@ -1564,16 +1664,6 @@ function renderSettingsPanelTo(pid){
       +'<div class="slbl" style="color:var(--acc)">★ Proxy URL</div>'
       +'<input class="sinp" type="url" id="cfgProxy_'+pid+'" placeholder="https://mb-proxy.vercel.app" value="'+esc(S.proxyUrl)+'">'
       +'<div class="snote">Your Vercel proxy URL for live market data.</div>'
-    +'</div>'
-    +'<div class="srow">'
-      +'<div class="slbl">Claude API Key</div>'
-      +'<input class="sinp" type="password" id="cfgClaude_'+pid+'" placeholder="sk-ant-api03-..." value="'+esc(S.apiKey)+'">'
-      +'<div class="snote">Get your key at <strong style="color:var(--txt)">console.anthropic.com</strong></div>'
-    +'</div>'
-    +'<div class="srow">'
-      +'<div class="slbl">Finnhub API Key</div>'
-      +'<input class="sinp" type="password" id="cfgFinnhub_'+pid+'" placeholder="Your Finnhub API key" value="'+esc(S.finnhubKey)+'">'
-      +'<div class="snote">Free key from <strong style="color:var(--txt)">finnhub.io</strong> — used for intrinsic value calculations (US stocks). 60 calls/min free.</div>'
     +'</div>'
 
     +'<div class="srow">'
@@ -1610,6 +1700,14 @@ function renderSettingsPanelTo(pid){
       +'<textarea class="sinp" id="impInp_'+pid+'" placeholder="Paste settings code here to import…" rows="3" style="margin-top:10px;font-size:0.8rem;resize:vertical;"></textarea>'
       +'<button class="savebtn" style="margin-top:6px;" onclick="importSettings(\''+pid+'\')">⬇ Import Settings Code</button>'
       +'<div id="impMsg_'+pid+'"></div>'
+    +'</div>'
+    +'<div class="srow" style="border-color:rgba(0,212,255,0.25)">'
+      +'<div class="slbl" style="color:var(--acc)">&#x1F512; Change PIN</div>'
+      +'<input class="sinp" type="password" id="cfgCurPin_'+pid+'" placeholder="Current PIN" maxlength="6" style="margin-bottom:8px">'
+      +'<input class="sinp" type="password" id="cfgNewPin_'+pid+'" placeholder="New PIN (6 digits)" maxlength="6" style="margin-bottom:8px">'
+      +'<input class="sinp" type="password" id="cfgConPin_'+pid+'" placeholder="Confirm new PIN" maxlength="6" style="margin-bottom:8px">'
+      +'<button class="savebtn" style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:var(--acc)" onclick="doChangePIN(\''+pid+'\')" >Update PIN</button>'
+      +'<div id="pinChgMsg_'+pid+'" style="margin-top:6px"></div>'
     +'</div>'
     +'<div class="srow" style="border-color:rgba(239,68,68,0.2)">'
       +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'
@@ -1696,7 +1794,7 @@ function moveTicker(mkt,idx,dir,pid){
 }
 
 function exportSettings(pid){
-  var data={proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers};
+  var data={proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers};
   var code=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
   var out=document.getElementById('expOut_'+pid);
   var codeId='expCode_'+pid;
@@ -1717,12 +1815,10 @@ function importSettings(pid){
   try{
     var data=JSON.parse(decodeURIComponent(escape(atob(raw))));
     if(data.proxyUrl!==undefined) S.proxyUrl=data.proxyUrl;
-    if(data.apiKey!==undefined)      S.apiKey=data.apiKey;
-    if(data.finnhubKey!==undefined)  S.finnhubKey=data.finnhubKey;
-    if(data.style!==undefined)       S.style=data.style;
+    if(data.style!==undefined)    S.style=data.style;
     if(data.tz!==undefined)       S.tz=data.tz;
     if(data.customTickers)        S.customTickers=data.customTickers;
-    storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,finnhubKey:S.finnhubKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
+    storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers});
     msg.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Settings imported! Reloading…</div>';
     setTimeout(function(){location.reload();},1200);
   }catch(e){
@@ -1743,11 +1839,9 @@ function storeLoad(){
 }
 function saveSettings(pid){
   S.proxyUrl=(document.getElementById('cfgProxy_'+pid).value||'').trim().replace(/\/+$/,'');
-  S.apiKey     =(document.getElementById('cfgClaude_'+pid).value||'').trim();
-  S.finnhubKey =(document.getElementById('cfgFinnhub_'+pid).value||'').trim();
-  S.style      =document.getElementById('cfgStyle_'+pid).value;
+  S.style   =document.getElementById('cfgStyle_'+pid).value;
   S.tz      =document.getElementById('cfgTz_'+pid).value;
-  var result=storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,finnhubKey:S.finnhubKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
+  var result=storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers});
   var m=document.getElementById('saveMsg_'+pid);
   if(result==='memory'){
     m.innerHTML='<div class="msg err" style="margin-top:6px">⚠ Storage blocked by browser — settings saved for this session only. Check Safari Settings → Privacy and disable Private Browsing or allow website data.</div>';
@@ -1761,9 +1855,7 @@ function loadSettings(){
   try{
     var s=storeLoad();
     if(s.proxyUrl) S.proxyUrl=s.proxyUrl;
-    if(s.apiKey)      S.apiKey=s.apiKey;
-    if(s.finnhubKey)  S.finnhubKey=s.finnhubKey;
-    if(s.style)       S.style=s.style;
+    if(s.style)    S.style=s.style;
     if(s.tz)       S.tz=s.tz;
     if(s.customTickers)['US','SG','HK'].forEach(function(m){if(s.customTickers[m])S.customTickers[m]=s.customTickers[m];});
   }catch(e){}
