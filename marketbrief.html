@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.03</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.03</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.04</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.04</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.03';
+  var CURRENT='v1.314.04';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.03'){
+        if(m&&m[1]&&m[1]!=='v1.314.04'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1077,12 +1077,13 @@ async function fetchFMPValuation(sym, currentPrice){
   var k='?apikey='+encodeURIComponent(S.fmpKey);
   try{
     var [incR,cfR,bsR,kmR]=await Promise.all([
-      fetch(base+'/income-statement/'+sym+k+'&limit=5').then(function(r){return r.json();}),
-      fetch(base+'/cash-flow-statement/'+sym+k+'&limit=5').then(function(r){return r.json();}),
-      fetch(base+'/balance-sheet-statement/'+sym+k+'&limit=5').then(function(r){return r.json();}),
-      fetch(base+'/key-metrics/'+sym+k+'&limit=5').then(function(r){return r.json();})
+      fetch(base+'/income-statement/'+sym+k+'&limit=5&period=annual').then(function(r){return r.json();}),
+      fetch(base+'/cash-flow-statement/'+sym+k+'&limit=5&period=annual').then(function(r){return r.json();}),
+      fetch(base+'/balance-sheet-statement/'+sym+k+'&limit=5&period=annual').then(function(r){return r.json();}),
+      fetch(base+'/key-metrics/'+sym+k+'&limit=5&period=annual').then(function(r){return r.json();})
     ]);
-    if(!Array.isArray(incR)||!incR.length) return null;
+    console.log('FMP incR sample:',JSON.stringify(incR&&incR[0]||incR));
+    if(!Array.isArray(incR)||!incR.length){console.warn('FMP: no income data for',sym,incR);return null;}
 
     // EPS — most recent annual
     var eps=incR[0].eps||incR[0].epsdiluted||null;
@@ -1144,7 +1145,7 @@ async function fetchFMPValuation(sym, currentPrice){
       +'MB Value: '+f3(mbVal)+' | Current Price: '+(currentPrice?fmt(currentPrice):'N/A')+' | Margin of Safety: '+fp(mos)+' | Verdict: '+verdict+'\n'
       +'_Generated with FMP data_';
   }catch(e){
-    console.warn('FMP fetch failed:',e);
+    console.warn('FMP fetch failed:',e.message||e);
     return null;
   }
 }
@@ -1274,8 +1275,7 @@ async function genTickerAI(sym,d,resId){
     clearInterval(_tcdTimer);
     var _tcd2=document.getElementById('tickCd_'+resId);if(_tcd2)_tcd2.style.display='none';
     var _disc='\n\n---\n_This analysis is AI-generated for informational purposes only. Not financial advice. Do your own research before investing._';
-    var _ivLabel=fmpIV?'':'\n_Generated with search results_';
-    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(stripIVPreamble(accumulated)))+_ivLabel+_disc);
+    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(stripIVPreamble(accumulated)))+_disc);
     // Save with slight delay to ensure DOM is fully updated
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
