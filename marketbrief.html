@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.20</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.20</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.23</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.23</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.20';
+  var CURRENT='v1.314.23';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.20'){
+        if(m&&m[1]&&m[1]!=='v1.314.23'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1081,7 +1081,8 @@ async function fetchFinnhubValuation(sym, currentPrice){
     var eps   = m.epsBasicExclExtraItemsTTM||m.epsTTM||m.epsNormalizedAnnual||null;
     var fcfps = m.cashFlowPerShareTTM||m.cashFlowPerShareAnnual||null;
     var bvps  = m.bookValuePerShareAnnual||m.bookValuePerShareQuarterly||null;
-    var pb    = m.pbAnnual||m.pbQuarterly||null;
+    var peNorm= m.peNormalizedAnnual||null;
+    var epsNri= m.epsExclExtraItemsTTM||m.epsBasicExclExtraItemsTTM||null;
     var growthRate=0.08;
     var g3=m.epsGrowth3Y||null, g5=m.epsGrowth5Y||null;
     // Finnhub returns growth as percentage (e.g. 12.24 = 12.24%), divide by 100
@@ -1101,21 +1102,22 @@ async function fetchFinnhubValuation(sym, currentPrice){
     }
     var dcf    = dcf20(eps, growthRate);
     var dfcf   = dcf20(fcfps, growthRate);
-    var meanpb = (pb&&bvps&&pb>0&&bvps>0)?(pb*bvps):null;
+    // Mean P/E IV: peNormalizedAnnual x EPS excl NRI
+    var meanpe = (peNorm&&epsNri&&peNorm>0&&epsNri>0)?(peNorm*epsNri):null;
     // Graham Formula: EPS x (8.5 + 2g) where g is growth rate as percentage
     var gPct   = growthRate*100;
     var graham = (eps&&eps>0)?(eps*(8.5+2*gPct)):null;
     // Graham Number: sqrt(22.5 x EPS x BVPS)
     var gnVal  = (eps&&eps>0&&bvps&&bvps>0)?(22.5*eps*bvps):null;
     var gnum   = (gnVal&&gnVal>0)?Math.sqrt(gnVal):null;
-    var valid=[dcf,dfcf,meanpb,graham,gnum].filter(function(v){return v&&v>0;});
+    var valid=[dcf,dfcf,meanpe,graham,gnum].filter(function(v){return v&&v>0;});
     if(!valid.length) return null;
     var mbVal=valid.reduce(function(a,b){return a+b;},0)/valid.length;
     var mos=currentPrice>0?((mbVal-currentPrice)/mbVal*100):null;
     var verdict=mos===null?'N/A':mos>20?'Undervalued':mos<-20?'Overvalued':'Fairly Valued';
     function f3(v){return v?'$'+v.toFixed(3):'N/A';}
     function fp(v){return v!==null?(v>=0?'+':'')+v.toFixed(1)+'%':'N/A';}
-    return 'DCF-20: '+f3(dcf)+' | DFCF-20: '+f3(dfcf)+' | P/B Value: '+f3(meanpb)+'\n'
+    return 'DCF-20: '+f3(dcf)+' | DFCF-20: '+f3(dfcf)+'| Mean P/E: '+f3(meanpe))+'\n'
       +'Graham Formula: '+f3(graham)+' | Graham Number: '+f3(gnum)+'\n'
       +'MB Value: '+f3(mbVal)+' | Current Price: '+(currentPrice?fmt(currentPrice):'N/A')+' | Margin of Safety: '+fp(mos)+' | Verdict: '+verdict+'\n'
       +'_Generated with Finnhub data_';
@@ -1374,414 +1376,4 @@ function exportToPDF(type){
     .replace(/border:1px solid rgba\([^)]*\)/g,'border:1px solid #dddddd');
 
   // Full self-contained HTML with no CSS variable references
-  var pageHtml='<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    +'<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<style>'
-    +'*{box-sizing:border-box;margin:0;padding:0;}'
-    +'body{font-family:"DM Mono",monospace;background:#ffffff;color:#111111;font-size:13px;line-height:1.75;width:760px;padding:40px;}'
-    +'a{color:#005b8e;text-decoration:underline;word-break:break-all;}'
-    +'strong{color:#005b8e;font-weight:700;}'
-    +'em{color:#444444;font-style:italic;font-size:0.92em;}'
-    +'hr{border:none;border-top:1px solid #cccccc;margin:8px 0;}'
-    +'</style></head><body>'
-    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #111111;">'
-    +'<div style="font-family:Syne,sans-serif;font-weight:800;font-size:22px;color:#111111;">Market<span style="color:#005b8e;">Brief</span></div>'
-    +'<div style="text-align:right;font-size:11px;color:#444444;line-height:1.6;"><div style="font-weight:600;color:#111111;">'+title+'</div><div>'+ds+' · '+ts+' SGT</div></div>'
-    +'</div>'
-    +'<div id="pdfcontent" style="color:#111111;">'+html+'</div>'
-    +'</body></html>';
-
-  function loadScript(src,cb){
-    if(document.querySelector('script[src="'+src+'"]')){cb();return;}
-    var s=document.createElement('script');s.src=src;s.onload=cb;document.head.appendChild(s);
-  }
-
-  loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',function(){
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',function(){
-
-      // Create iframe — must be in DOM and have real dimensions for html2canvas to work.
-      // We use opacity:0 + pointer-events:none so it's invisible but laid out correctly.
-      var iframe=document.createElement('iframe');
-      iframe.style.cssText='position:fixed;top:0;left:0;width:760px;height:900px;border:none;opacity:0;pointer-events:none;z-index:-1;';
-      document.body.appendChild(iframe);
-
-      var idoc=iframe.contentDocument||iframe.contentWindow.document;
-      idoc.open(); idoc.write(pageHtml); idoc.close();
-
-      // Wait for fonts + layout to settle inside iframe
-      setTimeout(function(){
-        var iBody=idoc.body;
-        var naturalH=iBody.scrollHeight||900;
-        iframe.style.height=naturalH+'px';
-
-        // Give layout one more tick after height set
-        setTimeout(function(){
-          window.html2canvas(iBody,{
-            scale:2,
-            useCORS:true,
-            backgroundColor:'#ffffff',
-            logging:false,
-            width:760,
-            height:naturalH,
-            windowWidth:760,
-            windowHeight:naturalH,
-            scrollX:0,
-            scrollY:0
-          }).then(function(canvas){
-            document.body.removeChild(iframe);
-            var jspdf=window.jspdf||window.jsPDF;
-            var pdf=new (jspdf.jsPDF||jspdf)({orientation:'portrait',unit:'pt',format:'a4'});
-            var pageW=pdf.internal.pageSize.getWidth();
-            var pageH=pdf.internal.pageSize.getHeight();
-            var margin=30;
-            var printW=pageW-margin*2;
-            var imgScale=printW/canvas.width;
-            var sliceH=Math.floor((pageH-margin*2)/imgScale); // canvas px per PDF page
-            var totalPages=Math.ceil(canvas.height/sliceH);
-            for(var i=0;i<totalPages;i++){
-              if(i>0) pdf.addPage();
-              var sy=i*sliceH;
-              var sh=Math.min(sliceH,canvas.height-sy);
-              var slice=document.createElement('canvas');
-              slice.width=canvas.width;
-              slice.height=sh;
-              var ctx2=slice.getContext('2d');
-              ctx2.fillStyle='#ffffff';
-              ctx2.fillRect(0,0,slice.width,sh);
-              ctx2.drawImage(canvas,0,sy,canvas.width,sh,0,0,canvas.width,sh);
-              pdf.addImage(slice.toDataURL('image/png'),'PNG',margin,margin,printW,sh*imgScale);
-            }
-            var fname=title.replace(/[^a-zA-Z0-9 ]/g,'_').replace(/\s+/g,'_').toLowerCase()+'.pdf';
-            pdf.save(fname);
-            if(btn){btn.textContent='PDF';btn.disabled=false;}
-          }).catch(function(err){
-            console.error('PDF error:',err);
-            document.body.removeChild(iframe);
-            if(btn){btn.textContent='PDF';btn.disabled=false;}
-          });
-        },100);
-      },1500);
-    });
-  });
-}
-
-// ── Summary formatter ─────────────────────────────────────────────────────────
-function cleanAIText(txt){
-  var lines=txt.split('\n');
-  var cleaned=[];
-  for(var i=0;i<lines.length;i++){
-    var l=lines[i]; var t=l.trim().toLowerCase();
-    if(!t){cleaned.push(l);continue;}
-    // Drop any line that is pure AI meta-commentary
-    if(/^(based on|according to my|from my|using my|after (searching|reviewing|checking|looking)|i (have|can now|will now|am going to|need to|should|would|found|searched|looked)|let me |here('s| is) (my|the|a|an) (analysis|summary|overview|breakdown|look)|i'd like to|i'll |i've |great[,!]|certainly[,!]|sure[,!]|of course)/i.test(t)) continue;
-    cleaned.push(l);
-  }
-  return cleaned.join('\n').replace(/^[\s\n]+/,'');
-}
-function applyInlineMarkdown(escaped){
-  return escaped
-    .replace(/\*\*([^*]+)\*\*/g,'<strong style="font-family:DM Mono,monospace;font-weight:500;color:var(--acc);">$1</strong>')
-    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
-    .replace(/_([^_]+)_/g,'<em style="color:var(--mut);font-size:0.95rem;">$1</em>');
-}
-function safeLineHtml(line){
-  // Split line into text/url segments, esc() text only, wrap URLs in <a>
-  var result='';
-  var urlRe=/(https?:\/\/[^\s]+)/g;
-  var last=0; var m;
-  while((m=urlRe.exec(line))!==null){
-    result+=applyInlineMarkdown(esc(line.slice(last,m.index)));
-    var url=m[1].replace(/[.,;:!?)]+$/,'');
-    var display=url.replace(/^https?:\/\//,'');
-    if(display.length>55) display=display.substring(0,55)+'…';
-    result+='<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;word-break:break-all;">'+display+'</a>';
-    last=m.index+m[1].length;
-  }
-  result+=applyInlineMarkdown(esc(line.slice(last)));
-  return result;
-}
-function formatSummary(txt){
-  var html='';
-  txt.split('\n').forEach(function(line){
-    line=line.trim();
-    if(!line){html+='<div style="height:6px"></div>';return;}
-    if(line==='---'){html+='<hr style="border:none;border-top:1px solid var(--bor);margin:8px 0">';return;}
-    var stripped=line.replace(/^#+\s*/,'').replace(/^[1-9][.)\s]+/,'').trim();
-    var isHeader=/^#/.test(line)||/^[1-9][.)]\s/.test(line.trim())||stripped.charCodeAt(0)>255;
-    if(isHeader&&line.indexOf('**')===-1){
-      html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(249,115,22,0.25);">'+esc(stripped)+'</div>';
-    } else if(/^[-•*]/.test(line)){
-      html+='<div style="display:flex;gap:8px;margin-bottom:7px;"><span style="color:var(--orange);flex-shrink:0;margin-top:3px">›</span><span style="font-size:1.05rem;line-height:1.8;color:var(--txt);">'+safeLineHtml(line.replace(/^[-•*]\s*/,''))+'</span></div>';
-    } else if(/^MB Value:/i.test(line)){
-      var _mbParts=line.split('|');
-      var _mbFirst=_mbParts[0].trim();
-      var _mbRest=_mbParts.slice(1).map(function(p){return p.trim();}).join(' | ');
-      var _mbHtml='<strong style="text-decoration:underline;font-weight:700;">'+esc(_mbFirst)+'</strong>'
-        +(_mbRest?' | '+safeLineHtml(_mbRest):'');
-      html+='<div style="margin-top:8px;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+_mbHtml+'</div>';
-    } else if(/^Outlook:/i.test(line)||/^Sentiment:/i.test(line)||/^Verdict:/i.test(line)){
-      html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+safeLineHtml(line)+'</div>';
-    } else if(/^[^:]{3,60}:\s*https?:\/\//.test(line)){
-      var _ci=line.indexOf(':');
-      var _label=line.slice(0,_ci).trim();
-      var _url=line.slice(_ci+1).trim();
-      var _urlClean=_url.replace(/[.,;:!?)]+$/,'');
-      html+='<div style="margin-bottom:8px;"><a href="'+_urlClean+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;font-size:1.05rem;line-height:1.8;">'+esc(_label)+'</a></div>';
-    } else {
-      html+='<div style="font-size:1.05rem;line-height:1.8;color:var(--txt);margin-bottom:4px;">'+safeLineHtml(line)+'</div>';
-    }
-  });
-  return html;
-}
-
-// ── Settings ──────────────────────────────────────────────────────────────────
-function renderSettingsPanelTo(pid){
-  var el=document.getElementById(pid); if(!el)return;
-
-  function mktSection(mkt,flag,label){
-    var fixed=S.fixedTickers.filter(function(t){return t.mkt===mkt;});
-    var custom=S.customTickers[mkt]||[];
-    var fixedHtml=fixed.map(function(t){return '<span class="ttag fixed">🔒 '+esc(t.sym)+'</span>';}).join('');
-    var customHtml=custom.map(function(t,i){
-      return '<span class="ttag">'
-        +'<button class="mv" onclick="moveTicker(\''+mkt+'\','+i+',-1,\''+pid+'\')">↑</button>'
-        +'<button class="mv" onclick="moveTicker(\''+mkt+'\','+i+',1,\''+pid+'\')">↓</button>'
-        +esc(t.sym)+' <button class="del" onclick="removeTicker(\''+mkt+'\','+i+',\''+pid+'\')">×</button>'
-        +'</span>';
-    }).join('');
-    var iid='settAC_'+mkt+'_'+pid;
-    return '<div class="mkt-section">'
-      +'<div class="mkt-section-title">'+flag+' '+label+'</div>'
-      +'<div class="ticker-tags">'+fixedHtml+customHtml+'</div>'
-      +'<div class="tadd-ac-wrap" id="sAcWrap_'+mkt+'_'+pid+'">'
-        +'<input class="tadd-ac-input" id="'+iid+'" placeholder="Search to add '+label+' ticker…" autocomplete="off">'
-      +'</div>'
-      +'</div>';
-  }
-
-  el.innerHTML=
-    '<div class="srow" style="border-color:rgba(0,212,255,0.4)">'
-      +'<div class="slbl" style="color:var(--acc)">★ Proxy URL</div>'
-      +'<input class="sinp" type="url" id="cfgProxy_'+pid+'" placeholder="https://mb-proxy.vercel.app" value="'+esc(S.proxyUrl)+'">'
-      +'<div class="snote">Your Vercel proxy URL for live market data.</div>'
-    +'</div>'
-    +'<div class="srow">'
-      +'<div class="slbl">Claude API Key</div>'
-      +'<input class="sinp" type="password" id="cfgClaude_'+pid+'" placeholder="sk-ant-api03-..." value="'+esc(S.apiKey)+'">'
-      +'<div class="snote">Get your key at <strong style="color:var(--txt)">console.anthropic.com</strong></div>'
-    +'</div>'
-    +'<div class="srow">'
-      +'<div class="slbl">Finnhub API Key</div>'
-      +'<input class="sinp" type="password" id="cfgFinnhub_'+pid+'" placeholder="Your Finnhub API key" value="'+esc(S.finnhubKey)+'">'
-      +'<div class="snote">Free key from <strong style="color:var(--txt)">finnhub.io</strong> — used for intrinsic value calculations (US stocks). 60 calls/min free.</div>'
-    +'</div>'
-
-    +'<div class="srow">'
-      +'<div class="slbl">Watchlist — by Market</div>'
-      +'<div class="snote" style="margin-bottom:12px">🔒 Index tickers are fixed. Use ↑↓ to reorder. Search by name to add.</div>'
-      +mktSection('US','🇺🇸','US Stocks')
-      +mktSection('SG','🇸🇬','SGX Stocks')
-      +mktSection('HK','🇭🇰','HKEX Stocks')
-    +'</div>'
-    +'<div class="srow">'
-      +'<div class="slbl">Summary Style</div>'
-      +'<select class="sinp" id="cfgStyle_'+pid+'">'
-        +'<option value="detailed"'+(S.style==='detailed'?' selected':'')+'>Detailed paragraph</option>'
-        +'<option value="concise"'+(S.style==='concise'?' selected':'')+'>Concise (1 sentence each)</option>'
-        +'<option value="bullets"'+(S.style==='bullets'?' selected':'')+'>Bullet points</option>'
-      +'</select>'
-    +'</div>'
-    +'<div class="srow">'
-      +'<div class="slbl">Timezone</div>'
-      +'<select class="sinp" id="cfgTz_'+pid+'">'
-        +'<option value="Asia/Singapore"'+(S.tz==='Asia/Singapore'?' selected':'')+'>Singapore SGT (UTC+8)</option>'
-        +'<option value="Asia/Hong_Kong"'+(S.tz==='Asia/Hong_Kong'?' selected':'')+'>Hong Kong HKT (UTC+8)</option>'
-        +'<option value="America/New_York"'+(S.tz==='America/New_York'?' selected':'')+'>New York ET</option>'
-        +'<option value="UTC"'+(S.tz==='UTC'?' selected':'')+'>UTC</option>'
-      +'</select>'
-    +'</div>'
-    +'<button class="savebtn" onclick="saveSettings(\''+pid+'\')">Save Settings</button>'
-    +'<div id="saveMsg_'+pid+'"></div>'
-    +'<div class="srow" style="border-color:rgba(0,212,255,0.25)">'
-      +'<div class="slbl" style="color:var(--acc)">⇅ Sync Settings</div>'
-      +'<div class="snote">Export your settings as a code to copy to another device, or paste a code here to import.</div>'
-      +'<button class="savebtn" style="margin-top:8px;background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--acc)" onclick="exportSettings(\''+pid+'\')">⬆ Export Settings Code</button>'
-      +'<div id="expOut_'+pid+'"></div>'
-      +'<textarea class="sinp" id="impInp_'+pid+'" placeholder="Paste settings code here to import…" rows="3" style="margin-top:10px;font-size:0.8rem;resize:vertical;"></textarea>'
-      +'<button class="savebtn" style="margin-top:6px;" onclick="importSettings(\''+pid+'\')">⬇ Import Settings Code</button>'
-      +'<div id="impMsg_'+pid+'"></div>'
-    +'</div>'
-    +'<div class="srow" style="border-color:rgba(239,68,68,0.2)">'
-      +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'
-      +'<div class="snote" style="margin:0">Data via Yahoo Finance (15–20 min delay). For informational purposes only — not financial advice.</div>'
-    +'</div>';
-
-  // Attach autocomplete to each market add input
-  ['US','SG','HK'].forEach(function(mkt){
-    var iid='settAC_'+mkt+'_'+pid;
-    var wid='sAcWrap_'+mkt+'_'+pid;
-    var inp=document.getElementById(iid); if(!inp)return;
-    inp.addEventListener('input',function(){
-      var v=this.value.trim();
-      clearTimeout(acTimers[iid]);
-      if(v.length<2){closeSettAcDrop(wid);return;}
-      acTimers[iid]=setTimeout(function(){settAcFetch(v,wid,mkt,pid);},320);
-    });
-    inp.addEventListener('keydown',function(e){
-      if(e.key==='Escape') closeSettAcDrop(wid);
-    });
-  });
-}
-
-async function settAcFetch(q,wid,mkt,pid){
-  if(!S.proxyUrl) return;
-  try{
-    var r=await fetch(S.proxyUrl+'/api/quote?search='+encodeURIComponent(q));
-    var data=await r.json();
-    var results=(data.results||[]).slice(0,6);
-    renderSettAcDrop(results,wid,mkt,pid);
-  }catch(e){ closeSettAcDrop(wid); }
-}
-
-function renderSettAcDrop(results,wid,mkt,pid){
-  closeSettAcDrop(wid);
-  if(!results.length)return;
-  // Filter results to only show tickers belonging to the correct market
-  var filtered=results.filter(function(r){
-    var sym=r.symbol||'';
-    if(mkt==='SG') return sym.endsWith('.SI');
-    if(mkt==='HK') return sym.endsWith('.HK');
-    if(mkt==='US') return !sym.endsWith('.SI')&&!sym.endsWith('.HK')&&!sym.includes('.');
-    return true;
-  });
-  if(!filtered.length)return;
-  var drop=document.createElement('div');
-  drop.className='tadd-ac-drop'; drop.id='drop_'+wid;
-  drop.innerHTML=filtered.map(function(r){
-    return '<div class="tadd-ac-item" data-sym="'+esc(r.symbol)+'" data-name="'+esc(r.name)+'">'
-      +'<div><div class="tadd-ac-sym">'+esc(r.symbol)+'</div><div class="tadd-ac-name">'+esc(r.name)+'</div></div>'
-      +'<div class="tadd-ac-add">+ Add</div>'
-      +'</div>';
-  }).join('');
-  drop.querySelectorAll('.tadd-ac-item').forEach(function(item){
-    item.addEventListener('click',function(){
-      addTickerDirect(mkt,this.dataset.sym,this.dataset.name,pid);
-      closeSettAcDrop(wid);
-      var iid='settAC_'+mkt+'_'+pid;
-      var inp=document.getElementById(iid); if(inp) inp.value='';
-    });
-  });
-  document.getElementById(wid).appendChild(drop);
-}
-
-function closeSettAcDrop(wid){
-  var d=document.getElementById('drop_'+wid); if(d) d.remove();
-}
-
-function addTickerDirect(mkt,sym,name,pid){
-  var all=getAllTickers().map(function(t){return t.sym;});
-  if(all.indexOf(sym)>-1)return;
-  var flag=sym.endsWith('.L')?'🇬🇧':({'US':'🇺🇸','SG':'🇸🇬','HK':'🇭🇰'}[mkt]||'🌐');
-  var sub=sym.endsWith('.L')?'UK · LSE':({'US':'US · NYSE/Nasdaq','SG':'SG · SGX','HK':'HK · HKEX'}[mkt]||'');
-  S.customTickers[mkt].push({sym:sym,name:name||sym,sub:sub,flag:flag,mkt:mkt});
-  renderSettingsPanelTo(pid);
-}
-
-function removeTicker(mkt,idx,pid){ S.customTickers[mkt].splice(idx,1); renderSettingsPanelTo(pid); }
-function moveTicker(mkt,idx,dir,pid){
-  var arr=S.customTickers[mkt], ni=idx+dir;
-  if(ni<0||ni>=arr.length)return;
-  var tmp=arr[idx];arr[idx]=arr[ni];arr[ni]=tmp;
-  renderSettingsPanelTo(pid);
-}
-
-function exportSettings(pid){
-  var data={proxyUrl:S.proxyUrl,apiKey:S.apiKey,style:S.style,tz:S.tz,customTickers:S.customTickers};
-  var code=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-  var out=document.getElementById('expOut_'+pid);
-  var codeId='expCode_'+pid;
-  var btnId='expCopyBtn_'+pid;
-  out.innerHTML='<div style="margin-top:8px"><textarea class="sinp" rows="3" id="'+codeId+'" style="font-size:0.75rem;resize:none;" readonly>'+code+'</textarea>'
-    +'<button class="savebtn" id="'+btnId+'" style="margin-top:4px;background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--acc)">Copy Code</button></div>';
-  document.getElementById(btnId).onclick=function(){
-    var t=document.getElementById(codeId); t.select(); t.setSelectionRange(0,99999);
-    try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');}
-    this.textContent='✓ Copied!';
-    setTimeout(function(){document.getElementById(btnId).textContent='Copy Code';},2000);
-  };
-}
-function importSettings(pid){
-  var msg=document.getElementById('impMsg_'+pid);
-  var raw=(document.getElementById('impInp_'+pid).value||'').trim();
-  if(!raw){msg.innerHTML='<div class="msg err" style="margin-top:6px">Paste a settings code first.</div>';setTimeout(function(){msg.innerHTML='';},3000);return;}
-  try{
-    var data=JSON.parse(decodeURIComponent(escape(atob(raw))));
-    if(data.proxyUrl!==undefined) S.proxyUrl=data.proxyUrl;
-    if(data.apiKey!==undefined)      S.apiKey=data.apiKey;
-    if(data.finnhubKey!==undefined)  S.finnhubKey=data.finnhubKey;
-    if(data.style!==undefined)       S.style=data.style;
-    if(data.tz!==undefined)       S.tz=data.tz;
-    if(data.customTickers)        S.customTickers=data.customTickers;
-    storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,finnhubKey:S.finnhubKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
-    msg.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Settings imported! Reloading…</div>';
-    setTimeout(function(){location.reload();},1200);
-  }catch(e){
-    msg.innerHTML='<div class="msg err" style="margin-top:6px">Invalid code. Please try again.</div>';
-    setTimeout(function(){msg.innerHTML='';},3000);
-  }
-}
-function storeSave(data){
-  var str=JSON.stringify(data);
-  try{ localStorage.setItem('mb5',str); return 'local'; }catch(e){}
-  try{ sessionStorage.setItem('mb5',str); return 'session'; }catch(e){}
-  return 'memory';
-}
-function storeLoad(){
-  try{ var v=localStorage.getItem('mb5'); if(v) return JSON.parse(v); }catch(e){}
-  try{ var v=sessionStorage.getItem('mb5'); if(v) return JSON.parse(v); }catch(e){}
-  return {};
-}
-function saveSettings(pid){
-  S.proxyUrl=(document.getElementById('cfgProxy_'+pid).value||'').trim().replace(/\/+$/,'');
-  S.apiKey     =(document.getElementById('cfgClaude_'+pid).value||'').trim();
-  S.finnhubKey =(document.getElementById('cfgFinnhub_'+pid).value||'').trim();
-  S.style      =document.getElementById('cfgStyle_'+pid).value;
-  S.tz      =document.getElementById('cfgTz_'+pid).value;
-  var result=storeSave({proxyUrl:S.proxyUrl,apiKey:S.apiKey,finnhubKey:S.finnhubKey,style:S.style,tz:S.tz,customTickers:S.customTickers});
-  var m=document.getElementById('saveMsg_'+pid);
-  if(result==='memory'){
-    m.innerHTML='<div class="msg err" style="margin-top:6px">⚠ Storage blocked by browser — settings saved for this session only. Check Safari Settings → Privacy and disable Private Browsing or allow website data.</div>';
-    setTimeout(function(){m.innerHTML='';},6000);
-  } else {
-    m.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Saved'+(result==='session'?' (session only)':'')+'.</div>';
-    setTimeout(function(){m.innerHTML='';},2000);
-  }
-}
-function loadSettings(){
-  try{
-    var s=storeLoad();
-    if(s.proxyUrl) S.proxyUrl=s.proxyUrl;
-    if(s.apiKey)      S.apiKey=s.apiKey;
-    if(s.finnhubKey)  S.finnhubKey=s.finnhubKey;
-    if(s.style)       S.style=s.style;
-    if(s.tz)       S.tz=s.tz;
-    if(s.customTickers)['US','SG','HK'].forEach(function(m){if(s.customTickers[m])S.customTickers[m]=s.customTickers[m];});
-  }catch(e){}
-}
-
-function fmt(n){if(n===null||n===undefined)return '—';return Number(n).toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3});}
-function fmtVol(v){
-  if(v===null||v===undefined||v===0||v==='0')return '—';
-  var n=Number(v);
-  if(isNaN(n)||n<=0)return '—';
-  if(n>=1e9)return (n/1e9).toFixed(2)+'B';
-  if(n>=1e6)return (n/1e6).toFixed(2)+'M';
-  if(n>=1e3)return (n/1e3).toFixed(1)+'K';
-  return n.toString();
-}
-function fmtP(p){if(p===null||p===undefined)return '—';return(p>=0?'+':'')+Number(p).toFixed(3)+'%';}
-function fmtD(d){if(d===null||d===undefined)return '—';return(d>=0?'+':'')+Number(d).toFixed(3);}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-</script>
-</body>
-</html>
+  var pageHtml='
