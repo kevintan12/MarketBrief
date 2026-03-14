@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.22</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.22</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.23</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.23</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.22';
+  var CURRENT='v1.314.23';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.22'){
+        if(m&&m[1]&&m[1]!=='v1.314.23'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1078,47 +1078,45 @@ async function fetchFinnhubValuation(sym, currentPrice){
     var d=await r.json();
     if(!d.metric) throw new Error('No metric data');
     var m=d.metric;
+    // DCF-20: operating cash flow per share
+    var ocfps = m.cashFlowPerShareTTM||m.cashFlowPerShareAnnual||null;
+    // DFCF-20: true free cash flow per share = price / pfcfShareTTM
+    var pfcf  = m.pfcfShareTTM||m.pfcfShareAnnual||null;
+    var fcfps = (pfcf&&pfcf>0&&currentPrice>0)?(currentPrice/pfcf):null;
+    // DNI-20: discounted net income using EPS
     var eps   = m.epsBasicExclExtraItemsTTM||m.epsTTM||m.epsNormalizedAnnual||null;
-    var fcfps = m.cashFlowPerShareTTM||m.cashFlowPerShareAnnual||null;
-    var bvps  = m.bookValuePerShareAnnual||m.bookValuePerShareQuarterly||null;
+    // Forward P/E IV
     var fwdPE = m.forwardPE||null;
     var epsNri= m.epsExclExtraItemsTTM||m.epsBasicExclExtraItemsTTM||null;
+    // Growth rate — Finnhub returns as percentage (12.24 = 12.24%), divide by 100
     var growthRate=0.08;
     var g3=m.epsGrowth3Y||null, g5=m.epsGrowth5Y||null;
-    // Finnhub returns growth as percentage (e.g. 12.24 = 12.24%), divide by 100
-    if(g3&&g3>0) growthRate=Math.min(Math.max(g3/100,0.03),0.25);
-    else if(g5&&g5>0) growthRate=Math.min(Math.max(g5/100,0.03),0.25);
+    if(g3&&g3>0) growthRate=Math.min(Math.max(g3/100,0.03),0.15);
+    else if(g5&&g5>0) growthRate=Math.min(Math.max(g5/100,0.03),0.15);
     var disc=0.10, termG=0.03;
     function dcf20(e,g){
       if(!e||e<=0) return null;
-      g=Math.min(g,0.15); // cap growth at 15% for conservatism
       var pv=0,ev=e;
       for(var yr=1;yr<=10;yr++){ev*=(1+g);pv+=ev/Math.pow(1+disc,yr);}
       var ev2=ev;
       for(var yr2=11;yr2<=20;yr2++){ev2*=(1+g/2);pv+=ev2/Math.pow(1+disc,yr2);}
-      // Gordon Growth terminal value: more conservative than fixed P/E exit multiple
+      // Gordon Growth terminal value
       var terminal=(ev2*(1+termG)/(disc-termG))/Math.pow(1+disc,20);
       return pv+terminal;
     }
-    var dcf    = dcf20(eps, growthRate);
-    var dfcf   = dcf20(fcfps, growthRate);
-    // Mean P/E IV: forwardPE x EPS excl NRI
-    var meanpe = (fwdPE&&epsNri&&fwdPE>0&&epsNri>0)?(fwdPE*epsNri):null;
-    // Graham Formula: EPS x (8.5 + 2g) where g is growth rate as percentage
-    var gPct   = growthRate*100;
-    var graham = (eps&&eps>0)?(eps*(8.5+2*gPct)):null;
-    // Graham Number: sqrt(22.5 x EPS x BVPS)
-    var gnVal  = (eps&&eps>0&&bvps&&bvps>0)?(22.5*eps*bvps):null;
-    var gnum   = (gnVal&&gnVal>0)?Math.sqrt(gnVal):null;
-    var valid=[dcf,dfcf,meanpe,graham,gnum].filter(function(v){return v&&v>0;});
+    var dcf   = dcf20(ocfps, growthRate);  // DCF-20: operating cash flow
+    var dfcf  = dcf20(fcfps, growthRate);  // DFCF-20: free cash flow
+    var dni   = dcf20(eps,   growthRate);  // DNI-20: net income (EPS)
+    var fwdiv = (fwdPE&&epsNri&&fwdPE>0&&epsNri>0)?(fwdPE*epsNri):null;
+    var valid=[dcf,dfcf,dni,fwdiv].filter(function(v){return v&&v>0;});
     if(!valid.length) return null;
     var mbVal=valid.reduce(function(a,b){return a+b;},0)/valid.length;
     var mos=currentPrice>0?((mbVal-currentPrice)/mbVal*100):null;
     var verdict=mos===null?'N/A':mos>20?'Undervalued':mos<-20?'Overvalued':'Fairly Valued';
     function f3(v){return v?'$'+v.toFixed(3):'N/A';}
     function fp(v){return v!==null?(v>=0?'+':'')+v.toFixed(1)+'%':'N/A';}
-    return 'DCF-20: '+f3(dcf)+' | DFCF-20: '+f3(dfcf)+' | | Fwd P/E: '+f3(meanpe)+'\n'
-      +'Graham Formula: '+f3(graham)+' | Graham Number: '+f3(gnum)+'\n'
+    return 'DCF-20: '+f3(dcf)+' | DFCF-20: '+f3(dfcf)+' | DNI-20: '+f3(dni)+'\n'
+      +'Fwd P/E: '+f3(fwdiv)+'\n'
       +'MB Value: '+f3(mbVal)+' | Current Price: '+(currentPrice?fmt(currentPrice):'N/A')+' | Margin of Safety: '+fp(mos)+' | Verdict: '+verdict+'\n'
       +'_Generated with Finnhub data_';
   }catch(e){
