@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.17</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.17</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.314.18</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.314.18</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -269,7 +269,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <script>
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.314.17';
+  var CURRENT='v1.314.18';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -319,7 +319,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.314.17'){
+        if(m&&m[1]&&m[1]!=='v1.314.18'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1078,14 +1078,15 @@ async function fetchFinnhubValuation(sym, currentPrice){
     var d=await r.json();
     if(!d.metric) throw new Error('No metric data');
     var m=d.metric;
-    var eps   = m.epsBasicExclExtraTTM||m.epsNormalizedAnnual||null;
-    var fcfps = m.fcfPerShareTTM||null;
+    var eps   = m.epsBasicExclExtraItemsTTM||m.epsTTM||m.epsNormalizedAnnual||null;
+    var fcfps = m.cashFlowPerShareTTM||m.cashFlowPerShareAnnual||null;
     var bvps  = m.bookValuePerShareAnnual||m.bookValuePerShareQuarterly||null;
     var pb    = m.pbAnnual||m.pbQuarterly||null;
     var growthRate=0.08;
     var g3=m.epsGrowth3Y||null, g5=m.epsGrowth5Y||null;
-    if(g3&&g3>0&&g3<=0.25) growthRate=g3;
-    else if(g5&&g5>0&&g5<=0.25) growthRate=g5;
+    // Finnhub returns growth as percentage (e.g. 12.24 = 12.24%), divide by 100
+    if(g3&&g3>0) growthRate=Math.min(Math.max(g3/100,0.03),0.25);
+    else if(g5&&g5>0) growthRate=Math.min(Math.max(g5/100,0.03),0.25);
     var disc=0.10;
     function dcf20(e,g){
       if(!e||e<=0) return null;
