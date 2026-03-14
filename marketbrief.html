@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
   <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
-  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v1.315.21</div>
+  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v1.315.22</div>
   <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
   <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
     <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
@@ -234,7 +234,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.21</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.21</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.22</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.22</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -354,7 +354,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.315.21';
+  var CURRENT='v1.315.22';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -405,7 +405,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.315.21'){
+        if(m&&m[1]&&m[1]!=='v1.315.22'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1335,7 +1335,7 @@ async function genTickerAI(sym,d,resId){
             accumulated+=ev.delta.text;
             if(!_tcdFirst){_tcdFirst=true;clearInterval(_tcdTimer);var _tcdDiv=document.getElementById('tickCd_'+resId);if(_tcdDiv)_tcdDiv.style.display='none';}
             var ts=getTickStream();
-            if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(stripIVPreamble(accumulated))));
+            var _sp=stripIVPreamble(accumulated);if(ts&&_sp) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(_sp)));
           }
         }catch(_){}
       }
@@ -1343,7 +1343,8 @@ async function genTickerAI(sym,d,resId){
     clearInterval(_tcdTimer);
     var _tcd2=document.getElementById('tickCd_'+resId);if(_tcd2)_tcd2.style.display='none';
     var _disc='\n\n---\n_This analysis is AI-generated for informational purposes only. Not financial advice. Do your own research before investing._';
-    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(stripIVPreamble(accumulated)))+_disc);
+    var _stripped=stripIVPreamble(accumulated)||accumulated;
+    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(_stripped))+_disc);
     // Save with slight delay to ensure DOM is fully updated
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
@@ -1804,7 +1805,9 @@ function moveTicker(mkt,idx,dir,pid){
 }
 
 function exportSettings(pid){
-  var data={proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers};
+  var pinH='';
+try{pinH=localStorage.getItem('mb_pin_hash')||'';}catch(e){}
+  var data={proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers,pinHash:pinH};
   var code=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
   var out=document.getElementById('expOut_'+pid);
   var codeId='expCode_'+pid;
@@ -1826,6 +1829,7 @@ function importSettings(pid){
     var data=JSON.parse(decodeURIComponent(escape(atob(raw))));
     if(data.proxyUrl!==undefined) S.proxyUrl=data.proxyUrl;
     if(data.style!==undefined)    S.style=data.style;
+    if(data.pinHash){try{localStorage.setItem('mb_pin_hash',data.pinHash);}catch(e){}}
     if(data.tz!==undefined)       S.tz=data.tz;
     if(data.customTickers)        S.customTickers=data.customTickers;
     storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers});
