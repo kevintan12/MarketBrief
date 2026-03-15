@@ -199,7 +199,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   .header{padding:8px 10px;}
   .logo-ver{display:none;}
   .idx-scroll{margin-bottom:0;}
-  .ai-btn{position:fixed;bottom:70px;left:0;right:0;width:100%;z-index:99;backdrop-filter:blur(10px);border-radius:0;}
+  .ai-btn{position:fixed;bottom:70px;left:16px;right:16px;width:calc(100% - 32px);z-index:99;backdrop-filter:blur(10px);border-radius:24px;}
   .card{padding:10px 12px;flex-wrap:wrap;align-items:flex-start;}
   .flag{width:28px;height:28px;font-size:14px;flex-shrink:0;}
   .cleft{flex-basis:100%;gap:7px;}
@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
   <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
-  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.17</div>
+  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.18</div>
   <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
   <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
     <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
@@ -234,7 +234,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.17</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.17</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.18</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.18</div></div>
   </div>
 
 
@@ -354,7 +354,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v2.315.17';
+  var CURRENT='v2.315.18';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -405,7 +405,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v2.315.17'){
+        if(m&&m[1]&&m[1]!=='v2.315.18'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
