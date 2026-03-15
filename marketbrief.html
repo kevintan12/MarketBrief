@@ -1462,7 +1462,6 @@ function exportToPDF(type){
   var ds=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',year:'numeric',month:'short',day:'numeric'});
   var ts=now.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
 
-  // Remap CSS variables to print-safe values
   var html=contentEl.innerHTML
     .replace(/color:var\(--acc\)/g,'color:#005b8e')
     .replace(/color:var\(--orange\)/g,'color:#7c2d00')
@@ -1485,41 +1484,46 @@ function exportToPDF(type){
     .replace(/border:1px solid rgba\(0,212,255[^)]*\)/g,'border:1px solid #a0cce0')
     .replace(/border:1px solid rgba\([^)]*\)/g,'border:1px solid #dddddd');
 
-  // Wrap in clean HTML for htmlToPdfmake
-  var wrappedHtml='<div style="font-family:sans-serif;font-size:11pt;color:#111111;line-height:1.6;">'+html+'</div>';
+  var wrappedHtml='<div>'+html+'</div>';
 
   function loadScript(src,cb){
     if(document.querySelector('script[src="'+src+'"]')){cb();return;}
-    var s=document.createElement('script');s.src=src;s.onload=cb;document.head.appendChild(s);
+    var s=document.createElement('script');s.src=src;
+    s.onload=function(){cb();};
+    s.onerror=function(){
+      console.error('Failed to load:',src);
+      if(btn){btn.textContent='PDF';btn.disabled=false;}
+    };
+    document.head.appendChild(s);
   }
 
-  loadScript('https://cdn.jsdelivr.net/npm/pdfmake@0.2.12/build/pdfmake.min.js',function(){
-    loadScript('https://cdn.jsdelivr.net/npm/pdfmake@0.2.12/build/vfs_fonts.min.js',function(){
-      loadScript('https://cdn.jsdelivr.net/npm/html-to-pdfmake@2.5.0/browser.js',function(){
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/pdfmake.min.js',function(){
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/vfs_fonts.min.js',function(){
+      loadScript('https://cdn.jsdelivr.net/npm/html-to-pdfmake@latest/browser.js',function(){
         try{
           var converted=window.htmlToPdfmake(wrappedHtml,{window:window});
           var fname=title.replace(/[^a-zA-Z0-9 ]/g,'_').replace(/\s+/g,'_').toLowerCase()+'.pdf';
           var docDef={
             pageSize:'A4',
-            pageMargins:[40,60,40,60],
+            pageMargins:[40,70,40,50],
             header:function(){
               return {
                 columns:[
-                  {text:'Market',bold:true,fontSize:13,color:'#003366',margin:[40,15,0,0]},
-                  {text:'Brief',bold:true,fontSize:13,color:'#005b8e',margin:[0,15,0,0]},
+                  {stack:[{text:[{text:'Market',bold:true,color:'#003366'},{text:'Brief',bold:true,color:'#005b8e'}],fontSize:13}],margin:[40,15,0,0]},
                   {text:title+' · '+ds+' '+ts+' SGT',fontSize:8,color:'#444444',alignment:'right',margin:[0,18,40,0]}
                 ]
               };
             },
             footer:function(cur,total){
-              return {text:'Page '+cur+' of '+total,fontSize:8,color:'#888888',alignment:'center',margin:[0,10,0,0]};
+              return {text:'Page '+cur+' of '+total,fontSize:8,color:'#888888',alignment:'center',margin:[0,8,0,0]};
             },
             content:converted,
-            defaultStyle:{fontSize:10,lineHeight:1.5},
+            defaultStyle:{fontSize:10,lineHeight:1.4,font:'Roboto'},
             styles:{
-              h1:{fontSize:14,bold:true,color:'#003366',marginBottom:6},
-              h2:{fontSize:12,bold:true,color:'#005b8e',marginBottom:4},
-              h3:{fontSize:11,bold:true,color:'#444444',marginBottom:3}
+              html_h1:{fontSize:14,bold:true,color:'#003366',marginBottom:6,marginTop:10},
+              html_h2:{fontSize:12,bold:true,color:'#005b8e',marginBottom:4,marginTop:8},
+              html_strong:{bold:true,color:'#003366'},
+              html_a:{color:'#005b8e',decoration:'underline'}
             }
           };
           window.pdfMake.createPdf(docDef).download(fname);
