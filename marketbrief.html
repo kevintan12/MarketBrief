@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
   <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
-  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.05</div>
+  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.06</div>
   <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
   <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
     <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
@@ -234,7 +234,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.05</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.05</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.06</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.06</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -354,7 +354,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v2.315.05';
+  var CURRENT='v2.315.06';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -405,7 +405,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v2.315.05'){
+        if(m&&m[1]&&m[1]!=='v2.315.06'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1462,7 +1462,7 @@ function exportToPDF(type){
   var ds=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',year:'numeric',month:'short',day:'numeric'});
   var ts=now.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
 
-  // Remap all CSS variable colour references to hardcoded print values
+  // Remap CSS variables to print-safe values
   var html=contentEl.innerHTML
     .replace(/color:var\(--acc\)/g,'color:#005b8e')
     .replace(/color:var\(--orange\)/g,'color:#7c2d00')
@@ -1485,97 +1485,53 @@ function exportToPDF(type){
     .replace(/border:1px solid rgba\(0,212,255[^)]*\)/g,'border:1px solid #a0cce0')
     .replace(/border:1px solid rgba\([^)]*\)/g,'border:1px solid #dddddd');
 
-  // Full self-contained HTML with no CSS variable references
-  var pageHtml='<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    +'<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<style>'
-    +'*{box-sizing:border-box;margin:0;padding:0;}'
-    +'body{font-family:"DM Mono",monospace;background:#ffffff;color:#111111;font-size:13px;line-height:1.75;width:760px;padding:40px;}'
-    +'a{color:#005b8e;text-decoration:underline;word-break:break-all;}'
-    +'strong{color:#005b8e;font-weight:700;}'
-    +'em{color:#444444;font-style:italic;font-size:0.92em;}'
-    +'hr{border:none;border-top:1px solid #cccccc;margin:8px 0;}'
-    +'</style></head><body>'
-    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #111111;">'
-    +'<div style="font-family:Syne,sans-serif;font-weight:800;font-size:22px;color:#111111;">Market<span style="color:#005b8e;">Brief</span></div>'
-    +'<div style="text-align:right;font-size:11px;color:#444444;line-height:1.6;"><div style="font-weight:600;color:#111111;">'+title+'</div><div>'+ds+' · '+ts+' SGT</div></div>'
-    +'</div>'
-    +'<div id="pdfcontent" style="color:#111111;">'+html+'</div>'
-    +'</body></html>';
+  // Wrap in clean HTML for htmlToPdfmake
+  var wrappedHtml='<div style="font-family:sans-serif;font-size:11pt;color:#111111;line-height:1.6;">'+html+'</div>';
 
   function loadScript(src,cb){
     if(document.querySelector('script[src="'+src+'"]')){cb();return;}
     var s=document.createElement('script');s.src=src;s.onload=cb;document.head.appendChild(s);
   }
 
-  loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',function(){
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',function(){
-
-      // Create iframe — must be in DOM and have real dimensions for html2canvas to work.
-      // We use opacity:0 + pointer-events:none so it's invisible but laid out correctly.
-      var iframe=document.createElement('iframe');
-      iframe.style.cssText='position:fixed;top:0;left:0;width:760px;height:900px;border:none;opacity:0;pointer-events:none;z-index:-1;';
-      document.body.appendChild(iframe);
-
-      var idoc=iframe.contentDocument||iframe.contentWindow.document;
-      idoc.open(); idoc.write(pageHtml); idoc.close();
-
-      // Wait for fonts + layout to settle inside iframe
-      setTimeout(function(){
-        var iBody=idoc.body;
-        var naturalH=iBody.scrollHeight||900;
-        iframe.style.height=naturalH+'px';
-
-        // Give layout one more tick after height set
-        setTimeout(function(){
-          window.html2canvas(iBody,{
-            scale:2,
-            useCORS:true,
-            backgroundColor:'#ffffff',
-            logging:false,
-            width:760,
-            height:naturalH,
-            windowWidth:760,
-            windowHeight:naturalH,
-            scrollX:0,
-            scrollY:0
-          }).then(function(canvas){
-            document.body.removeChild(iframe);
-            var jspdf=window.jspdf||window.jsPDF;
-            var pdf=new (jspdf.jsPDF||jspdf)({orientation:'portrait',unit:'pt',format:'a4'});
-            var pageW=pdf.internal.pageSize.getWidth();
-            var pageH=pdf.internal.pageSize.getHeight();
-            var margin=30;
-            var printW=pageW-margin*2;
-            var imgScale=printW/canvas.width;
-            var sliceH=Math.floor((pageH-margin*2)/imgScale); // canvas px per PDF page
-            var totalPages=Math.ceil(canvas.height/sliceH);
-            for(var i=0;i<totalPages;i++){
-              if(i>0) pdf.addPage();
-              var sy=i*sliceH;
-              var sh=Math.min(sliceH,canvas.height-sy);
-              var slice=document.createElement('canvas');
-              slice.width=canvas.width;
-              slice.height=sh;
-              var ctx2=slice.getContext('2d');
-              ctx2.fillStyle='#ffffff';
-              ctx2.fillRect(0,0,slice.width,sh);
-              ctx2.drawImage(canvas,0,sy,canvas.width,sh,0,0,canvas.width,sh);
-              pdf.addImage(slice.toDataURL('image/png'),'PNG',margin,margin,printW,sh*imgScale);
+  loadScript('https://cdn.jsdelivr.net/npm/pdfmake@0.2.12/build/pdfmake.min.js',function(){
+    loadScript('https://cdn.jsdelivr.net/npm/pdfmake@0.2.12/build/vfs_fonts.min.js',function(){
+      loadScript('https://cdn.jsdelivr.net/npm/html-to-pdfmake@2.5.0/browser.js',function(){
+        try{
+          var converted=window.htmlToPdfmake(wrappedHtml,{window:window});
+          var fname=title.replace(/[^a-zA-Z0-9 ]/g,'_').replace(/\s+/g,'_').toLowerCase()+'.pdf';
+          var docDef={
+            pageSize:'A4',
+            pageMargins:[40,60,40,60],
+            header:function(){
+              return {
+                columns:[
+                  {text:'Market',bold:true,fontSize:13,color:'#003366',margin:[40,15,0,0]},
+                  {text:'Brief',bold:true,fontSize:13,color:'#005b8e',margin:[0,15,0,0]},
+                  {text:title+' · '+ds+' '+ts+' SGT',fontSize:8,color:'#444444',alignment:'right',margin:[0,18,40,0]}
+                ]
+              };
+            },
+            footer:function(cur,total){
+              return {text:'Page '+cur+' of '+total,fontSize:8,color:'#888888',alignment:'center',margin:[0,10,0,0]};
+            },
+            content:converted,
+            defaultStyle:{fontSize:10,lineHeight:1.5},
+            styles:{
+              h1:{fontSize:14,bold:true,color:'#003366',marginBottom:6},
+              h2:{fontSize:12,bold:true,color:'#005b8e',marginBottom:4},
+              h3:{fontSize:11,bold:true,color:'#444444',marginBottom:3}
             }
-            var fname=title.replace(/[^a-zA-Z0-9 ]/g,'_').replace(/\s+/g,'_').toLowerCase()+'.pdf';
-            pdf.save(fname);
-            if(btn){btn.textContent='PDF';btn.disabled=false;}
-          }).catch(function(err){
-            console.error('PDF error:',err);
-            document.body.removeChild(iframe);
-            if(btn){btn.textContent='PDF';btn.disabled=false;}
-          });
-        },100);
-      },1500);
+          };
+          window.pdfMake.createPdf(docDef).download(fname);
+        }catch(err){
+          console.error('PDF error:',err);
+        }
+        if(btn){btn.textContent='PDF';btn.disabled=false;}
+      });
     });
   });
 }
+
 
 // ── Summary formatter ─────────────────────────────────────────────────────────
 function cleanAIText(txt){
