@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
   <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
-  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.01</div>
+  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.03</div>
   <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
   <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
     <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
@@ -234,7 +234,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.01</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.01</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.03</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.03</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -354,7 +354,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v2.315.01';
+  var CURRENT='v2.315.03';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -405,7 +405,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v2.315.01'){
+        if(m&&m[1]&&m[1]!=='v2.315.03'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1206,7 +1206,7 @@ async function fetchFinnhubValuation(sym, currentPrice){
     var dfcf  = dcf20(fcfps, growthRate);  // DFCF-20: free cash flow
     var dni   = dcf20(eps,   growthRate);  // DNI-20: net income (EPS)
     var fwdiv = (fwdPE&&epsNri&&fwdPE>0&&epsNri>0)?(fwdPE*epsNri):null;
-    var valid=[dcf,dfcf,dni,fwdiv].filter(function(v){return v&&v>0;});
+    var valid=[dcf,dfcf,dni].filter(function(v){return v&&v>0;});
     if(!valid.length) return null;
     var mbVal=valid.reduce(function(a,b){return a+b;},0)/valid.length;
     var mos=currentPrice>0?((mbVal-currentPrice)/mbVal*100):null;
@@ -1300,7 +1300,9 @@ async function genTickerAI(sym,d,resId){
 
   // If Yahoo was attempted but failed, do not fall back to AI — show unavailable instead
   var ivRule=finnhubIV?''
-    :'Search for latest financials for '+sym+'. Compute DCF-20 (operating CF/share), DFCF-20 (FCF/share), DNI-20 (diluted EPS) using 10% discount, growth capped 15%, Gordon Growth terminal at 3%. MB Value = average of valid positive values only. CRITICAL: Output ONLY the two result lines below — absolutely no explanation, no data, no working, no commentary, no apology. If data is incomplete, use best estimates and mark with (est). A rough estimate is required — never refuse or explain why you cannot compute.\n\n';
+    :'CRITICAL: If this is an index (e.g. ^DJI, ^GSPC, ^STI) or if consolidated financial data (operating CF/share, FCF/share, EPS) is not available for this ticker, output ONLY this exact line and nothing else:\n'
+    +'Unable to compute without source data — index-level financials unavailable\n\n'
+    +'Otherwise, search for latest financials for '+sym+' and compute DCF-20 (operating CF/share), DFCF-20 (FCF/share), DNI-20 (diluted EPS) using 10% discount, growth capped 15%, Gordon Growth terminal at 3%. MB Value = average of valid positive values only. Output ONLY the two result lines — no explanation, no working, no commentary.\n\n';
 
   var prompt='You are a financial analyst covering '+sym+' ('+name+'). Today ('+mktDateStr+'), last session: '+prevDay+'. No title. No **bold**. No pre-'+yr+' events.\n\n'
     +'LIVE PRICE DATA (use these exact figures only — do not use any other source):\n'+priceBlock+'\n\n'
