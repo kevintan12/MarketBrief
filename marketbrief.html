@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
   <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
-  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.19</div>
+  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.21</div>
   <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
   <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
     <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
@@ -234,7 +234,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.19</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.19</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.21</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.21</div></div>
   </div>
 
 
@@ -361,7 +361,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v2.315.19';
+  var CURRENT='v2.315.21';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -412,7 +412,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v2.315.19'){
+        if(m&&m[1]&&m[1]!=='v2.315.21'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1481,8 +1481,11 @@ function exportToPDF(type){
     var resId=type.slice(6);
     contentEl=document.getElementById('tai_'+resId);
     title='About';
+  } else if(type.indexOf('invest_')===0){
+    var pid=type.slice(7);
+    contentEl=document.getElementById('invResult_'+pid);
+    title='MarketBrief Investment Ideas';
   }
-  if(!contentEl||!contentEl.innerHTML)return;
 
   var btn=document.querySelector('.pdf-btn[data-export="'+type+'"]');
   if(btn){
@@ -1621,10 +1624,41 @@ function safeLineHtml(line){
 }
 function formatSummary(txt){
   var html='';
-  txt.split('\n').forEach(function(line){
+  // Pre-process: convert markdown table blocks to HTML
+  var lines=txt.split('\n');
+  var i=0;
+  while(i<lines.length){
+    var line=lines[i].trim();
+    // Detect start of markdown table (line with | that has a separator row next)
+    if(/^\|/.test(line)&&i+1<lines.length&&/^\|[-| :]+\|/.test(lines[i+1].trim())){
+      var tableLines=[];
+      while(i<lines.length&&/^\|/.test(lines[i].trim())){
+        tableLines.push(lines[i].trim());
+        i++;
+      }
+      // Build HTML table
+      var thtml='<div style="overflow-x:auto;margin:12px 0"><table style="width:100%;border-collapse:collapse;font-size:0.95rem;">';
+      tableLines.forEach(function(tl,ti){
+        if(/^\|[-| :]+\|/.test(tl))return; // skip separator
+        var cells=tl.replace(/^\||\|$/g,'').split('|');
+        var tag=ti===0?'th':'td';
+        var rowStyle=ti===0?'background:rgba(0,212,255,0.08);':'';
+        thtml+='<tr style="'+rowStyle+'">';
+        cells.forEach(function(c){
+          var cellTxt=c.trim();
+          var bold=/\*\*/.test(cellTxt);
+          var cellStyle='border:1px solid var(--bor);padding:7px 10px;color:'+(bold?'var(--acc)':'var(--txt)')+(bold?';font-weight:700':'')+';';
+          thtml+='<'+tag+' style="'+cellStyle+'">'+applyInlineMarkdown(esc(cellTxt.replace(/\*\*/g,'')))+'</'+tag+'>';
+        });
+        thtml+='</tr>';
+      });
+      thtml+='</table></div>';
+      html+=thtml;
+      continue;
+    }
     line=line.trim();
-    if(!line){html+='<div style="height:6px"></div>';return;}
-    if(line==='---'){html+='<hr style="border:none;border-top:1px solid var(--bor);margin:8px 0">';return;}
+    if(!line){html+='<div style="height:6px"></div>';i++;continue;}
+    if(line==='---'){html+='<hr style="border:none;border-top:1px solid var(--bor);margin:8px 0">';i++;continue;}
     var stripped=line.replace(/^#+\s*/,'').replace(/^[1-9][.)\s]+/,'').trim();
     var isHeader=/^#/.test(line)||/^[1-9][.)]\s/.test(line.trim())||stripped.charCodeAt(0)>255;
     if(isHeader&&line.indexOf('**')===-1){
@@ -1649,7 +1683,8 @@ function formatSummary(txt){
     } else {
       html+='<div style="font-size:1.05rem;line-height:1.8;color:var(--txt);margin-bottom:4px;">'+safeLineHtml(line)+'</div>';
     }
-  });
+    i++;
+  }
   return html;
 }
 
@@ -1707,7 +1742,7 @@ async function genInvestAI(pid, mkt, budgetSGD, strategy){
   var watchStr=watchTickers.length?'User already holds or watches these '+mkt+' tickers: '+watchTickers.join(', ')+'. Consider these alongside new ideas.':'No existing watchlist tickers for this market.';
 
   var cdSec=25, cdFirst=false;
-  resEl.innerHTML='<div class="sumbox" style="margin-top:12px"><div class="sumhdr"><span class="badge">AI · Claude</span><span class="sumdate" style="margin-left:8px">'+mktLabel+' · '+strategy+' · SGD '+budgetSGD.toLocaleString()+'</span></div><div id="invStream_'+pid+'"><div class="msg">Searching &amp; analysing… <span id="invCd_'+pid+'">~'+cdSec+'s</span></div></div></div>';
+  resEl.innerHTML='<div class="sumbox" style="margin-top:12px"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span><span class="sumdate" style="margin-left:8px">'+mktLabel+' · '+strategy+' · SGD '+budgetSGD.toLocaleString()+'</span></div><button class="pdf-btn" data-export="invest_'+pid+'" data-name="'+esc(mktLabel+' · '+strategy+' · SGD '+budgetSGD.toLocaleString())+'" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div><div id="invStream_'+pid+'"><div class="msg">Searching &amp; analysing… <span id="invCd_'+pid+'">~'+cdSec+'s</span></div></div></div>';
 
   var cdTimer=setInterval(function(){
     cdSec--;
@@ -1724,14 +1759,18 @@ async function genInvestAI(pid, mkt, budgetSGD, strategy){
     +fxNote+'\n\n'
     +'Search the web for the best current '+strategy+' stock opportunities in '+mktLabel+'. '
     +'Consider both the user\'s existing watchlist tickers AND other strong candidates in the market.\n\n'
-    +'Output a portfolio allocation that exhausts as much of the SGD '+budgetSGD.toLocaleString()+' budget as possible. For each stock:\n'
+    +'For each recommended stock, provide:\n'
     +'- Stock name and ticker\n'
-    +'- Suggested allocation in SGD and approximate number of shares/units\n'
     +'- Why this stock fits the '+strategy+' strategy\n'
     +'- Expected outcome (realistic, not overly optimistic)\n\n'
-    +'End with a total allocated amount vs budget.\n\n'
-    +'Finally, add this disclaimer in italics on a new line:\n'
-    +'_This analysis is AI-generated for informational purposes only. Not financial advice. Market data may be delayed. Always do your own research before investing._';
+    +'After the individual stock writeups, output a Summary Allocation table in this exact markdown format:\n'
+    +'| Stock | Ticker | Allocation (SGD) | Shares/Units | % of Budget |\n'
+    +'|-------|--------|-----------------|--------------|-------------|\n'
+    +'| ... | ... | ... | ... | ... |\n'
+    +'| **Total** | | **SGD X,XXX** | | **XX%** |\n\n'
+    +'Use current prices (search if needed) to calculate shares/units. Show total allocated vs SGD '+budgetSGD.toLocaleString()+' budget.';
+
+  var _disclaimer='\n\n---\n_This analysis is AI-generated for informational purposes only. Not financial advice. Market data may be delayed. Always do your own research before making any investment decisions._';
 
   var accumulated='';
   try{
@@ -1760,7 +1799,7 @@ async function genInvestAI(pid, mkt, budgetSGD, strategy){
       }
     }
     clearInterval(cdTimer);
-    var ts=getStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(accumulated));
+    var ts=getStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(accumulated)+_disclaimer);
   }catch(e){
     clearInterval(cdTimer);
     resEl.innerHTML='<div class="msg err">Error: '+esc(e.message)+'</div>';
