@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
   <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
-  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v1.315.32</div>
+  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v1.315.33</div>
   <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
   <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
     <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
@@ -234,7 +234,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.32</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.32</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.33</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.33</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -354,7 +354,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.315.32';
+  var CURRENT='v1.315.33';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -405,7 +405,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.315.32'){
+        if(m&&m[1]&&m[1]!=='v1.315.33'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -998,7 +998,7 @@ async function loadSummary(){
     var _ymd=_yy+'/'+_mm+'/'+_dd;
     var _dateStr=_yy+'-'+_mm+'-'+_dd;
     return 'IMPORTANT — 📰 Further Reading section instructions (do these searches now):\n'
-      +'Search 1: Search "yahoo finance stock market today '+_dateStr+'" — find the finance.yahoo.com/news/live/stock-market-today-* article published on '+_dateStr+'. Do NOT use Motley Fool, Zacks or other sites.\n'
+      +'Search 1: Search Google for "us stock market today yahoo finance" — from the results pick the most recent finance.yahoo.com/news/live/stock-market-today-* article. Do NOT use Motley Fool, Zacks or other third-party sites.\n'
       +'Search 2: Search "cnbc stock market today '+_dateStr+'" — find the CNBC article URL from cnbc.com covering today stock market. The slug changes daily so always search, never guess.\n'
       +'Search 3: Search "site:minichart.com.sg market '+_dateStr+'" — find minichart.com.sg article published on '+_dateStr+'.\n'
       +'At the end output the 📰 Further Reading section, each as Label: URL on its own line:\n'
@@ -1349,19 +1349,12 @@ async function genTickerAI(sym,d,resId){
     var _tcd2=document.getElementById('tickCd_'+resId);if(_tcd2)_tcd2.style.display='none';
     var _disc='\n\n---\n_This analysis is AI-generated for informational purposes only. Not financial advice. Do your own research before investing._';
     var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated))+_disc);
-    // Restore Analyse button
-    var _anBtn=document.getElementById('anBtn_'+resId);
-    if(_anBtn) _anBtn.style.display='';
     // Save with slight delay to ensure DOM is fully updated
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
       if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
     },100);
-  }catch(e){
-    var _anBtnE=document.getElementById('anBtn_'+resId);
-    if(_anBtnE) _anBtnE.style.display='';
-    el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';
-  }
+  }catch(e){el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';}
 }
 
 
