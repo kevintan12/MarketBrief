@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
   <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
-  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v1.315.34</div>
+  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v1.315.35</div>
   <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
   <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
     <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
@@ -234,7 +234,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.34</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.34</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v1.315.35</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v1.315.35</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -354,7 +354,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v1.315.34';
+  var CURRENT='v1.315.35';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -405,7 +405,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v1.315.34'){
+        if(m&&m[1]&&m[1]!=='v1.315.35'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1571,7 +1571,7 @@ function cleanAIText(txt){
     var l=lines[i]; var t=l.trim().toLowerCase();
     if(!t){cleaned.push(l);continue;}
     // Drop any line that is pure AI meta-commentary
-    if(/^(based on|according to my|from my|using my|after (searching|reviewing|checking|looking)|i (have|can now|will now|am going to|need to|should|would|found|searched|looked)|let me |here('s| is) (my|the|a|an) (analysis|summary|overview|breakdown|look)|i'd like to|i'll |i've |great[,!]|certainly[,!]|sure[,!]|of course)/i.test(t)) continue;
+    if(/^(based on|according to my|from my|using my|after (searching|reviewing|checking|looking)|i (have|can now|will now|am going to|need to|should|would|found|searched|looked)|let me |here('s| is) (my|the|a|an) (analysis|summary|overview|breakdown|look)|i'd like to|i'll |i've |great[,!]|certainly[,!]|sure[,!]|of course|perfect[,!.]|i now have|i've (found|located|gathered|completed)|now (let me|i'll|i can)|with (that|these|this) (done|complete|in hand|information))/i.test(t)) continue;
     cleaned.push(l);
   }
   return cleaned.join('\n').replace(/^[\s\n]+/,'');
@@ -1620,7 +1620,7 @@ function formatSummary(txt){
     } else if(/^Outlook:/i.test(line)||/^Sentiment:/i.test(line)||/^Verdict:/i.test(line)){
       html+='<div style="margin-top:14px;padding:10px 14px;background:rgba(0,212,255,0.07);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;font-size:1.05rem;line-height:1.7;color:var(--acc);">'+safeLineHtml(line)+'</div>';
     } else if(/^[^:]{3,60}:\s*https?:\/\//.test(line)){
-      var _ci=line.indexOf(':');
+      var _ci=line.search(/:\s*https?:\/\//);
       var _label=line.slice(0,_ci).trim();
       var _url=line.slice(_ci+1).trim();
       var _urlClean=_url.replace(/[.,;:!?)]+$/,'');
