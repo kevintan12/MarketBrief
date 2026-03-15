@@ -179,7 +179,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 .tadd-ac-item{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;
   cursor:pointer;border-bottom:1px solid var(--bor);transition:background 0.12s;}
 .tadd-ac-item:last-child{border-bottom:none;}
-.tadd-ac-item:hover{background:rgba(0,212,255,0.1);}
+.tadd-ac-item:hover,.tadd-ac-item.sel{background:rgba(0,212,255,0.1);}
 .tadd-ac-sym{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--acc);}
 .tadd-ac-name{font-size:0.9rem;color:var(--mut);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;}
 .tadd-ac-add{font-size:0.85rem;color:var(--grn);white-space:nowrap;margin-left:8px;font-weight:600;}
@@ -215,7 +215,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div id="pinOverlay" style="display:none;position:fixed;inset:0;background:#0a0f1e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#00d4ff;">Market<span style="color:#e2e8f0;">Brief</span></div>
   <div style="font-size:1rem;color:#64748b;font-family:'DM Mono',monospace;">Enter PIN to continue</div>
-  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.13</div>
+  <div style="font-size:0.75rem;color:#64748b;font-family:'DM Mono',monospace;margin-top:-12px;">v2.315.14</div>
   <div id="pinDots" style="display:flex;gap:12px;margin:8px 0;"><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span><span class="pd" style="width:14px;height:14px;border-radius:50%;border:2px solid #1e2d45;background:transparent;display:inline-block;"></span></div>
   <div id="pinPad" style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;">
     <button onclick="pinKey('1')" class="pk">1</button><button onclick="pinKey('2')" class="pk">2</button><button onclick="pinKey('3')" class="pk">3</button>
@@ -234,7 +234,7 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 <div class="app" id="app">
 
   <div class="header">
-    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.13</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.13</div></div>
+    <div class="logo">Market<span>Brief</span><span class="logo-ver">v2.315.14</span></div><div class="hdr-right"><div class="htime" id="hTime"></div><div class="hver">v2.315.14</div></div>
   </div>
   <div class="pwatip" id="pwaTip" style="display:none">📱 Tap browser menu → <strong>Add to Home Screen</strong></div>
 
@@ -354,7 +354,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v2.315.13';
+  var CURRENT='v2.315.14';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -405,7 +405,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v2.315.13'){
+        if(m&&m[1]&&m[1]!=='v2.315.14'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1769,7 +1769,14 @@ function renderSettingsPanelTo(pid){
       acTimers[iid]=setTimeout(function(){settAcFetch(v,wid,mkt,pid);},320);
     });
     inp.addEventListener('keydown',function(e){
-      if(e.key==='Escape') closeSettAcDrop(wid);
+      var drop=document.getElementById('drop_'+wid);
+      var items=drop?Array.from(drop.querySelectorAll('.tadd-ac-item')):[];
+      var selIdx=-1;
+      items.forEach(function(it,i){if(it.classList.contains('sel'))selIdx=i;});
+      if(e.key==='ArrowDown'){e.preventDefault();var ni=selIdx<items.length-1?selIdx+1:0;items.forEach(function(it){it.classList.remove('sel');});if(items[ni])items[ni].classList.add('sel');return;}
+      if(e.key==='ArrowUp'){e.preventDefault();var pi=selIdx>0?selIdx-1:items.length-1;items.forEach(function(it){it.classList.remove('sel');});if(items[pi])items[pi].classList.add('sel');return;}
+      if(e.key==='Enter'){var target=selIdx>=0?items[selIdx]:(items.length?items[0]:null);if(target){addTickerDirect(mkt,target.dataset.sym,target.dataset.name,pid);closeSettAcDrop(wid);var inp2=document.getElementById(iid);if(inp2)inp2.value='';}return;}
+      if(e.key==='Escape')closeSettAcDrop(wid);
     });
   });
 }
