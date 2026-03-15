@@ -997,17 +997,17 @@ async function loadSummary(){
     var _dd=String(_today.getDate()).padStart(2,'0');
     var _ymd=_yy+'/'+_mm+'/'+_dd;
     var _dateStr=_yy+'-'+_mm+'-'+_dd;
-    retSTEP 1 — Do these 3 searches NOW and remember the URLs:\\n'
-      +'Search A: Search Google for "us stock market today yahoo finance" — find the most recent finance.yahoo.com/news/live/stock-market-today-* article. Remember this URL.\\n'
-      +'Search B: Search "cnbc stock market today '+_dateStr+'" — find the most recent cnbc.com market recap URL. Remember this URL.\\n'
-      +'Search C: Search "site:minichart.com.sg market '+_dateStr+'" — find the minichart.com.sg article URL. Remember this URL.\\n'
-      +'STEP 2 — Write the full market analysis sections.\\n'
-      +'STEP 3 — After the analysis, output the 📰 Further Reading section using the URLs from Step 1:\\n'
-      +'Yahoo Finance Stock Market Today: [URL from Search A, fallback: https://finance.yahoo.com/topic/stock-market-news/]\\n'
-      +'CNBC Daily Market Recap: [URL from Search B, fallback: https://www.cnbc.com/markets/]\\n'
-      +'SGX Market Recap: [URL from Search C, fallback: https://www.minichart.com.sg]\\n'
-      +'HK Market Daily: https://tradingeconomics.com/hong-kong/stock-market\\n'
-      +'You MUST output all 4 links. Use fallback only if search found nothing.\\n\\n';
+    return 'STEP 1 — Do these 3 searches NOW and remember the URLs:\n'
+      +'Search A: Search Google for "us stock market today yahoo finance" — find the most recent finance.yahoo.com/news/live/stock-market-today-* article. Remember this URL.\n'
+      +'Search B: Search "cnbc stock market today '+_dateStr+'" — find the most recent cnbc.com market recap URL. Remember this URL.\n'
+      +'Search C: Search "site:minichart.com.sg market '+_dateStr+'" — find the minichart.com.sg article URL. Remember this URL.\n'
+      +'STEP 2 — Write the full market analysis sections.\n'
+      +'STEP 3 — After the analysis, output the 📰 Further Reading section using the URLs from Step 1:\n'
+      +'Yahoo Finance Stock Market Today: [URL from Search A, fallback: https://finance.yahoo.com/topic/stock-market-news/]\n'
+      +'CNBC Daily Market Recap: [URL from Search B, fallback: https://www.cnbc.com/markets/]\n'
+      +'SGX Market Recap: [URL from Search C, fallback: https://www.minichart.com.sg]\n'
+      +'HK Market Daily: https://tradingeconomics.com/hong-kong/stock-market\n'
+      +'You MUST output all 4 links. Use fallback only if search found nothing.\n\n';
   })();
   mktsToShow.forEach(function(mkt){
     var d=mktData.filter(function(x){return x.mkt===mkt;});
