@@ -81,7 +81,8 @@ document.addEventListener('keydown',function(e){
   }).catch(function(){});
 })();
 // ── State ─────────────────────────────────────────────────────────────────────
-var S = {
+var MarketBrief = window.MarketBrief = window.MarketBrief || {};
+MarketBrief.config = {
   proxyUrl:'', style:'detailed', tz:'Asia/Singapore',
   // DJI first, then IXIC, then GSPC for US order
   fixedTickers:[
@@ -97,6 +98,7 @@ var S = {
     HK:[]
   }
 };
+var S = MarketBrief.config;
 var mktData=[], curFilter='all', isDesktop=false, currentView='Dash';
 var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^STI':1,'^HSI':1};
 var acTimers={};  // debounce timers keyed by input id
@@ -419,12 +421,49 @@ async function execSearch(inpId,btnId,resId){
   btn.disabled=false; btn.textContent='Search';
 }
 
-function triggerTickerAI(sym,resId,btn){
-  btn.style.display='none';
-  // Restore about button
-  var _abBtn=document.getElementById('abBtn_'+resId);
-  if(_abBtn){_abBtn.disabled=false;_abBtn.textContent='ℹ About';}
-  genTickerAI(sym,null,resId);
+MarketBrief.searchAI={
+  results:Object.create(null),
+  inFlight:Object.create(null),
+  resIdToken:'__MB_SEARCH_RES_ID__'
+};
+function normalizeTickerAISymbol(sym){return String(sym||'').trim().toUpperCase();}
+function getTickerAIRecord(sym,kind){
+  var records=MarketBrief.searchAI.results[normalizeTickerAISymbol(sym)];
+  return records?records[kind]||null:null;
+}
+function storeTickerAIRecord(sym,kind,content,resId){
+  var key=normalizeTickerAISymbol(sym);
+  if(!MarketBrief.searchAI.results[key]) MarketBrief.searchAI.results[key]={};
+  MarketBrief.searchAI.results[key][kind]={
+    kind:kind,
+    symbol:key,
+    generatedAt:new Date().toISOString(),
+    content:String(content||'').split(resId).join(MarketBrief.searchAI.resIdToken)
+  };
+}
+function renderTickerAIRecord(record,resId){
+  var el=document.getElementById('tai_'+resId); if(!el)return false;
+  el.innerHTML=record.content.split(MarketBrief.searchAI.resIdToken).join(resId);
+  return true;
+}
+function setTickerAIButtonsBusy(resId,busy,kind){
+  var an=document.getElementById('anBtn_'+resId);
+  var ab=document.getElementById('abBtn_'+resId);
+  if(an){an.style.display='';an.disabled=busy;an.textContent=busy&&kind==='ticker-analysis'?'Analysing…':'✦ Analyse with AI';}
+  if(ab){ab.disabled=busy;ab.textContent=busy&&kind==='ticker-about'?'Loading…':'ℹ About';}
+}
+async function triggerTickerAI(sym,resId,btn){
+  var key=normalizeTickerAISymbol(sym),kind='ticker-analysis';
+  if(MarketBrief.searchAI.inFlight[resId])return;
+  var cached=getTickerAIRecord(key,kind);
+  if(cached){renderTickerAIRecord(cached,resId);return;}
+  MarketBrief.searchAI.inFlight[resId]={kind:kind,symbol:key};
+  setTickerAIButtonsBusy(resId,true,kind);
+  try{await genTickerAI(key,null,resId);}
+  finally{
+    delete MarketBrief.searchAI.inFlight[resId];
+    setTickerAIButtonsBusy(resId,false,kind);
+  }
 }
 
 // ── AI button visibility ──────────────────────────────────────────────────────
@@ -1089,18 +1128,13 @@ async function genTickerAI(sym,d,resId){
     clearInterval(_tcdTimer);
     var _tcd2=document.getElementById('tickCd_'+resId);if(_tcd2)_tcd2.style.display='none';
     var _disc='\n\n---\n_This analysis is AI-generated for informational purposes only. Not financial advice. Do your own research before investing._';
-    var ts=getTickStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated))+_disc);
-    // Restore Analyse button
-    var _anBtn=document.getElementById('anBtn_'+resId);
-    if(_anBtn) _anBtn.style.display='';
+    var ts=getTickStream(); if(ts){ts.innerHTML=formatSummary(cleanAIText(applyPrevDay(accumulated))+_disc);if(accumulated.trim())storeTickerAIRecord(sym,'ticker-analysis',el.innerHTML,resId);}
     // Save with slight delay to ensure DOM is fully updated
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
       if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
     },100);
   }catch(e){
-    var _anBtnE=document.getElementById('anBtn_'+resId);
-    if(_anBtnE) _anBtnE.style.display='';
     el.innerHTML='<div class="msg err">Analysis error: '+esc(e.message)+'</div>';
   }
 }
@@ -1108,11 +1142,13 @@ async function genTickerAI(sym,d,resId){
 
 // ── About AI (company summary) ────────────────────────────────────────────────
 async function triggerAboutAI(sym,resId,btn,companyName){
-  // Restore analyse button if it was hidden
-  var _anBtn=document.getElementById('anBtn_'+resId)||document.querySelector('#tc_'+resId+' .analyze-btn:not(.about-btn)');
-  if(_anBtn) _anBtn.style.display='';
-  btn.disabled=true; btn.textContent='Loading…';
+  var key=normalizeTickerAISymbol(sym),kind='ticker-about';
+  if(MarketBrief.searchAI.inFlight[resId])return;
+  var cached=getTickerAIRecord(key,kind);
+  if(cached){renderTickerAIRecord(cached,resId);return;}
   var el=document.getElementById('tai_'+resId); if(!el)return;
+  MarketBrief.searchAI.inFlight[resId]={kind:kind,symbol:key};
+  setTickerAIButtonsBusy(resId,true,kind);
   var _acdSec=12,_acdFirst=false;
   el.innerHTML='<div class="msg">Loading overview… <span id="acdNum_'+resId+'">~'+_acdSec+'s</span></div>';
   var _acdTimer=setInterval(function(){
@@ -1162,15 +1198,17 @@ async function triggerAboutAI(sym,resId,btn,companyName){
     }
     clearInterval(_acdTimer);
     var _acd2=document.getElementById('aboutCd_'+resId);if(_acd2)_acd2.style.display='none';
-    var ts=getAboutStream(); if(ts) ts.innerHTML=formatSummary(cleanAIText(accumulated));
+    var ts=getAboutStream(); if(ts){ts.innerHTML=formatSummary(cleanAIText(accumulated));if(accumulated.trim())storeTickerAIRecord(key,kind,el.innerHTML,resId);}
     setTimeout(function(){
       var _tr=document.getElementById('tickRes')||document.getElementById('tickResD');
       if(_tr&&_tr.innerHTML&&_tr.innerHTML.length>200) savedSearchHTML=_tr.innerHTML;
     },100);
-    btn.textContent='ℹ About'; btn.disabled=false;
   }catch(e){
     el.innerHTML='<div class="msg err">Error: '+esc(e.message)+'</div>';
-    btn.textContent='ℹ About'; btn.disabled=false;
+  }finally{
+    clearInterval(_acdTimer);
+    delete MarketBrief.searchAI.inFlight[resId];
+    setTickerAIButtonsBusy(resId,false,kind);
   }
 }
 // ── PDF Export ─────────────────────────────────────────────────────
