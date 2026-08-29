@@ -368,27 +368,24 @@ var savedInvestHTML='';
 function isAnyMarketOpen(){
   var now=new Date(), day=now.getDay();
   function mins(tz){ var h=parseInt(now.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false})),m=parseInt(now.toLocaleString('en-US',{timeZone:tz,minute:'numeric'})); return h*60+m; }
-  var et=mins('America/New_York'), sg=mins('Asia/Singapore'), hk=mins('Asia/Hong_Kong');
+  function sessionMins(value){var parts=value.split(':');return parseInt(parts[0])*60+parseInt(parts[1]);}
+  var markets=MarketBrief.marketData.markets;
+  var et=mins(markets.US.timezone), sg=mins(markets.SG.timezone), hk=mins(markets.HK.timezone);
+  var usOpen=sessionMins(markets.US.open), usClose=sessionMins(markets.US.close);
+  var sgOpen=sessionMins(markets.SG.open), sgClose=sessionMins(markets.SG.close);
+  var hkOpen=sessionMins(markets.HK.open), hkClose=sessionMins(markets.HK.close);
   var wk=day>=1&&day<=5;
   return {
-    any: wk&&((et>=570&&et<960)||(sg>=540&&sg<1020)||(hk>=570&&hk<960)),
-    US:  wk&&et>=570&&et<960,
-    SG:  wk&&sg>=540&&sg<1020,
-    HK:  wk&&hk>=570&&hk<960
+    any: wk&&((et>=usOpen&&et<usClose)||(sg>=sgOpen&&sg<sgClose)||(hk>=hkOpen&&hk<hkClose)),
+    US:  wk&&et>=usOpen&&et<usClose,
+    SG:  wk&&sg>=sgOpen&&sg<sgClose,
+    HK:  wk&&hk>=hkOpen&&hk<hkClose
   };
 }
 
 function isTradingNow(sym){
-  // Infer market from symbol suffix
   var s=isAnyMarketOpen();
-  if(sym.endsWith('.SI')) return s.SG;
-  if(sym.endsWith('.HK')) return s.HK;
-  if(sym.startsWith('^')) {
-    if(sym==='^STI') return s.SG;
-    if(sym==='^HSI') return s.HK;
-    return s.US;
-  }
-  return s.US; // default US for plain symbols like AAPL, ARM
+  return s[MarketBrief.marketData.getMarketCodeForSymbol(sym)];
 }
 
 function getOpenLabel(){
