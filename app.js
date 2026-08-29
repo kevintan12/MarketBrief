@@ -419,23 +419,25 @@ async function silentRefreshDash(){
 
 async function silentRefreshTicker(sym){
   try{
-    var d=await fetchQuote(sym);
-    if(!d.price)return;
+    var rawQuote=await fetchQuote(sym);
+    var quote=MarketBrief.marketData.normalizeQuote(rawQuote,sym);
+    if(quote.status==='invalid')return;
     ['tickRes','tickResD'].forEach(function(resId){
-      var cls=Math.abs(d.changePct)<0.01?'neu':(d.changePct>=0?'up':'dn');
-      var arr=cls==='neu'?'—':(d.changePct>=0?'▲':'▼');
+      var cls=Math.abs(quote.percentChange)<0.01?'neu':(quote.percentChange>=0?'up':'dn');
+      var arr=cls==='neu'?'—':(quote.percentChange>=0?'▲':'▼');
       var pr=document.getElementById('tprice_'+resId);
       var chg=document.getElementById('tcchg_'+resId);
-      if(pr){pr.className='tprice '+cls;pr.textContent=fmt(d.price);}
-      if(chg){chg.className='cchg '+cls;chg.textContent=arr+' '+fmtD(d.change)+' ('+fmtP(d.changePct)+')';}
+      if(pr){pr.className='tprice '+cls;pr.textContent=fmt(quote.displayPrice);}
+      if(chg){chg.className='cchg '+cls;chg.textContent=arr+' '+fmtD(quote.change)+' ('+fmtP(quote.percentChange)+')';}
       var s0=document.getElementById('tssv0_'+resId);
       var s1=document.getElementById('tssv1_'+resId);
       var s2=document.getElementById('tssv2_'+resId);
       var s3=document.getElementById('tssv3_'+resId);
-      if(s0){s0.className='ssv';s0.textContent=fmtVol(d.volume);}
-      if(s1)s1.textContent=fmt(d.prev);
-      if(s2)s2.textContent=fmt(d.high);
-      if(s3)s3.textContent=fmt(d.low);
+      // High, low and volume remain outside the canonical contract for now.
+      if(s0){s0.className='ssv';s0.textContent=fmtVol(rawQuote.volume);}
+      if(s1)s1.textContent=fmt(quote.previousClose);
+      if(s2)s2.textContent=fmt(rawQuote.high);
+      if(s3)s3.textContent=fmt(rawQuote.low);
       // Update trading badge
       var badge=document.getElementById('tradeBadge_'+resId);
       if(badge){

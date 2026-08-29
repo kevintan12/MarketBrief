@@ -111,30 +111,32 @@ async function execSearch(inpId,btnId,resId){
   res.innerHTML='<div class="msg"><span class="spin"></span></div>';
   if(!S.proxyUrl){res.innerHTML='<div class="msg err">Add your Proxy URL in ⚙ Settings first.</div>';btn.disabled=false;btn.textContent='Search';return;}
   try{
-    var d=await fetchQuote(raw);
-    if(!d.price)throw new Error('No data for "'+raw+'"');
+    var rawQuote=await fetchQuote(raw);
+    var quote=MarketBrief.marketData.normalizeQuote(rawQuote,raw);
+    if(quote.status==='invalid')throw new Error('No data for "'+raw+'"');
     lastSearchSym=raw;
-    var cls=Math.abs(d.changePct)<0.01?'neu':(d.changePct>=0?'up':'dn');
-    var arr=cls==='neu'?'—':(d.changePct>=0?'▲':'▼');
+    var cls=Math.abs(quote.percentChange)<0.01?'neu':(quote.percentChange>=0?'up':'dn');
+    var arr=cls==='neu'?'—':(quote.percentChange>=0?'▲':'▼');
     var cardId='tc_'+resId;
     var tradingStatus=isTradingNow(raw);
     var statusBadge=tradingStatus
       ?'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;gap:4px;font-size:0.85rem;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:var(--grn);border-radius:20px;padding:2px 9px;margin-left:8px"><span class="dot" style="margin-right:0"></span>Trading</span>'
       :'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;font-size:0.85rem;background:rgba(100,116,139,0.15);border:1px solid var(--bor);color:var(--mut);border-radius:20px;padding:2px 9px;margin-left:8px">Closed</span>';
     res.innerHTML='<div class="tcard" id="'+cardId+'">'
-      +'<div class="ttop"><div><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div class="tsym">'+esc(raw)+'</div>'+statusBadge+'</div><div class="tname">'+esc(d.name||raw)+'</div></div>'
-      +'<div style="text-align:right"><div class="tprice '+cls+'" id="tprice_'+resId+'">'+fmt(d.price)+'</div>'
-      +'<div class="cchg '+cls+'" id="tcchg_'+resId+'" style="text-align:right;margin-top:3px">'+arr+' '+fmtD(d.change)+' ('+fmtP(d.changePct)+')</div></div></div>'
+      +'<div class="ttop"><div><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div class="tsym">'+esc(raw)+'</div>'+statusBadge+'</div><div class="tname">'+esc(quote.name||raw)+'</div></div>'
+      +'<div style="text-align:right"><div class="tprice '+cls+'" id="tprice_'+resId+'">'+fmt(quote.displayPrice)+'</div>'
+      +'<div class="cchg '+cls+'" id="tcchg_'+resId+'" style="text-align:right;margin-top:3px">'+arr+' '+fmtD(quote.change)+' ('+fmtP(quote.percentChange)+')</div></div></div>'
       +'<div class="sgrid">'
-      +'<div class="sstat"><div class="ssl">Volume</div><div class="ssv" id="tssv0_'+resId+'">'+fmtVol(d.volume)+'</div></div>'
-      +'<div class="sstat"><div class="ssl">Prev Close</div><div class="ssv" id="tssv1_'+resId+'">'+fmt(d.prev)+'</div></div>'
-      +'<div class="sstat"><div class="ssl">Day High</div><div class="ssv" id="tssv2_'+resId+'">'+fmt(d.high)+'</div></div>'
-      +'<div class="sstat"><div class="ssl">Day Low</div><div class="ssv" id="tssv3_'+resId+'">'+fmt(d.low)+'</div></div>'
+      // High, low and volume remain outside the canonical contract for now.
+      +'<div class="sstat"><div class="ssl">Volume</div><div class="ssv" id="tssv0_'+resId+'">'+fmtVol(rawQuote.volume)+'</div></div>'
+      +'<div class="sstat"><div class="ssl">Prev Close</div><div class="ssv" id="tssv1_'+resId+'">'+fmt(quote.previousClose)+'</div></div>'
+      +'<div class="sstat"><div class="ssl">Day High</div><div class="ssv" id="tssv2_'+resId+'">'+fmt(rawQuote.high)+'</div></div>'
+      +'<div class="sstat"><div class="ssl">Day Low</div><div class="ssv" id="tssv3_'+resId+'">'+fmt(rawQuote.low)+'</div></div>'
       +'</div>'
       +'</div>'
       +'<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">'
         +'<button class="analyze-btn" id="anBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'">✦ Analyse with AI</button>'
-        +'<button class="analyze-btn about-btn" style="background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.3);color:var(--mut);" id="abBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'" data-name="'+esc(d.name)+'">ℹ About</button>'
+        +'<button class="analyze-btn about-btn" style="background:rgba(100,116,139,0.12);border-color:rgba(100,116,139,0.3);color:var(--mut);" id="abBtn_'+resId+'" data-sym="'+esc(raw)+'" data-res="'+resId+'" data-name="'+esc(quote.name)+'">ℹ About</button>'
         +'</div>'
       +'</div>'
       +'<div id="tai_'+resId+'"></div>';
