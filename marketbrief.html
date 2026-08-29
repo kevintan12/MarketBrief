@@ -51,10 +51,10 @@
     <div id="vDash" class="content">
       <div class="rfrow"><button class="rfbtn" onclick="loadDash()">↻ Refresh</button></div>
       <div class="chips" id="mktChips">
-        <button class="chip on" onclick="setFilter('all',this)">All</button>
-        <button class="chip" onclick="setFilter('US',this)">🇺🇸 US</button>
-        <button class="chip" onclick="setFilter('SG',this)">🇸🇬 SGX</button>
-        <button class="chip" onclick="setFilter('HK',this)">🇭🇰 HKEX</button>
+        <button class="chip on" data-filter="all" onclick="setFilter('all',this)">All</button>
+        <button class="chip" data-filter="US" onclick="setFilter('US',this)">🇺🇸 US</button>
+        <button class="chip" data-filter="SG" onclick="setFilter('SG',this)">🇸🇬 SGX</button>
+        <button class="chip" data-filter="HK" onclick="setFilter('HK',this)">🇭🇰 HKEX</button>
       </div>
       <div class="slabel notop">Market Indices <span id="liveIndM" style="font-size:0.85rem;margin-left:6px"></span></div>
       <div class="idx-scroll" id="idxGrid"><div class="msg">Loading… <span class="spin"></span></div></div>

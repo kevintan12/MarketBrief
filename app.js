@@ -93,8 +93,8 @@ var S = {
   ],
   customTickers:{
     US:[],
-    SG:[{sym:'D05.SI',name:'DBS Group',sub:'SG · SGX',flag:'🇸🇬',mkt:'SG'},{sym:'O39.SI',name:'OCBC',sub:'SG · SGX',flag:'🇸🇬',mkt:'SG'}],
-    HK:[{sym:'1398.HK',name:'ICBC',sub:'HK · HKEX',flag:'🇭🇰',mkt:'HK'}]
+    SG:[],
+    HK:[]
   }
 };
 var mktData=[], curFilter='all', isDesktop=false, currentView='Dash';
@@ -190,8 +190,7 @@ function showView(name){
       renderIndices(); updateLiveIndicator();
       // Restore active chip highlight
       document.querySelectorAll('#mktChips .chip').forEach(function(b){
-        b.classList.toggle('on', b.textContent.trim().replace(/[^A-Za-z]/g,'').toLowerCase()===(curFilter==='all'?'all':curFilter.toLowerCase())||
-          (curFilter==='all'&&b.textContent.trim()==='All'));
+        b.classList.toggle('on', b.dataset.filter===curFilter);
       });
       setTimeout(function(){var sa=document.getElementById('sumArea');if(sa&&savedSumHTML){sa.innerHTML=savedSumHTML;}},50);
     }
@@ -222,10 +221,10 @@ function renderDesktop(){
       +'<div class="col-left">'
         +'<div class="rfrow"><button class="rfbtn" onclick="loadDash()">↻ Refresh</button></div>'
         +'<div class="chips" id="mktChipsD">'
-          +'<button class="chip on" onclick="setFilterD(\'all\',this)">All</button>'
-          +'<button class="chip" onclick="setFilterD(\'US\',this)">🇺🇸 US</button>'
-          +'<button class="chip" onclick="setFilterD(\'SG\',this)">🇸🇬 SGX</button>'
-          +'<button class="chip" onclick="setFilterD(\'HK\',this)">🇭🇰 HKEX</button>'
+          +'<button class="chip on" data-filter="all" onclick="setFilterD(\'all\',this)">All</button>'
+          +'<button class="chip" data-filter="US" onclick="setFilterD(\'US\',this)">🇺🇸 US</button>'
+          +'<button class="chip" data-filter="SG" onclick="setFilterD(\'SG\',this)">🇸🇬 SGX</button>'
+          +'<button class="chip" data-filter="HK" onclick="setFilterD(\'HK\',this)">🇭🇰 HKEX</button>'
         +'</div>'
         +'<div class="slabel notop">Market Indices <span id="liveIndD" style="font-size:0.85rem;margin-left:6px"></span></div>'
         +'<div class="idx-scroll" id="idxGridD"><div class="msg">Loading… <span class="spin"></span></div></div>'
@@ -240,8 +239,7 @@ function renderDesktop(){
     setTimeout(updateLiveIndicator,50);
     // Restore active chip
     document.querySelectorAll('#mktChipsD .chip').forEach(function(b){
-      var t=b.textContent.trim();
-      b.classList.toggle('on',(curFilter==='all'&&t==='All')||(curFilter!=='all'&&t.indexOf(curFilter)!==-1));
+      b.classList.toggle('on',b.dataset.filter===curFilter);
     });
     window._tryRTimer=null;(function tryR(n){window._tryRTimer=setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;}else if(n>0)tryR(n-1);},80);})(5);
   } else if(currentView==='Search'){
@@ -625,8 +623,11 @@ function renderIndices(){
   var sorted=filtered.slice().sort(function(a,b){return sortKey(a)-sortKey(b);});
   ['idxGrid','idxGridD'].forEach(function(gid){
     var g=document.getElementById(gid); if(!g)return;
-    var existing=g.querySelectorAll('[data-sym]');
-    if(existing.length!==sorted.length){
+    var existing=Array.from(g.querySelectorAll('[data-sym]'));
+    var sameTickers=existing.length===sorted.length&&existing.every(function(card,i){
+      return card.dataset.sym===sorted[i].sym;
+    });
+    if(!sameTickers){
       // Full render with market group headers
       var html='';
       var lastGroup='';
