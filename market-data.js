@@ -41,6 +41,132 @@
     }
   };
 
+  var marketCalendars={
+    US:{
+      source:{name:'NYSE',type:'official-exchange',url:'https://www.nyse.com/trade/hours-calendars'},
+      years:{
+        2026:{sourceKey:'source',verification:'exchange-verified',exchangeVerification:'verified',holidays:{
+        '2026-01-01':{name:"New Year's Day",status:'closed'},
+        '2026-01-19':{name:'Martin Luther King, Jr. Day',status:'closed'},
+        '2026-02-16':{name:"Washington's Birthday",status:'closed'},
+        '2026-04-03':{name:'Good Friday',status:'closed'},
+        '2026-05-25':{name:'Memorial Day',status:'closed'},
+        '2026-06-19':{name:'Juneteenth National Independence Day',status:'closed'},
+        '2026-07-03':{name:'Independence Day observed',status:'closed'},
+        '2026-09-07':{name:'Labor Day',status:'closed'},
+        '2026-11-26':{name:'Thanksgiving Day',status:'closed'},
+        '2026-12-25':{name:'Christmas Day',status:'closed'}
+        }},
+        2027:{sourceKey:'source',verification:'exchange-verified',exchangeVerification:'verified',holidays:{
+        '2027-01-01':{name:"New Year's Day",status:'closed'},
+        '2027-01-18':{name:'Martin Luther King, Jr. Day',status:'closed'},
+        '2027-02-15':{name:"Washington's Birthday",status:'closed'},
+        '2027-03-26':{name:'Good Friday',status:'closed'},
+        '2027-05-31':{name:'Memorial Day',status:'closed'},
+        '2027-06-18':{name:'Juneteenth National Independence Day observed',status:'closed'},
+        '2027-07-05':{name:'Independence Day observed',status:'closed'},
+        '2027-09-06':{name:'Labor Day',status:'closed'},
+        '2027-11-25':{name:'Thanksgiving Day',status:'closed'},
+        '2027-12-24':{name:'Christmas Day observed',status:'closed'}
+        }}
+      }
+    },
+    SG:{
+      source:{name:'TradingHours.com XSES',type:'exchange-calendar-reference',url:'https://www.tradinghours.com/markets/sgx'},
+      crossCheckSource:{name:'Singapore Ministry of Manpower',type:'government',url:'https://www.mom.gov.sg/employment-practices/public-holidays'},
+      years:{
+        2026:{sourceKey:'source',verification:'exchange-verified',exchangeVerification:'verified',holidays:{
+        '2026-01-01':{name:"New Year's Day",status:'closed'},
+        '2026-02-17':{name:'Chinese New Year',status:'closed'},
+        '2026-02-18':{name:'Chinese New Year',status:'closed'},
+        '2026-04-03':{name:'Good Friday',status:'closed'},
+        '2026-05-01':{name:'Labour Day',status:'closed'},
+        '2026-05-27':{name:'Hari Raya Haji',status:'closed'},
+        '2026-06-01':{name:'Vesak Day observed',status:'closed'},
+        '2026-08-10':{name:'National Day observed',status:'closed'},
+        '2026-11-09':{name:'Deepavali observed',status:'closed'},
+        '2026-12-25':{name:'Christmas Day',status:'closed'}
+        }},
+        2027:{sourceKey:'crossCheckSource',verification:'government-published',exchangeVerification:'pending',holidays:{
+        '2027-01-01':{name:"New Year's Day",status:'closed'},
+        '2027-02-08':{name:'Chinese New Year observed',status:'closed'},
+        '2027-03-10':{name:'Hari Raya Puasa',status:'closed'},
+        '2027-03-26':{name:'Good Friday',status:'closed'},
+        '2027-05-17':{name:'Hari Raya Haji',status:'closed'},
+        '2027-05-20':{name:'Vesak Day',status:'closed'},
+        '2027-08-09':{name:'National Day',status:'closed'},
+        '2027-10-28':{name:'Deepavali',status:'closed'}
+        }}
+      }
+    },
+    HK:{
+      source:{name:'HKEX',type:'official-exchange',url:'https://www.hkex.com.hk/News/HKEX-Calendar?sc_lang=en'},
+      years:{
+        2026:{sourceKey:'source',verification:'exchange-verified',exchangeVerification:'verified',holidays:{
+        '2026-01-01':{name:'The first day of January',status:'closed'},
+        '2026-02-17':{name:"Lunar New Year's Day",status:'closed'},
+        '2026-02-18':{name:'The second day of Lunar New Year',status:'closed'},
+        '2026-02-19':{name:'The third day of Lunar New Year',status:'closed'},
+        '2026-04-03':{name:'Good Friday',status:'closed'},
+        '2026-04-06':{name:'The day following Ching Ming Festival',status:'closed'},
+        '2026-04-07':{name:'The day following Easter Monday',status:'closed'},
+        '2026-05-01':{name:'Labour Day',status:'closed'},
+        '2026-05-25':{name:'The day following the Birthday of the Buddha',status:'closed'},
+        '2026-06-19':{name:'Tuen Ng Festival',status:'closed'},
+        '2026-07-01':{name:'Hong Kong Special Administrative Region Establishment Day',status:'closed'},
+        '2026-10-01':{name:'National Day',status:'closed'},
+        '2026-10-19':{name:'The day following Chung Yeung Festival',status:'closed'},
+        '2026-12-25':{name:'Christmas Day',status:'closed'}
+        }},
+        2027:{sourceKey:'source',verification:'exchange-verified',exchangeVerification:'verified',holidays:{
+        '2027-01-01':{name:'The first day of January',status:'closed'},
+        '2027-02-08':{name:'The third day of Lunar New Year',status:'closed'},
+        '2027-02-09':{name:'The fourth day of Lunar New Year',status:'closed'},
+        '2027-03-26':{name:'Good Friday',status:'closed'},
+        '2027-03-29':{name:'Easter Monday',status:'closed'},
+        '2027-04-05':{name:'Ching Ming Festival',status:'closed'},
+        '2027-06-09':{name:'Tuen Ng Festival',status:'closed'},
+        '2027-07-01':{name:'Hong Kong Special Administrative Region Establishment Day',status:'closed'},
+        '2027-09-16':{name:'The day following the Chinese Mid-Autumn Festival',status:'closed'},
+        '2027-10-01':{name:'National Day',status:'closed'},
+        '2027-10-08':{name:'Chung Yeung Festival',status:'closed'},
+        '2027-12-27':{name:'The first weekday after Christmas Day',status:'closed'}
+        }}
+      }
+    }
+  };
+
+  function getCalendarCoverage(calendar){
+    var years=Object.keys(calendar.years).map(Number).sort(function(a,b){return a-b;});
+    var earliestYear=years[0];
+    var latestYear=years[years.length-1];
+    return {
+      coverageStart:earliestYear+'-01-01',
+      coverageThrough:latestYear+'-12-31',
+      coverageLabel:earliestYear===latestYear?String(earliestYear):earliestYear+'-'+latestYear,
+      earliestYear:earliestYear,
+      latestYear:latestYear
+    };
+  }
+
+  function getCalendarDateState(market,exchangeDate){
+    var calendar=marketCalendars[market];
+    var coverage=getCalendarCoverage(calendar);
+    var yearData=calendar.years[parseInt(exchangeDate.slice(0,4))]||null;
+    return {
+      calendar:calendar,
+      coverage:coverage,
+      covered:!!yearData,
+      yearData:yearData,
+      holiday:yearData&&yearData.holidays[exchangeDate]&&yearData.holidays[exchangeDate].status==='closed'?yearData.holidays[exchangeDate]:null
+    };
+  }
+
+  function calendarDayNumber(date){
+    var parts=date.split('-').map(Number);
+    return Math.floor(Date.UTC(parts[0],parts[1]-1,parts[2])/86400000);
+  }
+
   function getMarketCodeForSymbol(symbol){
     var normalized=String(symbol||'').toUpperCase();
     if(markets.SG.symbolSuffixes.some(function(suffix){return normalized.endsWith(suffix);})||markets.SG.indexSymbols.indexOf(normalized)!==-1) return 'SG';
@@ -76,10 +202,18 @@
     var instant=now===undefined?new Date():new Date(now);
     if(!Number.isFinite(instant.getTime()))throw new Error('Invalid session timestamp');
     var local=exchangeDateTime(instant,definition.timezone);
-    var tradingDay=local.weekday!=='Saturday'&&local.weekday!=='Sunday';
+    var calendarState=getCalendarDateState(market,local.date);
+    var weekend=local.weekday==='Saturday'||local.weekday==='Sunday';
+    var holiday=calendarState.covered&&!weekend?calendarState.holiday:null;
+    var tradingDay=!weekend&&!holiday;
     var session='closed';
     var regularOpen=false;
     var quoteExpectedToMove=false;
+    var holidayName=null;
+    if(holiday){
+      session='holiday';
+      holidayName=holiday.name;
+    }
     if(tradingDay){
       var active=definition.sessions.find(function(window){
         return local.minuteOfDay>=minutesFromTime(window.start)&&local.minuteOfDay<minutesFromTime(window.end);
@@ -100,7 +234,53 @@
       session:session,
       regularOpen:regularOpen,
       quoteExpectedToMove:quoteExpectedToMove,
-      calendarCoverage:'weekend-only'
+      calendarCoverage:calendarState.covered?calendarState.coverage.coverageLabel:'weekend-only',
+      holidayName:holidayName
+    };
+  }
+
+  function getCalendarStatus(marketOrSymbol,now){
+    var normalized=String(marketOrSymbol||'').toUpperCase();
+    var market=markets[normalized]?normalized:getMarketCodeForSymbol(normalized);
+    var definition=markets[market];
+    var instant=now===undefined?new Date():new Date(now);
+    if(!Number.isFinite(instant.getTime()))throw new Error('Invalid calendar timestamp');
+    var local=exchangeDateTime(instant,definition.timezone);
+    var calendarState=getCalendarDateState(market,local.date);
+    var calendar=calendarState.calendar;
+    var coverage=calendarState.coverage;
+    var calendarYears=Object.keys(calendar.years).map(Number).sort(function(a,b){return a-b;});
+    var yearStatuses=calendarYears.map(function(year){
+      var yearData=calendar.years[year];
+      var yearSource=calendar[yearData.sourceKey]||calendar.source;
+      return {year:year,verification:yearData.verification,exchangeVerification:yearData.exchangeVerification,sourceName:yearSource.name,sourceType:yearSource.type,sourceUrl:yearSource.url};
+    });
+    var yearSource=calendarState.yearData?(calendar[calendarState.yearData.sourceKey]||calendar.source):null;
+    var daysUntilExpiry=calendarDayNumber(coverage.coverageThrough)-calendarDayNumber(local.date);
+    var expiryStatus=daysUntilExpiry>90?'current':daysUntilExpiry>=31?'expiring':daysUntilExpiry>=0?'urgent':'expired';
+    return {
+      market:market,
+      exchangeDate:local.date,
+      coverageStart:coverage.coverageStart,
+      coverageThrough:coverage.coverageThrough,
+      coverageLabel:coverage.coverageLabel,
+      latestYear:coverage.latestYear,
+      covered:calendarState.covered,
+      daysUntilExpiry:daysUntilExpiry,
+      expiryStatus:expiryStatus,
+      verification:calendarState.yearData?calendarState.yearData.verification:null,
+      exchangeVerification:calendarState.yearData?calendarState.yearData.exchangeVerification:null,
+      yearSourceName:yearSource?yearSource.name:null,
+      yearSourceUrl:yearSource?yearSource.url:null,
+      yearSourceType:yearSource?yearSource.type:null,
+      yearStatuses:yearStatuses,
+      pendingExchangeVerificationYears:yearStatuses.filter(function(year){return year.exchangeVerification==='pending';}).map(function(year){return year.year;}),
+      sourceName:calendar.source.name,
+      sourceUrl:calendar.source.url,
+      sourceType:calendar.source.type,
+      crossCheckSourceName:calendar.crossCheckSource?calendar.crossCheckSource.name:null,
+      crossCheckSourceUrl:calendar.crossCheckSource?calendar.crossCheckSource.url:null,
+      crossCheckSourceType:calendar.crossCheckSource?calendar.crossCheckSource.type:null
     };
   }
 
@@ -264,6 +444,7 @@
     markets:markets,
     getMarketCodeForSymbol:getMarketCodeForSymbol,
     getSessionState:getSessionState,
+    getCalendarStatus:getCalendarStatus,
     normalizeQuote:normalizeQuote
   };
 })(window);
