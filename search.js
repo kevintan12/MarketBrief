@@ -1,4 +1,18 @@
 // ── Search Box with Autocomplete ──────────────────────────────────────────────
+function getSearchSessionPresentation(sym){
+  var state=MarketBrief.marketData.getSessionState(sym);
+  var labels={
+    preMarket:'Pre-Market',
+    regular:'Trading',
+    postMarket:'After-Hours',
+    regularMorning:'Trading',
+    lunchBreak:'Lunch Break',
+    regularAfternoon:'Trading',
+    closed:'Closed'
+  };
+  return {state:state,label:labels[state.session]||'Closed',active:state.quoteExpectedToMove};
+}
+
 function renderSearchBox(boxId, resId){
   var el=document.getElementById(boxId); if(!el)return;
   var iid='ac_'+boxId;
@@ -118,10 +132,10 @@ async function execSearch(inpId,btnId,resId){
     var cls=Math.abs(quote.percentChange)<0.01?'neu':(quote.percentChange>=0?'up':'dn');
     var arr=cls==='neu'?'—':(quote.percentChange>=0?'▲':'▼');
     var cardId='tc_'+resId;
-    var tradingStatus=isTradingNow(raw);
-    var statusBadge=tradingStatus
-      ?'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;gap:4px;font-size:0.85rem;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:var(--grn);border-radius:20px;padding:2px 9px;margin-left:8px"><span class="dot" style="margin-right:0"></span>Trading</span>'
-      :'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;font-size:0.85rem;background:rgba(100,116,139,0.15);border:1px solid var(--bor);color:var(--mut);border-radius:20px;padding:2px 9px;margin-left:8px">Closed</span>';
+    var sessionPresentation=getSearchSessionPresentation(raw);
+    var statusBadge=sessionPresentation.active
+      ?'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;gap:4px;font-size:0.85rem;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:var(--grn);border-radius:20px;padding:2px 9px;margin-left:8px"><span class="dot" style="margin-right:0"></span>'+sessionPresentation.label+'</span>'
+      :'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;font-size:0.85rem;background:rgba(100,116,139,0.15);border:1px solid var(--bor);color:var(--mut);border-radius:20px;padding:2px 9px;margin-left:8px">'+sessionPresentation.label+'</span>';
     res.innerHTML='<div class="tcard" id="'+cardId+'">'
       +'<div class="ttop"><div><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div class="tsym">'+esc(raw)+'</div>'+statusBadge+'</div><div class="tname">'+esc(quote.name||raw)+'</div></div>'
       +'<div style="text-align:right"><div class="tprice '+cls+'" id="tprice_'+resId+'">'+fmt(quote.displayPrice)+'</div>'

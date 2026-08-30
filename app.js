@@ -413,7 +413,7 @@ async function silentRefreshDash(){
     }
   });
   if(updated)renderIndices();
-  if(lastSearchSym&&isTradingNow(lastSearchSym))silentRefreshTicker(lastSearchSym);
+  if(lastSearchSym&&MarketBrief.marketData.getSessionState(lastSearchSym).quoteExpectedToMove)silentRefreshTicker(lastSearchSym);
   updateLiveIndicator();
 }
 
@@ -441,11 +441,11 @@ async function silentRefreshTicker(sym){
       // Update trading badge
       var badge=document.getElementById('tradeBadge_'+resId);
       if(badge){
-        var trading=isTradingNow(sym);
-        badge.style.background=trading?'rgba(16,185,129,0.15)':'rgba(100,116,139,0.15)';
-        badge.style.borderColor=trading?'rgba(16,185,129,0.4)':'var(--bor)';
-        badge.style.color=trading?'var(--grn)':'var(--mut)';
-        badge.innerHTML=trading?'<span class="dot" style="margin-right:0"></span>Trading':'Closed';
+        var sessionPresentation=getSearchSessionPresentation(sym);
+        badge.style.background=sessionPresentation.active?'rgba(16,185,129,0.15)':'rgba(100,116,139,0.15)';
+        badge.style.borderColor=sessionPresentation.active?'rgba(16,185,129,0.4)':'var(--bor)';
+        badge.style.color=sessionPresentation.active?'var(--grn)':'var(--mut)';
+        badge.innerHTML=(sessionPresentation.active?'<span class="dot" style="margin-right:0"></span>':'')+sessionPresentation.label;
       }
     });
   }catch(e){}
@@ -478,7 +478,7 @@ function startAutoRefresh(){
       silentRefreshDash().finally(function(){_refreshInFlight=false;});
     }
     // Ticker refresh every 5s too
-    if(_refreshTick%5===0 && lastSearchSym && isTradingNow(lastSearchSym) && !_refreshInFlight){
+    if(_refreshTick%5===0 && lastSearchSym && MarketBrief.marketData.getSessionState(lastSearchSym).quoteExpectedToMove && !_refreshInFlight){
       silentRefreshTicker(lastSearchSym);
     }
   },1000);
