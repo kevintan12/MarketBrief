@@ -7,6 +7,11 @@
       timezone:'America/New_York',
       open:'09:30',
       close:'16:00',
+      sessions:[
+        {name:'preMarket',start:'04:00',end:'09:30',regularOpen:false,quoteExpectedToMove:true},
+        {name:'regular',start:'09:30',end:'16:00',regularOpen:true,quoteExpectedToMove:true},
+        {name:'postMarket',start:'16:00',end:'20:00',regularOpen:false,quoteExpectedToMove:true}
+      ],
       symbolSuffixes:[],
       indexSymbols:[]
     },
@@ -14,6 +19,11 @@
       timezone:'Asia/Singapore',
       open:'09:00',
       close:'17:00',
+      sessions:[
+        {name:'regularMorning',start:'09:00',end:'12:00',regularOpen:true,quoteExpectedToMove:true},
+        {name:'lunchBreak',start:'12:00',end:'13:00',regularOpen:false,quoteExpectedToMove:false},
+        {name:'regularAfternoon',start:'13:00',end:'17:00',regularOpen:true,quoteExpectedToMove:true}
+      ],
       symbolSuffixes:['.SI'],
       indexSymbols:['^STI']
     },
@@ -21,6 +31,11 @@
       timezone:'Asia/Hong_Kong',
       open:'09:30',
       close:'16:00',
+      sessions:[
+        {name:'regularMorning',start:'09:30',end:'12:00',regularOpen:true,quoteExpectedToMove:true},
+        {name:'lunchBreak',start:'12:00',end:'13:00',regularOpen:false,quoteExpectedToMove:false},
+        {name:'regularAfternoon',start:'13:00',end:'16:00',regularOpen:true,quoteExpectedToMove:true}
+      ],
       symbolSuffixes:['.HK'],
       indexSymbols:['^HSI']
     }
@@ -31,6 +46,62 @@
     if(markets.SG.symbolSuffixes.some(function(suffix){return normalized.endsWith(suffix);})||markets.SG.indexSymbols.indexOf(normalized)!==-1) return 'SG';
     if(markets.HK.symbolSuffixes.some(function(suffix){return normalized.endsWith(suffix);})||markets.HK.indexSymbols.indexOf(normalized)!==-1) return 'HK';
     return 'US';
+  }
+
+  function minutesFromTime(value){
+    var parts=value.split(':');
+    return parseInt(parts[0])*60+parseInt(parts[1]);
+  }
+
+  function exchangeDateTime(instant,timezone){
+    var parts=new Intl.DateTimeFormat('en-US',{
+      timeZone:timezone,
+      year:'numeric',month:'2-digit',day:'2-digit',
+      weekday:'long',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+    }).formatToParts(instant);
+    var values={};
+    parts.forEach(function(part){values[part.type]=part.value;});
+    return {
+      date:values.year+'-'+values.month+'-'+values.day,
+      time:values.hour+':'+values.minute,
+      weekday:values.weekday,
+      minuteOfDay:parseInt(values.hour)*60+parseInt(values.minute)
+    };
+  }
+
+  function getSessionState(symbolOrMarket,now){
+    var normalized=String(symbolOrMarket||'').toUpperCase();
+    var market=markets[normalized]?normalized:getMarketCodeForSymbol(normalized);
+    var definition=markets[market];
+    var instant=now===undefined?new Date():new Date(now);
+    if(!Number.isFinite(instant.getTime()))throw new Error('Invalid session timestamp');
+    var local=exchangeDateTime(instant,definition.timezone);
+    var tradingDay=local.weekday!=='Saturday'&&local.weekday!=='Sunday';
+    var session='closed';
+    var regularOpen=false;
+    var quoteExpectedToMove=false;
+    if(tradingDay){
+      var active=definition.sessions.find(function(window){
+        return local.minuteOfDay>=minutesFromTime(window.start)&&local.minuteOfDay<minutesFromTime(window.end);
+      });
+      if(active){
+        session=active.name;
+        regularOpen=active.regularOpen;
+        quoteExpectedToMove=active.quoteExpectedToMove;
+      }
+    }
+    return {
+      market:market,
+      timezone:definition.timezone,
+      exchangeDate:local.date,
+      exchangeTime:local.time,
+      exchangeWeekday:local.weekday,
+      tradingDay:tradingDay,
+      session:session,
+      regularOpen:regularOpen,
+      quoteExpectedToMove:quoteExpectedToMove,
+      calendarCoverage:'weekend-only'
+    };
   }
 
   function finiteNumber(value){
@@ -192,6 +263,7 @@
   MarketBrief.marketData={
     markets:markets,
     getMarketCodeForSymbol:getMarketCodeForSymbol,
+    getSessionState:getSessionState,
     normalizeQuote:normalizeQuote
   };
 })(window);
