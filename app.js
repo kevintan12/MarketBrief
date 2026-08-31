@@ -348,8 +348,11 @@ async function loadDash(){
   mktData=[];
   tickers.forEach(function(t,i){
     var r=results[i];
-    if(r.status==='fulfilled'&&r.value&&r.value.price)
-      mktData.push({sym:t.sym,name:r.value.name||t.name,sub:t.sub,flag:t.flag,mkt:t.mkt,price:r.value.price,chg:r.value.change,pct:r.value.changePct});
+    if(r.status==='fulfilled'){
+      var quote=MarketBrief.marketData.normalizeQuote(r.value,t.sym);
+      if(quote.status!=='invalid')
+        mktData.push({sym:t.sym,name:quote.name||t.name,sub:t.sub,flag:t.flag,mkt:t.mkt,price:quote.displayPrice,chg:quote.change,pct:quote.percentChange});
+    }
   });
   renderIndices();
   if(!mktData.length) setGridHTML('<div class="msg err">Could not load data. Check Proxy URL.</div>');
@@ -407,9 +410,11 @@ async function silentRefreshDash(){
   var updated=false;
   tickers.forEach(function(t,i){
     var r=results[i];
-    if(r.status==='fulfilled'&&r.value&&r.value.price){
+    if(r.status==='fulfilled'){
+      var quote=MarketBrief.marketData.normalizeQuote(r.value,t.sym);
+      if(quote.status==='invalid')return;
       var ex=mktData.find(function(x){return x.sym===t.sym;});
-      if(ex){ex.price=r.value.price;ex.chg=r.value.change;ex.pct=r.value.changePct;updated=true;}
+      if(ex){ex.price=quote.displayPrice;ex.chg=quote.change;ex.pct=quote.percentChange;updated=true;}
     }
   });
   if(updated)renderIndices();
