@@ -13,6 +13,19 @@ function getSearchSessionPresentation(sym){
   return {state:state,label:labels[state.session]||'Closed',active:state.quoteExpectedToMove};
 }
 
+function refreshSearchSessionPresentation(sym){
+  if(!sym)return;
+  var sessionPresentation=getSearchSessionPresentation(sym);
+  ['tickRes','tickResD'].forEach(function(resId){
+    var badge=document.getElementById('tradeBadge_'+resId);
+    if(!badge)return;
+    badge.style.background=sessionPresentation.active?'rgba(16,185,129,0.15)':'rgba(100,116,139,0.15)';
+    badge.style.borderColor=sessionPresentation.active?'rgba(16,185,129,0.4)':'var(--bor)';
+    badge.style.color=sessionPresentation.active?'var(--grn)':'var(--mut)';
+    badge.innerHTML=(sessionPresentation.active?'<span class="dot" style="margin-right:0"></span>':'')+sessionPresentation.label;
+  });
+}
+
 function renderSearchBox(boxId, resId){
   var el=document.getElementById(boxId); if(!el)return;
   var iid='ac_'+boxId;

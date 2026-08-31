@@ -438,16 +438,8 @@ async function silentRefreshTicker(sym){
       if(s1)s1.textContent=fmt(quote.previousClose);
       if(s2)s2.textContent=fmt(rawQuote.high);
       if(s3)s3.textContent=fmt(rawQuote.low);
-      // Update trading badge
-      var badge=document.getElementById('tradeBadge_'+resId);
-      if(badge){
-        var sessionPresentation=getSearchSessionPresentation(sym);
-        badge.style.background=sessionPresentation.active?'rgba(16,185,129,0.15)':'rgba(100,116,139,0.15)';
-        badge.style.borderColor=sessionPresentation.active?'rgba(16,185,129,0.4)':'var(--bor)';
-        badge.style.color=sessionPresentation.active?'var(--grn)':'var(--mut)';
-        badge.innerHTML=(sessionPresentation.active?'<span class="dot" style="margin-right:0"></span>':'')+sessionPresentation.label;
-      }
     });
+    refreshSearchSessionPresentation(sym);
   }catch(e){}
 }
 
@@ -472,6 +464,7 @@ function startAutoRefresh(){
   autoRefreshTimer=setInterval(function(){
     _refreshTick++;
     updateLiveIndicator();
+    refreshSearchSessionPresentation(lastSearchSym);
     // Throttle actual fetches: every 5 ticks (5s) when market open, avoid concurrent fetches
     if(_refreshTick%5===0 && !_refreshInFlight && isAnyMarketOpen().any){
       _refreshInFlight=true;
