@@ -399,11 +399,20 @@ function getOpenLabel(){
   return open.length?open.join(' ')+' LIVE':null;
 }
 
+function getDashboardPollingMarkets(now){
+  var polling={any:false};
+  ['US','SG','HK'].forEach(function(mkt){
+    polling[mkt]=MarketBrief.marketData.getSessionState(mkt,now).quoteExpectedToMove;
+    if(polling[mkt])polling.any=true;
+  });
+  return polling;
+}
+
 async function silentRefreshDash(){
   if(!S.proxyUrl||!mktData.length)return;
-  var s=isAnyMarketOpen();
+  var s=getDashboardPollingMarkets();
   if(!s.any)return; // markets all closed — no fetching
-  // Only fetch tickers whose market is currently open
+  // Only fetch tickers whose market/session expects quote movement
   var tickers=getAllTickers().filter(function(t){return s[t.mkt];});
   if(!tickers.length)return;
   var results=await Promise.allSettled(tickers.map(function(t){return fetchQuote(t.sym);}));
@@ -470,8 +479,8 @@ function startAutoRefresh(){
     _refreshTick++;
     updateLiveIndicator();
     refreshSearchSessionPresentation(lastSearchSym);
-    // Throttle actual fetches: every 5 ticks (5s) when market open, avoid concurrent fetches
-    if(_refreshTick%5===0 && !_refreshInFlight && isAnyMarketOpen().any){
+    // Throttle actual fetches: every 5 ticks (5s) when quotes may move, avoid concurrent fetches
+    if(_refreshTick%5===0 && !_refreshInFlight && getDashboardPollingMarkets().any){
       _refreshInFlight=true;
       silentRefreshDash().finally(function(){_refreshInFlight=false;});
     }
