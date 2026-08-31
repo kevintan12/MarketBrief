@@ -413,7 +413,7 @@ async function silentRefreshDash(){
     }
   });
   if(updated)renderIndices();
-  if(lastSearchSym&&MarketBrief.marketData.getSessionState(lastSearchSym).quoteExpectedToMove)silentRefreshTicker(lastSearchSym);
+  if(lastSearchSym&&MarketBrief.marketData.shouldPollSearchQuote(lastSearchSym))silentRefreshTicker(lastSearchSym);
   updateLiveIndicator();
 }
 
@@ -471,7 +471,7 @@ function startAutoRefresh(){
       silentRefreshDash().finally(function(){_refreshInFlight=false;});
     }
     // Ticker refresh every 5s too
-    if(_refreshTick%5===0 && lastSearchSym && MarketBrief.marketData.getSessionState(lastSearchSym).quoteExpectedToMove && !_refreshInFlight){
+    if(_refreshTick%5===0 && lastSearchSym && MarketBrief.marketData.shouldPollSearchQuote(lastSearchSym) && !_refreshInFlight){
       silentRefreshTicker(lastSearchSym);
     }
   },1000);

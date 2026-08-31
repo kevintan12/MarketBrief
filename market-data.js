@@ -239,6 +239,14 @@
     };
   }
 
+  function shouldPollSearchQuote(symbolOrMarket,now){
+    var state=getSessionState(symbolOrMarket,now);
+    if(state.quoteExpectedToMove)return true;
+    if((state.market!=='SG'&&state.market!=='HK')||!state.tradingDay||state.session!=='closed')return false;
+    var minutesAfterClose=minutesFromTime(state.exchangeTime)-minutesFromTime(markets[state.market].close);
+    return minutesAfterClose>=0&&minutesAfterClose<30;
+  }
+
   function getCalendarStatus(marketOrSymbol,now){
     var normalized=String(marketOrSymbol||'').toUpperCase();
     var market=markets[normalized]?normalized:getMarketCodeForSymbol(normalized);
@@ -444,6 +452,7 @@
     markets:markets,
     getMarketCodeForSymbol:getMarketCodeForSymbol,
     getSessionState:getSessionState,
+    shouldPollSearchQuote:shouldPollSearchQuote,
     getCalendarStatus:getCalendarStatus,
     normalizeQuote:normalizeQuote
   };
