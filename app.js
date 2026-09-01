@@ -513,38 +513,11 @@ function startAutoRefresh(){
   },1000);
   updateLiveIndicator();
 }
-// ── Closing date ──────────────────────────────────────────────────────────────
-function getClosingDate(mkt){
-  var tzMap={US:'America/New_York',SG:'Asia/Singapore',HK:'Asia/Hong_Kong'};
-  var closeH={US:16,SG:17,HK:16}; // hour in market local time after which session is done
-  var openH={US:9,SG:9,HK:9};
-  var tz=tzMap[mkt]||'Asia/Singapore';
-  var now=new Date();
-  // Get current market-local time components
-  var mktStr=now.toLocaleString('en-US',{timeZone:tz,hour:'numeric',minute:'numeric',hour12:false,year:'numeric',month:'numeric',day:'numeric',weekday:'long'});
-  var mktNow=new Date(now.toLocaleString('en-US',{timeZone:tz}));
-  var mktH=parseInt(now.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}));
-  var mktDay=mktNow.getDay(); // 0=Sun,6=Sat
-  var isWeekend=mktDay===0||mktDay===6;
-  var sessionClosed=mktH>=closeH[mkt];
-  // If today is a weekday and market has closed → today is the last session
-  // If today is a weekday and market hasn't closed yet → last session = previous trading day
-  // If weekend → last session = Friday
-  var d=new Date(mktNow);
-  if(!isWeekend&&sessionClosed){
-    // today's session is complete — use today
-  } else {
-    // step back until we hit a weekday with a closed session
-    d.setDate(d.getDate()-1);
-    while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()-1);
-  }
-  return d.toLocaleDateString('en-SG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-}
-
 // ── AI Summary ────────────────────────────────────────────────────────────────
 async function loadSummary(){
   console.log('MB: loadSummary started');
   setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>');
+  var summaryNow=new Date();
   var mktsToShow=curFilter==='all'?['US','SG','HK']:[curFilter];
   var styleInstr={
     detailed:'For each market section write 3-4 sentences. If the market is LIVE (session in progress), analyse what is happening RIGHT NOW in the current session — intraday moves, what is driving price action today, and what to watch for the rest of the session. If the market is closed, analyse the completed session. Cover: (1) what moved and by how much, (2) specific triggers or catalysts (macro data, Fed comments, earnings, geopolitical events, sector rotation), (3) notable individual movers, (4) near-term outlook. Be analytical, not just descriptive.',
@@ -554,7 +527,13 @@ async function loadSummary(){
   var sections=[];
   var sectionLabels={US:'🇺🇸 US Markets',SG:'🇸🇬 Singapore Markets',HK:'🇭🇰 Hong Kong Markets'};
   var prompt='You are a financial analyst writing for a Singapore-based investor. The price and change data below is live-fetched from Yahoo Finance — treat it as accurate and current. Do NOT question the data or claim you lack real-time access. Search the web for today\'s market news and catalysts, then write your analysis directly. Be direct, use plain English and real numbers, explain the why behind every move.\n\n';
-  var liveMarkets=isAnyMarketOpen();
+  var marketStates={},liveMarkets={any:false};
+  mktsToShow.forEach(function(mkt){
+    var state=MarketBrief.marketData.getSessionState(mkt,summaryNow);
+    marketStates[mkt]=state;
+    liveMarkets[mkt]=state.regularOpen;
+    if(state.regularOpen)liveMarkets.any=true;
+  });
   // Prepend live-search instruction if any watched market is open
   if(liveMarkets.any){
     var liveNames=[];
@@ -593,10 +572,16 @@ async function loadSummary(){
   mktsToShow.forEach(function(mkt){
     var d=mktData.filter(function(x){return x.mkt===mkt;});
     if(!d.length)return;
-    var isLive=liveMarkets[mkt]||false;
-    var now=new Date();
-    var sgTime=now.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
-    var dateStr=isLive?'LIVE as of '+sgTime+' SGT':getClosingDate(mkt);
+    var state=marketStates[mkt];
+    var isLive=state.regularOpen;
+    var sgTime=summaryNow.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
+    var dateStr;
+    if(isLive){
+      dateStr='LIVE as of '+sgTime+' SGT';
+    } else {
+      var completedDate=MarketBrief.marketData.getLatestCompletedRegularSessionDate(mkt,summaryNow);
+      dateStr=new Intl.DateTimeFormat('en-SG',{timeZone:'UTC',weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(new Date(completedDate+'T00:00:00Z'));
+    }
     var sessionCtx=isLive?'(session in progress — intraday data)':'(last close)';
     prompt+=sectionLabels[mkt]+' data '+sessionCtx+' '+dateStr+':\n'
       +d.map(function(x){return x.name+': '+fmt(x.price)+' '+fmtP(x.pct);}).join('\n')+'\n\n';
