@@ -329,12 +329,20 @@ function getAllTickers(){
   ['US','SG','HK'].forEach(function(m){all=all.concat(S.customTickers[m]||[]);});
   return all;
 }
+var _quoteFetches={};
 async function fetchQuote(sym){
   if(!S.proxyUrl)throw new Error('no_proxy');
-  var r=await fetch(S.proxyUrl+'/api/quote?symbol='+encodeURIComponent(sym));
-  if(!r.ok)throw new Error('HTTP '+r.status);
-  var d=await r.json(); if(d.error)throw new Error(d.error);
-  return d;
+  var key=String(sym).toUpperCase();
+  if(_quoteFetches[key])return _quoteFetches[key];
+  var request=(async function(){
+    var r=await fetch(S.proxyUrl+'/api/quote?symbol='+encodeURIComponent(sym));
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var d=await r.json(); if(d.error)throw new Error(d.error);
+    return d;
+  })();
+  _quoteFetches[key]=request;
+  try{return await request;}
+  finally{if(_quoteFetches[key]===request)delete _quoteFetches[key];}
 }
 async function loadDash(){
   setGridHTML('<div class="msg">Loading… <span class="spin"></span></div>');
@@ -427,7 +435,6 @@ async function silentRefreshDash(){
     }
   });
   if(updated)renderIndices();
-  if(lastSearchSym&&MarketBrief.marketData.shouldPollSearchQuote(lastSearchSym))silentRefreshTicker(lastSearchSym);
   updateLiveIndicator();
 }
 
@@ -474,7 +481,14 @@ function updateLiveIndicator(){
   });
 }
 
-var _refreshTick=0, _refreshInFlight=false;
+function getSearchPollingCadence(sym,now){
+  if(!sym)return 0;
+  var state=MarketBrief.marketData.getSessionState(sym,now);
+  if(state.quoteExpectedToMove)return 2;
+  return MarketBrief.marketData.shouldPollSearchQuote(sym,now)?5:0;
+}
+
+var _refreshTick=0, _refreshInFlight=false, _searchRefreshInFlight=false;
 function startAutoRefresh(){
   if(autoRefreshTimer)clearInterval(autoRefreshTimer);
   _refreshTick=0;
@@ -482,14 +496,16 @@ function startAutoRefresh(){
     _refreshTick++;
     updateLiveIndicator();
     refreshSearchSessionPresentation(lastSearchSym);
-    // Throttle actual fetches: every 5 ticks (5s) when quotes may move, avoid concurrent fetches
-    if(_refreshTick%5===0 && !_refreshInFlight && getDashboardPollingMarkets().any){
+    // Refresh active Dashboard markets every 2 seconds, avoiding concurrent batches
+    if(_refreshTick%2===0 && !_refreshInFlight && getDashboardPollingMarkets().any){
       _refreshInFlight=true;
       silentRefreshDash().finally(function(){_refreshInFlight=false;});
     }
-    // Ticker refresh every 5s too
-    if(_refreshTick%5===0 && lastSearchSym && MarketBrief.marketData.shouldPollSearchQuote(lastSearchSym) && !_refreshInFlight){
-      silentRefreshTicker(lastSearchSym);
+    // Active Search quotes refresh every 2s; SG/HK post-close grace remains every 5s
+    var searchCadence=getSearchPollingCadence(lastSearchSym);
+    if(searchCadence&&_refreshTick%searchCadence===0&&!_searchRefreshInFlight){
+      _searchRefreshInFlight=true;
+      silentRefreshTicker(lastSearchSym).finally(function(){_searchRefreshInFlight=false;});
     }
   },1000);
   updateLiveIndicator();
