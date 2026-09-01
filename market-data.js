@@ -239,6 +239,36 @@
     };
   }
 
+  function shiftExchangeDate(exchangeDate,days){
+    var match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(exchangeDate);
+    if(!match)throw new Error('Invalid exchange date');
+    var year=parseInt(match[1]),month=parseInt(match[2]),day=parseInt(match[3]);
+    var instant=new Date(Date.UTC(year,month-1,day));
+    if(instant.getUTCFullYear()!==year||instant.getUTCMonth()!==month-1||instant.getUTCDate()!==day)throw new Error('Invalid exchange date');
+    instant.setUTCDate(instant.getUTCDate()+days);
+    return instant.getUTCFullYear()+'-'+String(instant.getUTCMonth()+1).padStart(2,'0')+'-'+String(instant.getUTCDate()).padStart(2,'0');
+  }
+
+  function isTradingDate(market,exchangeDate){
+    var weekday=new Date(exchangeDate+'T00:00:00Z').getUTCDay();
+    if(weekday===0||weekday===6)return false;
+    return !getCalendarDateState(market,exchangeDate).holiday;
+  }
+
+  function getPreviousTradingDate(marketOrSymbol,exchangeDate){
+    var normalized=String(marketOrSymbol||'').toUpperCase();
+    var market=markets[normalized]?normalized:getMarketCodeForSymbol(normalized);
+    var candidate=shiftExchangeDate(exchangeDate,-1);
+    while(!isTradingDate(market,candidate))candidate=shiftExchangeDate(candidate,-1);
+    return candidate;
+  }
+
+  function getLatestCompletedRegularSessionDate(marketOrSymbol,now){
+    var state=getSessionState(marketOrSymbol,now);
+    if(state.tradingDay&&minutesFromTime(state.exchangeTime)>=minutesFromTime(markets[state.market].close))return state.exchangeDate;
+    return getPreviousTradingDate(state.market,state.exchangeDate);
+  }
+
   function shouldPollSearchQuote(symbolOrMarket,now){
     var state=getSessionState(symbolOrMarket,now);
     if(state.quoteExpectedToMove)return true;
@@ -452,6 +482,8 @@
     markets:markets,
     getMarketCodeForSymbol:getMarketCodeForSymbol,
     getSessionState:getSessionState,
+    getPreviousTradingDate:getPreviousTradingDate,
+    getLatestCompletedRegularSessionDate:getLatestCompletedRegularSessionDate,
     shouldPollSearchQuote:shouldPollSearchQuote,
     getCalendarStatus:getCalendarStatus,
     normalizeQuote:normalizeQuote
