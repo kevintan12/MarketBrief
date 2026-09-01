@@ -458,15 +458,18 @@ async function silentRefreshTicker(sym){
 }
 
 function updateLiveIndicator(){
-  var s=isAnyMarketOpen();
-  // Build label based on current filter
-  var open=[];
+  var labels={preMarket:'Pre-Market',regular:'Trading',postMarket:'After-Hours',regularMorning:'Trading',lunchBreak:'Lunch Break',regularAfternoon:'Trading'};
+  var active=[];
   var mkts = curFilter==='all' ? ['US','SG','HK'] : [curFilter];
-  mkts.forEach(function(m){ if(s[m]) open.push({US:'🇺🇸',SG:'🇸🇬',HK:'🇭🇰'}[m]); });
-  var label=open.length ? open.join(' ')+' LIVE' : null;
+  mkts.forEach(function(m){
+    var state=MarketBrief.marketData.getSessionState(m);
+    if(labels[state.session])active.push({label:{US:'🇺🇸',SG:'🇸🇬',HK:'🇭🇰'}[m]+' '+labels[state.session],moving:state.quoteExpectedToMove});
+  });
+  var label=active.length ? active.map(function(x){return x.label;}).join(' · ') : null;
+  var moving=active.some(function(x){return x.moving;});
   ['liveIndM','liveIndD'].forEach(function(id){
     var el=document.getElementById(id); if(!el)return;
-    if(label){el.innerHTML='<span class="dot"></span>'+label;el.style.color='var(--grn)';}
+    if(label){el.innerHTML=(moving?'<span class="dot"></span>':'')+label;el.style.color=moving?'var(--grn)':'var(--mut)';}
     else{el.innerHTML='Market Closed';el.style.color='var(--mut)';}
   });
 }

@@ -8,9 +8,9 @@ function getSearchSessionPresentation(sym){
     regularMorning:'Trading',
     lunchBreak:'Lunch Break',
     regularAfternoon:'Trading',
-    closed:'Closed'
+    closed:'Market Closed'
   };
-  return {state:state,label:labels[state.session]||'Closed',active:state.quoteExpectedToMove};
+  return {state:state,label:labels[state.session]||'Market Closed',active:state.quoteExpectedToMove};
 }
 
 function refreshSearchSessionPresentation(sym){
