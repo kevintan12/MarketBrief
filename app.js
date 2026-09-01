@@ -407,18 +407,20 @@ function getOpenLabel(){
   return open.length?open.join(' ')+' LIVE':null;
 }
 
-function getDashboardPollingMarkets(now){
+function getDashboardPollingMarkets(now,tick){
   var polling={any:false};
   ['US','SG','HK'].forEach(function(mkt){
-    polling[mkt]=MarketBrief.marketData.getSessionState(mkt,now).quoteExpectedToMove;
+    var state=MarketBrief.marketData.getSessionState(mkt,now);
+    var cadence=state.quoteExpectedToMove?2:(MarketBrief.marketData.shouldPollSearchQuote(mkt,now)?5:0);
+    polling[mkt]=!!cadence&&(tick===undefined||tick%cadence===0);
     if(polling[mkt])polling.any=true;
   });
   return polling;
 }
 
-async function silentRefreshDash(){
+async function silentRefreshDash(pollingMarkets){
   if(!S.proxyUrl||!mktData.length)return;
-  var s=getDashboardPollingMarkets();
+  var s=pollingMarkets||getDashboardPollingMarkets();
   if(!s.any)return; // markets all closed — no fetching
   // Only fetch tickers whose market/session expects quote movement
   var tickers=getAllTickers().filter(function(t){return s[t.mkt];});
@@ -496,10 +498,11 @@ function startAutoRefresh(){
     _refreshTick++;
     updateLiveIndicator();
     refreshSearchSessionPresentation(lastSearchSym);
-    // Refresh active Dashboard markets every 2 seconds, avoiding concurrent batches
-    if(_refreshTick%2===0 && !_refreshInFlight && getDashboardPollingMarkets().any){
+    // Refresh active Dashboard markets every 2s; SG/HK post-close grace every 5s
+    var dashboardPolling=getDashboardPollingMarkets(undefined,_refreshTick);
+    if(!_refreshInFlight && dashboardPolling.any){
       _refreshInFlight=true;
-      silentRefreshDash().finally(function(){_refreshInFlight=false;});
+      silentRefreshDash(dashboardPolling).finally(function(){_refreshInFlight=false;});
     }
     // Active Search quotes refresh every 2s; SG/HK post-close grace remains every 5s
     var searchCadence=getSearchPollingCadence(lastSearchSym);
