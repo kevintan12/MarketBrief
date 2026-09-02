@@ -22,6 +22,10 @@ const manualRefreshSource = sourceBetween(
   'async function loadDash',
   'function setSumHTML'
 );
+const refreshLifecycleSource = sourceBetween(
+  'var DASHBOARD_REFRESH_BATCH_TIMEOUT_MS',
+  '// ── AI Summary'
+);
 
 function deferred() {
   let resolve;
@@ -43,6 +47,8 @@ function createHarness({ tickers, requests }) {
     Promise,
     setTimeout,
     clearTimeout,
+    setInterval,
+    clearInterval,
     S: { proxyUrl: 'https://example.test' },
     mktData: tickers.map(ticker => ({ sym: ticker.sym, mkt: ticker.mkt, price: 1, chg: 1, pct: 1 })),
     getAllTickers: () => tickers,
@@ -57,6 +63,9 @@ function createHarness({ tickers, requests }) {
     calls,
     renderIndices() { calls.render++; },
     updateLiveIndicator() {},
+    refreshSearchSessionPresentation() {},
+    getSearchPollingCadence() { return 0; },
+    silentRefreshTicker() { return Promise.resolve(); },
     setGridHTML() {},
     setAIBtnVisible() {},
     startAutoRefresh() {}
@@ -64,6 +73,8 @@ function createHarness({ tickers, requests }) {
   vm.createContext(context);
   vm.runInContext(automaticRefreshSource, context);
   vm.runInContext(manualRefreshSource, context);
+  vm.runInContext(refreshLifecycleSource, context);
+  context.startAutoRefresh = function() {};
   return context;
 }
 
@@ -138,6 +149,87 @@ test('one rejected ticker does not prevent another successful quote being applie
   assert.deepEqual(
     { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
     { price: 42, chg: -2, pct: -4.55 }
+  );
+});
+
+test('permanently pending batch releases refresh gate after timeout and permits a later batch', async () => {
+  const never = new Promise(() => {});
+  const context = createHarness({ tickers: [], requests: {} });
+  let batchCalls = 0;
+  context.DASHBOARD_REFRESH_BATCH_TIMEOUT_MS = 20;
+  context.silentRefreshDash = () => {
+    batchCalls++;
+    return never;
+  };
+
+  context.runDashboardRefreshBatch({ any: true, SG: true });
+  assert.equal(context._refreshInFlight, true);
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(context._refreshInFlight, false);
+
+  context.runDashboardRefreshBatch({ any: true, SG: true });
+  assert.equal(batchCalls, 2);
+  assert.equal(context._refreshInFlight, true);
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(context._refreshInFlight, false);
+});
+
+test('successful quote applied before timeout remains applied after gate release', async () => {
+  const sti = deferred();
+  const pending = deferred();
+  const context = createHarness({
+    tickers: [{ sym: '^STI', mkt: 'SG' }, { sym: 'SLOW', mkt: 'SG' }],
+    requests: { '^STI': sti.promise, SLOW: pending.promise }
+  });
+  context.DASHBOARD_REFRESH_BATCH_TIMEOUT_MS = 20;
+
+  context.runDashboardRefreshBatch({ any: true, SG: true });
+  sti.resolve({ canonical: canonical(5744.11, 33.74, 0.591) });
+  await waitForRender();
+  assert.equal(context.mktData[0].price, 5744.11);
+
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(context._refreshInFlight, false);
+  assert.deepEqual(
+    { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
+    { price: 5744.11, chg: 33.74, pct: 0.591 }
+  );
+
+  pending.resolve({ canonical: canonical(10, 1, 11.11) });
+});
+
+test('normally settled batch releases refresh gate before timeout', async () => {
+  const context = createHarness({
+    tickers: [{ sym: '^STI', mkt: 'SG' }],
+    requests: { '^STI': Promise.resolve({ canonical: canonical(5744.11, 33.74, 0.591) }) }
+  });
+  context.DASHBOARD_REFRESH_BATCH_TIMEOUT_MS = 1000;
+
+  context.runDashboardRefreshBatch({ any: true, SG: true });
+  assert.equal(context._refreshInFlight, true);
+  await waitForRender();
+  assert.equal(context._refreshInFlight, false);
+  assert.equal(context.mktData[0].price, 5744.11);
+});
+
+test('request resolving after timeout still applies its successful quote', async () => {
+  const late = deferred();
+  const context = createHarness({
+    tickers: [{ sym: '^STI', mkt: 'SG' }],
+    requests: { '^STI': late.promise }
+  });
+  context.DASHBOARD_REFRESH_BATCH_TIMEOUT_MS = 20;
+
+  context.runDashboardRefreshBatch({ any: true, SG: true });
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(context._refreshInFlight, false);
+  assert.equal(context.mktData[0].price, 1);
+
+  late.resolve({ canonical: canonical(5744.11, 33.74, 0.591) });
+  await waitForRender();
+  assert.deepEqual(
+    { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
+    { price: 5744.11, chg: 33.74, pct: 0.591 }
   );
 });
 

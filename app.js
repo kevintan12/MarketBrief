@@ -491,7 +491,19 @@ function getSearchPollingCadence(sym,now){
   return MarketBrief.marketData.shouldPollSearchQuote(sym,now)?5:0;
 }
 
+var DASHBOARD_REFRESH_BATCH_TIMEOUT_MS=4000;
 var _refreshTick=0, _refreshInFlight=false, _searchRefreshInFlight=false;
+function runDashboardRefreshBatch(pollingMarkets){
+  _refreshInFlight=true;
+  var timeoutId=null;
+  var timeout=new Promise(function(resolve){
+    timeoutId=setTimeout(resolve,DASHBOARD_REFRESH_BATCH_TIMEOUT_MS);
+  });
+  Promise.race([silentRefreshDash(pollingMarkets),timeout]).finally(function(){
+    if(timeoutId!==null)clearTimeout(timeoutId);
+    _refreshInFlight=false;
+  });
+}
 function startAutoRefresh(){
   if(autoRefreshTimer)clearInterval(autoRefreshTimer);
   _refreshTick=0;
@@ -502,8 +514,7 @@ function startAutoRefresh(){
     // Refresh active Dashboard markets every 2s; SG/HK post-close grace every 5s
     var dashboardPolling=getDashboardPollingMarkets(undefined,_refreshTick);
     if(!_refreshInFlight && dashboardPolling.any){
-      _refreshInFlight=true;
-      silentRefreshDash(dashboardPolling).finally(function(){_refreshInFlight=false;});
+      runDashboardRefreshBatch(dashboardPolling);
     }
     // Active Search quotes refresh every 2s; SG/HK post-close grace remains every 5s
     var searchCadence=getSearchPollingCadence(lastSearchSym);
