@@ -425,18 +425,19 @@ async function silentRefreshDash(pollingMarkets){
   // Only fetch tickers whose market/session expects quote movement
   var tickers=getAllTickers().filter(function(t){return s[t.mkt];});
   if(!tickers.length)return;
-  var results=await Promise.allSettled(tickers.map(function(t){return fetchQuote(t.sym);}));
-  var updated=false;
-  tickers.forEach(function(t,i){
-    var r=results[i];
-    if(r.status==='fulfilled'){
-      var quote=MarketBrief.marketData.normalizeQuote(r.value,t.sym);
+  var renderTimer=null;
+  function scheduleRender(){
+    if(renderTimer!==null)return;
+    renderTimer=setTimeout(function(){renderTimer=null;renderIndices();},0);
+  }
+  await Promise.allSettled(tickers.map(function(t){
+    return fetchQuote(t.sym).then(function(rawQuote){
+      var quote=MarketBrief.marketData.normalizeQuote(rawQuote,t.sym);
       if(quote.status==='invalid')return;
       var ex=mktData.find(function(x){return x.sym===t.sym;});
-      if(ex){ex.price=quote.displayPrice;ex.chg=quote.change;ex.pct=quote.percentChange;updated=true;}
-    }
-  });
-  if(updated)renderIndices();
+      if(ex){ex.price=quote.displayPrice;ex.chg=quote.change;ex.pct=quote.percentChange;scheduleRender();}
+    });
+  }));
   updateLiveIndicator();
 }
 
