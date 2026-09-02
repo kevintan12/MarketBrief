@@ -19,7 +19,7 @@ const automaticRefreshSource = sourceBetween(
   'async function silentRefreshTicker'
 );
 const manualRefreshSource = sourceBetween(
-  'async function loadDash',
+  'var _dashboardQuoteGeneration',
   'function setSumHTML'
 );
 const refreshLifecycleSource = sourceBetween(
@@ -37,8 +37,13 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function canonical(price, change, percentChange) {
-  return { status: 'ok', displayPrice: price, change, percentChange, name: 'Canonical' };
+function requestSequence(...promises) {
+  let index = 0;
+  return () => promises[index++];
+}
+
+function canonical(price, change, percentChange, providerTimestamp = null, providerTimestampSource = null) {
+  return { status: 'ok', displayPrice: price, change, percentChange, providerTimestamp, providerTimestampSource, name: 'Canonical' };
 }
 
 function createHarness({ tickers, requests }) {
@@ -52,7 +57,7 @@ function createHarness({ tickers, requests }) {
     S: { proxyUrl: 'https://example.test' },
     mktData: tickers.map(ticker => ({ sym: ticker.sym, mkt: ticker.mkt, price: 1, chg: 1, pct: 1 })),
     getAllTickers: () => tickers,
-    fetchQuote: symbol => requests[symbol],
+    fetchQuote: symbol => typeof requests[symbol] === 'function' ? requests[symbol]() : requests[symbol],
     MarketBrief: {
       marketData: {
         normalizeQuote: raw => raw.canonical,
@@ -230,6 +235,141 @@ test('request resolving after timeout still applies its successful quote', async
   assert.deepEqual(
     { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
     { price: 5744.11, chg: 33.74, pct: 0.591 }
+  );
+});
+
+test('older automatic response cannot overwrite a newer automatic response', async () => {
+  const older = deferred();
+  const newer = deferred();
+  const context = createHarness({
+    tickers: [{ sym: '^STI', mkt: 'SG' }],
+    requests: { '^STI': requestSequence(older.promise, newer.promise) }
+  });
+
+  const first = context.silentRefreshDash({ any: true, SG: true });
+  const second = context.silentRefreshDash({ any: true, SG: true });
+  newer.resolve({ canonical: canonical(200, 20, 11.11, 2000, 'regularMarketTime') });
+  await waitForRender();
+  older.resolve({ canonical: canonical(100, 10, 11.11, 1000, 'regularMarketTime') });
+  await Promise.all([first, second]);
+  await waitForRender();
+
+  assert.deepEqual(
+    { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
+    { price: 200, chg: 20, pct: 11.11 }
+  );
+});
+
+test('older automatic response cannot overwrite a newer manual Refresh result', async () => {
+  const automatic = deferred();
+  const manual = deferred();
+  const context = createHarness({
+    tickers: [{ sym: '^STI', name: 'STI', sub: 'SG', flag: 'SG', mkt: 'SG' }],
+    requests: { '^STI': requestSequence(automatic.promise, manual.promise) }
+  });
+
+  const automaticRefresh = context.silentRefreshDash({ any: true, SG: true });
+  const manualRefresh = context.loadDash();
+  manual.resolve({ canonical: canonical(200, 20, 11.11, 2000, 'regularMarketTime') });
+  await manualRefresh;
+  automatic.resolve({ canonical: canonical(100, 10, 11.11, 1000, 'regularMarketTime') });
+  await automaticRefresh;
+  await waitForRender();
+
+  assert.deepEqual(
+    { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
+    { price: 200, chg: 20, pct: 11.11 }
+  );
+});
+
+test('newer automatic response applies after an older manual Refresh result', async () => {
+  const manual = deferred();
+  const automatic = deferred();
+  const context = createHarness({
+    tickers: [{ sym: '^STI', name: 'STI', sub: 'SG', flag: 'SG', mkt: 'SG' }],
+    requests: { '^STI': requestSequence(manual.promise, automatic.promise) }
+  });
+
+  const manualRefresh = context.loadDash();
+  manual.resolve({ canonical: canonical(100, 10, 11.11, 1000, 'regularMarketTime') });
+  await manualRefresh;
+  const automaticRefresh = context.silentRefreshDash({ any: true, SG: true });
+  automatic.resolve({ canonical: canonical(200, 20, 11.11, 2000, 'regularMarketTime') });
+  await automaticRefresh;
+  await waitForRender();
+
+  assert.deepEqual(
+    { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
+    { price: 200, chg: 20, pct: 11.11 }
+  );
+});
+
+test('equal provider timestamps deterministically preserve the newer request', async () => {
+  const older = deferred();
+  const newer = deferred();
+  const context = createHarness({
+    tickers: [{ sym: '^STI', mkt: 'SG' }],
+    requests: { '^STI': requestSequence(older.promise, newer.promise) }
+  });
+
+  const first = context.silentRefreshDash({ any: true, SG: true });
+  const second = context.silentRefreshDash({ any: true, SG: true });
+  newer.resolve({ canonical: canonical(200, 20, 11.11, 2000, 'regularMarketTime') });
+  await waitForRender();
+  older.resolve({ canonical: canonical(100, 10, 11.11, 2000, 'regularMarketTime') });
+  await Promise.all([first, second]);
+  await waitForRender();
+
+  assert.equal(context.mktData[0].price, 200);
+});
+
+test('freshness ordering is independent per symbol', async () => {
+  const olderA = deferred();
+  const newerA = deferred();
+  const validB = deferred();
+  const laterB = deferred();
+  const context = createHarness({
+    tickers: [{ sym: 'A', mkt: 'SG' }, { sym: 'B', mkt: 'SG' }],
+    requests: {
+      A: requestSequence(olderA.promise, newerA.promise),
+      B: requestSequence(validB.promise, laterB.promise)
+    }
+  });
+
+  const first = context.silentRefreshDash({ any: true, SG: true });
+  const second = context.silentRefreshDash({ any: true, SG: true });
+  newerA.resolve({ canonical: canonical(200, 20, 11.11, 2000, 'regularMarketTime') });
+  validB.resolve({ canonical: canonical(300, 30, 11.11, 3000, 'regularMarketTime') });
+  laterB.resolve({ canonical: canonical(400, 40, 11.11, 4000, 'regularMarketTime') });
+  await waitForRender();
+  olderA.resolve({ canonical: canonical(100, 10, 11.11, 1000, 'regularMarketTime') });
+  await Promise.all([first, second]);
+  await waitForRender();
+
+  assert.equal(context.mktData.find(item => item.sym === 'A').price, 200);
+  assert.equal(context.mktData.find(item => item.sym === 'B').price, 400);
+});
+
+test('late response after batch timeout cannot regress a newer result', async () => {
+  const older = deferred();
+  const newer = deferred();
+  const context = createHarness({
+    tickers: [{ sym: '^STI', mkt: 'SG' }],
+    requests: { '^STI': requestSequence(older.promise, newer.promise) }
+  });
+  context.DASHBOARD_REFRESH_BATCH_TIMEOUT_MS = 20;
+
+  context.runDashboardRefreshBatch({ any: true, SG: true });
+  await new Promise(resolve => setTimeout(resolve, 30));
+  context.runDashboardRefreshBatch({ any: true, SG: true });
+  newer.resolve({ canonical: canonical(200, 20, 11.11, 2000, 'regularMarketTime') });
+  await waitForRender();
+  older.resolve({ canonical: canonical(100, 10, 11.11, 1000, 'regularMarketTime') });
+  await waitForRender();
+
+  assert.deepEqual(
+    { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
+    { price: 200, chg: 20, pct: 11.11 }
   );
 });
 

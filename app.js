@@ -344,6 +344,24 @@ async function fetchQuote(sym){
   try{return await request;}
   finally{if(_quoteFetches[key]===request)delete _quoteFetches[key];}
 }
+var _dashboardQuoteGeneration=0, _dashboardQuoteFreshness={};
+function beginDashboardQuoteRequest(sym){
+  return {sym:String(sym).toUpperCase(),generation:++_dashboardQuoteGeneration};
+}
+function shouldApplyDashboardQuote(request,quote){
+  var timestamp=Number.isFinite(quote.providerTimestamp)&&quote.providerTimestamp>0?quote.providerTimestamp:null;
+  var source=typeof quote.providerTimestampSource==='string'&&quote.providerTimestampSource?quote.providerTimestampSource:null;
+  var current=_dashboardQuoteFreshness[request.sym];
+  if(current){
+    var comparable=timestamp!==null&&current.timestamp!==null&&source!==null&&source===current.source;
+    if(comparable){
+      if(timestamp<current.timestamp)return false;
+      if(timestamp===current.timestamp&&request.generation<=current.generation)return false;
+    } else if(request.generation<=current.generation)return false;
+  }
+  _dashboardQuoteFreshness[request.sym]={timestamp:timestamp,source:source,generation:request.generation};
+  return true;
+}
 async function loadDash(){
   setGridHTML('<div class="msg">Loading… <span class="spin"></span></div>');
   setAIBtnVisible(true);
@@ -352,16 +370,24 @@ async function loadDash(){
     return;
   }
   var tickers=getAllTickers();
+  var requests=tickers.map(function(t){return beginDashboardQuoteRequest(t.sym);});
   var results=await Promise.allSettled(tickers.map(function(t){return fetchQuote(t.sym);}));
-  mktData=[];
+  var nextData=[];
   tickers.forEach(function(t,i){
     var r=results[i];
     if(r.status==='fulfilled'){
       var quote=MarketBrief.marketData.normalizeQuote(r.value,t.sym);
-      if(quote.status!=='invalid')
-        mktData.push({sym:t.sym,name:quote.name||t.name,sub:t.sub,flag:t.flag,mkt:t.mkt,price:quote.displayPrice,chg:quote.change,pct:quote.percentChange});
+      if(quote.status!=='invalid'){
+        if(shouldApplyDashboardQuote(requests[i],quote))
+          nextData.push({sym:t.sym,name:quote.name||t.name,sub:t.sub,flag:t.flag,mkt:t.mkt,price:quote.displayPrice,chg:quote.change,pct:quote.percentChange});
+        else {
+          var existing=mktData.find(function(x){return x.sym===t.sym;});
+          if(existing)nextData.push(existing);
+        }
+      }
     }
   });
+  mktData=nextData;
   renderIndices();
   if(!mktData.length) setGridHTML('<div class="msg err">Could not load data. Check Proxy URL.</div>');
   startAutoRefresh();
@@ -431,11 +457,12 @@ async function silentRefreshDash(pollingMarkets){
     renderTimer=setTimeout(function(){renderTimer=null;renderIndices();},0);
   }
   await Promise.allSettled(tickers.map(function(t){
+    var request=beginDashboardQuoteRequest(t.sym);
     return fetchQuote(t.sym).then(function(rawQuote){
       var quote=MarketBrief.marketData.normalizeQuote(rawQuote,t.sym);
       if(quote.status==='invalid')return;
       var ex=mktData.find(function(x){return x.sym===t.sym;});
-      if(ex){ex.price=quote.displayPrice;ex.chg=quote.change;ex.pct=quote.percentChange;scheduleRender();}
+      if(ex&&shouldApplyDashboardQuote(request,quote)){ex.price=quote.displayPrice;ex.chg=quote.change;ex.pct=quote.percentChange;scheduleRender();}
     });
   }));
   updateLiveIndicator();
