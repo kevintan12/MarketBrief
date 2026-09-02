@@ -349,7 +349,7 @@
     var latestDailyClose=finiteNumber(provider.latestDailyClose);
     var previousDailyClose=finiteNumber(provider.previousDailyClose);
     var immediatePreviousClose=finiteNumber(provider.immediatePreviousClose);
-    var hasVerifiedImmediatePreviousClose=provider.dailyClosePairHasGap===true&&provider.immediatePreviousCloseSource==='yahooChart1d'&&immediatePreviousClose!==null&&immediatePreviousClose>0;
+    var hasVerifiedImmediatePreviousClose=provider.immediatePreviousCloseSource==='yahooChart1d'&&immediatePreviousClose!==null&&immediatePreviousClose>0;
     var regularReferenceClose=previousClose!==null?previousClose:(hasVerifiedImmediatePreviousClose?immediatePreviousClose:null);
     var regularMarketTime=finiteNumber(provider.regularMarketTime);
     var latestDailyCloseTime=finiteNumber(provider.latestDailyCloseTime);
@@ -419,7 +419,7 @@
       if(useDailyClosePair){
         displayPrice=useNewerRegularClose?regularMarketPrice:latestDailyClose;
         displayPriceSession='regularClose';
-        referencePrice=useNewerRegularClose?latestDailyClose:(provider.dailyClosePairHasGap===true?(hasVerifiedImmediatePreviousClose?immediatePreviousClose:null):previousDailyClose);
+        referencePrice=useNewerRegularClose?latestDailyClose:(hasVerifiedImmediatePreviousClose?immediatePreviousClose:(provider.dailyClosePairHasGap===true?null:previousDailyClose));
         previousClose=referencePrice;
         providerTimestamp=useNewerRegularClose?regularMarketTime:latestDailyCloseTime;
         providerTimestampSource=providerTimestamp===null?null:(useNewerRegularClose?'regularMarketTime':'latestDailyCloseTime');

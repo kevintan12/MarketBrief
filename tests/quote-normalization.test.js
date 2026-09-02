@@ -48,17 +48,33 @@ test('equal completed closes produce zero change', () => {
   assert.equal(quote.percentChange, 0);
 });
 
-test('gapped completed pair uses verified immediate previous close', () => {
+test('verified immediate previous close overrides an older normal daily reference', () => {
   const quote = normalizeQuote(rawQuote('^HSI', 'CLOSED', {
-    latestDailyClose: 25329.73,
-    previousDailyClose: 25566.99,
-    dailyClosePairHasGap: true,
+    latestDailyClose: 25329.73046875,
+    previousDailyClose: 25566.990234375,
+    dailyClosePairHasGap: false,
     immediatePreviousClose: 25584.80,
     immediatePreviousCloseSource: 'yahooChart1d'
   }), '^HSI');
-  assert.equal(quote.displayPrice, 25329.73);
+  assert.equal(quote.displayPrice, 25329.73046875);
   assert.equal(quote.referencePrice, 25584.80);
-  assert.ok(Math.abs(quote.change - (-255.07)) < 1e-9);
+  assert.ok(Math.abs(quote.change - (-255.06953125)) < 1e-9);
+});
+
+test('gap-free completed pair without verified immediate close remains unchanged', () => {
+  [
+    { immediatePreviousClose: 95, immediatePreviousCloseSource: null },
+    { immediatePreviousClose: 95, immediatePreviousCloseSource: 'unverified' }
+  ].forEach(fallback => {
+    const quote = normalizeQuote(rawQuote('0700.HK', 'CLOSED', {
+      latestDailyClose: 110,
+      previousDailyClose: 100,
+      dailyClosePairHasGap: false,
+      ...fallback
+    }), '0700.HK');
+    assert.equal(quote.referencePrice, 100);
+    assert.equal(quote.change, 10);
+  });
 });
 
 test('gapped completed pair without verified fallback remains conservative', () => {
@@ -84,7 +100,7 @@ test('regularMarketPreviousClose overrides verified fallback', () => {
     regularMarketPreviousClose: 100,
     immediatePreviousClose: 95,
     immediatePreviousCloseSource: 'yahooChart1d',
-    dailyClosePairHasGap: true
+    dailyClosePairHasGap: false
   }), 'VEEV');
   assert.equal(quote.referencePrice, 100);
   assert.equal(quote.change, 10);
@@ -97,13 +113,24 @@ test('US pre-market uses verified fallback when regular previous close is unavai
     preMarketTime: 1767790800,
     immediatePreviousClose: 100,
     immediatePreviousCloseSource: 'yahooChart1d',
-    dailyClosePairHasGap: true
+    dailyClosePairHasGap: false
   }), 'AAPL');
   assert.equal(quote.displayPriceSession, 'pre');
   assert.equal(quote.displayPrice, 108);
   assert.equal(quote.previousClose, 100);
   assert.equal(quote.referencePrice, 100);
   assert.equal(quote.change, 8);
+});
+
+test('regular session uses verified fallback when regular previous close is unavailable', () => {
+  const quote = normalizeQuote(rawQuote('VEEV', 'REGULAR', {
+    regularMarketPreviousClose: null,
+    immediatePreviousClose: 100,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    dailyClosePairHasGap: false
+  }), 'VEEV');
+  assert.equal(quote.referencePrice, 100);
+  assert.equal(quote.change, 10);
 });
 
 test('US post-market ignores verified immediate previous close', () => {
