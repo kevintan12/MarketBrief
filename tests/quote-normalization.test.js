@@ -61,6 +61,97 @@ test('verified immediate previous close overrides an older normal daily referenc
   assert.ok(Math.abs(quote.change - (-255.06953125)) < 1e-9);
 });
 
+test('STI trailing-null completed session uses verified immediate previous close', () => {
+  const quote = normalizeQuote(rawQuote('^STI', null, {
+    regularMarketPrice: 5759.46,
+    regularMarketPreviousClose: null,
+    regularMarketTime: 1788398433,
+    latestDailyClose: 5710.3701171875,
+    latestDailyCloseTime: 1788224400,
+    previousDailyClose: 5755.35986328125,
+    dailyClosePairHasGap: false,
+    immediatePreviousClose: 5744.11,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    exchangeTimezoneName: 'Asia/Singapore'
+  }), '^STI');
+  assert.equal(quote.displayPrice, 5759.46);
+  assert.equal(quote.referencePrice, 5744.11);
+  assert.ok(Math.abs(quote.change - 15.35) < 1e-9);
+  assert.ok(Math.abs(quote.percentChange - (15.35 / 5744.11 * 100)) < 1e-9);
+});
+
+test('newer regular close prefers verified immediate close over stale latest daily close', () => {
+  const quote = normalizeQuote(rawQuote('TEST.SI', null, {
+    regularMarketPrice: 120,
+    regularMarketPreviousClose: null,
+    regularMarketTime: 1788398433,
+    latestDailyClose: 100,
+    latestDailyCloseTime: 1788224400,
+    previousDailyClose: 90,
+    immediatePreviousClose: 110,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    exchangeTimezoneName: 'Asia/Singapore'
+  }), 'TEST.SI');
+  assert.equal(quote.displayPrice, 120);
+  assert.equal(quote.referencePrice, 110);
+  assert.equal(quote.change, 10);
+});
+
+test('newer regular close ignores invalid or unverified immediate close', () => {
+  [
+    { immediatePreviousClose: 110, immediatePreviousCloseSource: null },
+    { immediatePreviousClose: 110, immediatePreviousCloseSource: 'unverified' },
+    { immediatePreviousClose: -1, immediatePreviousCloseSource: 'yahooChart1d' }
+  ].forEach(fallback => {
+    const quote = normalizeQuote(rawQuote('^STI', null, {
+      regularMarketPrice: 120,
+      regularMarketPreviousClose: null,
+      regularMarketTime: 1788398433,
+      latestDailyClose: 100,
+      latestDailyCloseTime: 1788224400,
+      previousDailyClose: 90,
+      exchangeTimezoneName: 'Asia/Singapore',
+      ...fallback
+    }), '^STI');
+    assert.equal(quote.referencePrice, 100);
+    assert.equal(quote.change, 20);
+  });
+});
+
+test('HSI verified immediate previous close remains authoritative', () => {
+  const quote = normalizeQuote(rawQuote('^HSI', null, {
+    regularMarketPrice: 25482.56,
+    regularMarketPreviousClose: null,
+    regularMarketTime: 1788398484,
+    latestDailyClose: 25329.73046875,
+    latestDailyCloseTime: 1788226200,
+    previousDailyClose: 25566.990234375,
+    immediatePreviousClose: 25311.21,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    exchangeTimezoneName: 'Asia/Hong_Kong'
+  }), '^HSI');
+  assert.equal(quote.displayPrice, 25482.56);
+  assert.equal(quote.referencePrice, 25311.21);
+  assert.ok(Math.abs(quote.change - 171.35) < 1e-9);
+});
+
+test('ordinary SG equity without verified immediate close keeps latest daily close', () => {
+  const quote = normalizeQuote(rawQuote('D05.SI', null, {
+    regularMarketPrice: 78.24,
+    regularMarketPreviousClose: null,
+    regularMarketTime: 1788398781,
+    latestDailyClose: 77.5999984741211,
+    latestDailyCloseTime: 1788310800,
+    previousDailyClose: 76.91000366210938,
+    immediatePreviousClose: null,
+    immediatePreviousCloseSource: null,
+    exchangeTimezoneName: 'Asia/Singapore'
+  }), 'D05.SI');
+  assert.equal(quote.displayPrice, 78.24);
+  assert.equal(quote.referencePrice, 77.5999984741211);
+  assert.ok(Math.abs(quote.change - (78.24 - 77.5999984741211)) < 1e-9);
+});
+
 test('gap-free completed pair without verified immediate close remains unchanged', () => {
   [
     { immediatePreviousClose: 95, immediatePreviousCloseSource: null },

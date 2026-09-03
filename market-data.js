@@ -419,7 +419,7 @@
       if(useDailyClosePair){
         displayPrice=useNewerRegularClose?regularMarketPrice:latestDailyClose;
         displayPriceSession='regularClose';
-        referencePrice=useNewerRegularClose?latestDailyClose:(hasVerifiedImmediatePreviousClose?immediatePreviousClose:(provider.dailyClosePairHasGap===true?null:previousDailyClose));
+        referencePrice=useNewerRegularClose?(hasVerifiedImmediatePreviousClose?immediatePreviousClose:latestDailyClose):(hasVerifiedImmediatePreviousClose?immediatePreviousClose:(provider.dailyClosePairHasGap===true?null:previousDailyClose));
         previousClose=referencePrice;
         providerTimestamp=useNewerRegularClose?regularMarketTime:latestDailyCloseTime;
         providerTimestampSource=providerTimestamp===null?null:(useNewerRegularClose?'regularMarketTime':'latestDailyCloseTime');
