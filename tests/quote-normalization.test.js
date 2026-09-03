@@ -80,6 +80,40 @@ test('STI trailing-null completed session uses verified immediate previous close
   assert.ok(Math.abs(quote.percentChange - (15.35 / 5744.11 * 100)) < 1e-9);
 });
 
+test('HSI expected previous trading-date close outranks stale verified immediate close', () => {
+  const quote = normalizeQuote(rawQuote('^HSI', null, {
+    regularMarketPrice: 25251.90,
+    regularMarketPreviousClose: null,
+    regularMarketTime: 1788417216,
+    latestDailyClose: 25311.2109375,
+    latestDailyCloseTime: 1788312600,
+    previousDailyClose: 25329.73046875,
+    immediatePreviousClose: 25329.70,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    exchangeTimezoneName: 'Asia/Hong_Kong'
+  }), '^HSI');
+  assert.equal(quote.displayPrice, 25251.90);
+  assert.equal(quote.referencePrice, 25311.2109375);
+  assert.ok(Math.abs(quote.change - (25251.90 - 25311.2109375)) < 1e-9);
+});
+
+test('expected previous trading date skips weekend and holiday', () => {
+  const quote = normalizeQuote(rawQuote('^GSPC', null, {
+    regularMarketPrice: 120,
+    regularMarketPreviousClose: null,
+    regularMarketTime: Date.parse('2026-09-08T14:30:00Z') / 1000,
+    latestDailyClose: 110,
+    latestDailyCloseTime: Date.parse('2026-09-04T20:00:00Z') / 1000,
+    previousDailyClose: 100,
+    immediatePreviousClose: 100,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    exchangeTimezoneName: 'America/New_York'
+  }), '^GSPC');
+  assert.equal(quote.displayPrice, 120);
+  assert.equal(quote.referencePrice, 110);
+  assert.equal(quote.change, 10);
+});
+
 test('newer regular close prefers verified immediate close over stale latest daily close', () => {
   const quote = normalizeQuote(rawQuote('TEST.SI', null, {
     regularMarketPrice: 120,

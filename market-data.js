@@ -367,6 +367,11 @@
       latestDailyCloseDate=exchangeDateKey(latestDailyCloseTime,marketTimezone);
     }
     var useNewerRegularClose=useDailyClosePair&&providerMarketState!=='CLOSED'&&regularMarketPrice!==null&&regularMarketDate!==null&&latestDailyCloseDate!==null&&regularMarketDate>latestDailyCloseDate;
+    var expectedPreviousTradingDate=null;
+    if(useNewerRegularClose){
+      try{expectedPreviousTradingDate=getPreviousTradingDate(market,regularMarketDate);}catch(e){}
+    }
+    var useVerifiedImmediateForNewerRegularClose=hasVerifiedImmediatePreviousClose&&expectedPreviousTradingDate!==null&&latestDailyCloseDate!==null&&latestDailyCloseDate<expectedPreviousTradingDate;
     var displayPrice=null;
     var displayPriceSession=null;
     var referencePrice=null;
@@ -419,7 +424,7 @@
       if(useDailyClosePair){
         displayPrice=useNewerRegularClose?regularMarketPrice:latestDailyClose;
         displayPriceSession='regularClose';
-        referencePrice=useNewerRegularClose?(hasVerifiedImmediatePreviousClose?immediatePreviousClose:latestDailyClose):(hasVerifiedImmediatePreviousClose?immediatePreviousClose:(provider.dailyClosePairHasGap===true?null:previousDailyClose));
+        referencePrice=useNewerRegularClose?(useVerifiedImmediateForNewerRegularClose?immediatePreviousClose:latestDailyClose):(hasVerifiedImmediatePreviousClose?immediatePreviousClose:(provider.dailyClosePairHasGap===true?null:previousDailyClose));
         previousClose=referencePrice;
         providerTimestamp=useNewerRegularClose?regularMarketTime:latestDailyCloseTime;
         providerTimestampSource=providerTimestamp===null?null:(useNewerRegularClose?'regularMarketTime':'latestDailyCloseTime');
