@@ -62,6 +62,7 @@ function createHarness({ tickers, requests }) {
       marketData: {
         normalizeQuote: raw => raw.canonical,
         getSessionState: () => ({ quoteExpectedToMove: false }),
+        shouldPollQuoteDuringGrace: () => false,
         shouldPollSearchQuote: () => false
       }
     },
@@ -376,7 +377,7 @@ test('late response after batch timeout cannot regress a newer result', async ()
 test('Dashboard polling market cadence remains two ticks active and five ticks grace', () => {
   const context = createHarness({ tickers: [], requests: {} });
   context.MarketBrief.marketData.getSessionState = market => ({ quoteExpectedToMove: market === 'US' });
-  context.MarketBrief.marketData.shouldPollSearchQuote = market => market === 'SG';
+  context.MarketBrief.marketData.shouldPollQuoteDuringGrace = market => market === 'SG';
 
   assert.deepEqual({ ...context.getDashboardPollingMarkets(undefined, 2) }, { any: true, US: true, SG: false, HK: false });
   assert.deepEqual({ ...context.getDashboardPollingMarkets(undefined, 5) }, { any: true, US: false, SG: true, HK: false });
