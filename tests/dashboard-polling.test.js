@@ -26,6 +26,10 @@ const refreshLifecycleSource = sourceBetween(
   'var DASHBOARD_REFRESH_BATCH_TIMEOUT_MS',
   '// ── AI Summary'
 );
+const searchCadenceSource = sourceBetween(
+  'function getSearchPollingCadence',
+  'var DASHBOARD_REFRESH_BATCH_TIMEOUT_MS'
+);
 
 function deferred() {
   let resolve;
@@ -62,6 +66,7 @@ function createHarness({ tickers, requests }) {
       marketData: {
         normalizeQuote: raw => raw.canonical,
         getSessionState: () => ({ quoteExpectedToMove: false }),
+        getQuotePollingGraceCadence: () => 0,
         shouldPollQuoteDuringGrace: () => false,
         shouldPollSearchQuote: () => false
       }
@@ -79,6 +84,7 @@ function createHarness({ tickers, requests }) {
   vm.createContext(context);
   vm.runInContext(automaticRefreshSource, context);
   vm.runInContext(manualRefreshSource, context);
+  vm.runInContext(searchCadenceSource, context);
   vm.runInContext(refreshLifecycleSource, context);
   context.startAutoRefresh = function() {};
   return context;
@@ -374,14 +380,26 @@ test('late response after batch timeout cannot regress a newer result', async ()
   );
 });
 
-test('Dashboard polling market cadence remains two ticks active and five ticks grace', () => {
+test('Dashboard polling market cadence uses two, five and sixty tick phases', () => {
   const context = createHarness({ tickers: [], requests: {} });
   context.MarketBrief.marketData.getSessionState = market => ({ quoteExpectedToMove: market === 'US' });
-  context.MarketBrief.marketData.shouldPollQuoteDuringGrace = market => market === 'SG';
+  context.MarketBrief.marketData.getQuotePollingGraceCadence = market => market === 'SG' ? 5 : (market === 'HK' ? 60 : 0);
 
   assert.deepEqual({ ...context.getDashboardPollingMarkets(undefined, 2) }, { any: true, US: true, SG: false, HK: false });
   assert.deepEqual({ ...context.getDashboardPollingMarkets(undefined, 5) }, { any: true, US: false, SG: true, HK: false });
   assert.deepEqual({ ...context.getDashboardPollingMarkets(undefined, 10) }, { any: true, US: true, SG: true, HK: false });
+  assert.deepEqual({ ...context.getDashboardPollingMarkets(undefined, 60) }, { any: true, US: true, SG: true, HK: true });
+});
+
+test('Search polling cadence uses active, grace and late-tail phases', () => {
+  const context = createHarness({ tickers: [], requests: {} });
+  context.MarketBrief.marketData.getSessionState = sym => ({ quoteExpectedToMove: sym === 'ACTIVE' });
+  context.MarketBrief.marketData.getQuotePollingGraceCadence = sym => sym === 'GRACE' ? 5 : (sym === 'TAIL' ? 60 : 0);
+
+  assert.equal(context.getSearchPollingCadence('ACTIVE'), 2);
+  assert.equal(context.getSearchPollingCadence('GRACE'), 5);
+  assert.equal(context.getSearchPollingCadence('TAIL'), 60);
+  assert.equal(context.getSearchPollingCadence('CLOSED'), 0);
 });
 
 test('manual Dashboard Refresh still rebuilds the complete market dataset', async () => {

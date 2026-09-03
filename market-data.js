@@ -269,9 +269,9 @@
     return getPreviousTradingDate(state.market,state.exchangeDate);
   }
 
-  function shouldPollQuoteDuringGrace(symbolOrMarket,now){
+  function getQuotePollingGraceCadence(symbolOrMarket,now){
     var state=getSessionState(symbolOrMarket,now);
-    if((state.market!=='SG'&&state.market!=='HK')||!state.tradingDay)return false;
+    if((state.market!=='SG'&&state.market!=='HK')||!state.tradingDay)return 0;
     var graceStart=null;
     if(state.session==='lunchBreak'){
       var lunchWindow=markets[state.market].sessions.find(function(window){return window.name==='lunchBreak';});
@@ -279,9 +279,15 @@
     } else if(state.session==='closed'){
       graceStart=markets[state.market].close;
     }
-    if(graceStart===null)return false;
+    if(graceStart===null)return 0;
     var minutesAfterSegment=minutesFromTime(state.exchangeTime)-minutesFromTime(graceStart);
-    return minutesAfterSegment>=0&&minutesAfterSegment<30;
+    if(minutesAfterSegment>=0&&minutesAfterSegment<30)return 5;
+    if(minutesAfterSegment>=30&&minutesAfterSegment<45)return 60;
+    return 0;
+  }
+
+  function shouldPollQuoteDuringGrace(symbolOrMarket,now){
+    return getQuotePollingGraceCadence(symbolOrMarket,now)>0;
   }
 
   function shouldPollSearchQuote(symbolOrMarket,now){
@@ -529,6 +535,7 @@
     getSessionState:getSessionState,
     getPreviousTradingDate:getPreviousTradingDate,
     getLatestCompletedRegularSessionDate:getLatestCompletedRegularSessionDate,
+    getQuotePollingGraceCadence:getQuotePollingGraceCadence,
     shouldPollQuoteDuringGrace:shouldPollQuoteDuringGrace,
     shouldPollSearchQuote:shouldPollSearchQuote,
     getCalendarStatus:getCalendarStatus,
