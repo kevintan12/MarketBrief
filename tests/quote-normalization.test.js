@@ -48,7 +48,7 @@ test('equal completed closes produce zero change', () => {
   assert.equal(quote.percentChange, 0);
 });
 
-test('verified immediate previous close overrides an older normal daily reference', () => {
+test('verified immediate previous close preserves the existing fallback when dates are unavailable', () => {
   const quote = normalizeQuote(rawQuote('^HSI', 'CLOSED', {
     latestDailyClose: 25329.73046875,
     previousDailyClose: 25566.990234375,
@@ -97,6 +97,61 @@ test('HSI expected previous trading-date close outranks stale verified immediate
   assert.ok(Math.abs(quote.change - (25251.90 - 25311.2109375)) < 1e-9);
 });
 
+test('post-close HSI rollover uses previous daily close from expected trading date', () => {
+  const quote = normalizeQuote(rawQuote('^HSI', null, {
+    regularMarketPrice: 25171.10,
+    regularMarketPreviousClose: null,
+    regularMarketTime: 1788422780,
+    latestDailyClose: 25171.099609375,
+    latestDailyCloseTime: 1788399000,
+    previousDailyClose: 25311.2109375,
+    previousDailyCloseTime: 1788312600,
+    immediatePreviousClose: 25329.70,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    dailyClosePairHasGap: false,
+    exchangeTimezoneName: 'Asia/Hong_Kong'
+  }), '^HSI');
+  assert.equal(quote.displayPrice, 25171.099609375);
+  assert.equal(quote.referencePrice, 25311.2109375);
+  assert.ok(Math.abs(quote.change - (-140.111328125)) < 1e-9);
+});
+
+test('post-close STI rollover uses previous daily close from expected trading date', () => {
+  const quote = normalizeQuote(rawQuote('^STI', null, {
+    regularMarketPrice: 5759.46,
+    regularMarketPreviousClose: null,
+    regularMarketTime: 1788424389,
+    latestDailyClose: 5759.46,
+    latestDailyCloseTime: 1788397200,
+    previousDailyClose: 5744.11,
+    previousDailyCloseTime: 1788310800,
+    immediatePreviousClose: 5710.37,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    dailyClosePairHasGap: false,
+    exchangeTimezoneName: 'Asia/Singapore'
+  }), '^STI');
+  assert.equal(quote.displayPrice, 5759.46);
+  assert.equal(quote.referencePrice, 5744.11);
+  assert.ok(Math.abs(quote.change - 15.35) < 1e-9);
+});
+
+test('ordinary HK equity rollover uses dated previous daily close', () => {
+  const quote = normalizeQuote(rawQuote('0700.HK', null, {
+    regularMarketPrice: 612.5,
+    regularMarketPreviousClose: null,
+    regularMarketTime: 1788422780,
+    latestDailyClose: 612.5,
+    latestDailyCloseTime: 1788399000,
+    previousDailyClose: 608.0,
+    previousDailyCloseTime: 1788312600,
+    immediatePreviousClose: 605.0,
+    immediatePreviousCloseSource: 'yahooChart1d',
+    exchangeTimezoneName: 'Asia/Hong_Kong'
+  }), '0700.HK');
+  assert.equal(quote.referencePrice, 608.0);
+  assert.equal(quote.change, 4.5);
+});
+
 test('expected previous trading date skips weekend and holiday', () => {
   const quote = normalizeQuote(rawQuote('^GSPC', null, {
     regularMarketPrice: 120,
@@ -131,7 +186,7 @@ test('newer regular close prefers verified immediate close over stale latest dai
   assert.equal(quote.change, 10);
 });
 
-test('newer regular close ignores invalid or unverified immediate close', () => {
+test('older daily history without a verified immediate close remains conservative', () => {
   [
     { immediatePreviousClose: 110, immediatePreviousCloseSource: null },
     { immediatePreviousClose: 110, immediatePreviousCloseSource: 'unverified' },
@@ -147,8 +202,8 @@ test('newer regular close ignores invalid or unverified immediate close', () => 
       exchangeTimezoneName: 'Asia/Singapore',
       ...fallback
     }), '^STI');
-    assert.equal(quote.referencePrice, 100);
-    assert.equal(quote.change, 20);
+    assert.equal(quote.referencePrice, null);
+    assert.equal(quote.change, null);
   });
 });
 
@@ -282,6 +337,24 @@ test('raw.prev remains ignored when no canonical reference is available', () => 
     dailyClosePairHasGap: false
   }, { prev: 50 }), 'AAPL');
   assert.equal(quote.displayPrice, 110);
+  assert.equal(quote.referencePrice, null);
+  assert.equal(quote.change, null);
+});
+
+test('missing daily values and invalid dates remain conservative', () => {
+  const quote = normalizeQuote(rawQuote('0700.HK', null, {
+    regularMarketPrice: 612.5,
+    regularMarketPreviousClose: null,
+    regularMarketTime: null,
+    latestDailyClose: 610,
+    latestDailyCloseTime: null,
+    previousDailyClose: null,
+    previousDailyCloseTime: null,
+    immediatePreviousClose: 608,
+    immediatePreviousCloseSource: 'unverified',
+    exchangeTimezoneName: 'Asia/Hong_Kong'
+  }, { prev: 607 }), '0700.HK');
+  assert.equal(quote.displayPrice, 612.5);
   assert.equal(quote.referencePrice, null);
   assert.equal(quote.change, null);
 });

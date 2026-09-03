@@ -357,14 +357,15 @@
     var regularMarketPrice=finiteNumber(provider.regularMarketPrice);
     var previousClose=finiteNumber(provider.regularMarketPreviousClose);
     var preMarketPrice=finiteNumber(provider.preMarketPrice);
+    var preMarketTime=finiteNumber(provider.preMarketTime);
     var postMarketPrice=finiteNumber(provider.postMarketPrice);
     var latestDailyClose=finiteNumber(provider.latestDailyClose);
     var previousDailyClose=finiteNumber(provider.previousDailyClose);
     var immediatePreviousClose=finiteNumber(provider.immediatePreviousClose);
     var hasVerifiedImmediatePreviousClose=provider.immediatePreviousCloseSource==='yahooChart1d'&&immediatePreviousClose!==null&&immediatePreviousClose>0;
-    var regularReferenceClose=previousClose!==null?previousClose:(hasVerifiedImmediatePreviousClose?immediatePreviousClose:null);
     var regularMarketTime=finiteNumber(provider.regularMarketTime);
     var latestDailyCloseTime=finiteNumber(provider.latestDailyCloseTime);
+    var previousDailyCloseTime=finiteNumber(provider.previousDailyCloseTime);
     var hasDailyClosePair=latestDailyClose!==null&&previousDailyClose!==null;
     var useDailyClosePair=hasDailyClosePair&&(
       providerMarketState==='CLOSED'||
@@ -373,17 +374,39 @@
     var providerTimezone=typeof provider.exchangeTimezoneName==='string'?provider.exchangeTimezoneName:null;
     var marketTimezone=markets[market]&&markets[market].timezone;
     var regularMarketDate=exchangeDateKey(regularMarketTime,providerTimezone);
+    var preMarketDate=exchangeDateKey(preMarketTime,providerTimezone);
     var latestDailyCloseDate=exchangeDateKey(latestDailyCloseTime,providerTimezone);
-    if((regularMarketDate===null||latestDailyCloseDate===null)&&providerTimezone!==marketTimezone){
+    var previousDailyCloseDate=exchangeDateKey(previousDailyCloseTime,providerTimezone);
+    if((regularMarketDate===null||preMarketDate===null||latestDailyCloseDate===null||previousDailyCloseDate===null)&&providerTimezone!==marketTimezone){
       regularMarketDate=exchangeDateKey(regularMarketTime,marketTimezone);
+      preMarketDate=exchangeDateKey(preMarketTime,marketTimezone);
       latestDailyCloseDate=exchangeDateKey(latestDailyCloseTime,marketTimezone);
+      previousDailyCloseDate=exchangeDateKey(previousDailyCloseTime,marketTimezone);
     }
+    var currentExchangeTradingDate=providerMarketState==='PRE'&&market==='US'&&preMarketDate!==null?preMarketDate:regularMarketDate;
     var useNewerRegularClose=useDailyClosePair&&providerMarketState!=='CLOSED'&&regularMarketPrice!==null&&regularMarketDate!==null&&latestDailyCloseDate!==null&&regularMarketDate>latestDailyCloseDate;
     var expectedPreviousTradingDate=null;
-    if(useNewerRegularClose){
-      try{expectedPreviousTradingDate=getPreviousTradingDate(market,regularMarketDate);}catch(e){}
+    if(currentExchangeTradingDate!==null){
+      try{expectedPreviousTradingDate=getPreviousTradingDate(market,currentExchangeTradingDate);}catch(e){}
     }
-    var useVerifiedImmediateForNewerRegularClose=hasVerifiedImmediatePreviousClose&&expectedPreviousTradingDate!==null&&latestDailyCloseDate!==null&&latestDailyCloseDate<expectedPreviousTradingDate;
+    var dailyReferenceClose=null;
+    var dailyReferenceResolved=false;
+    if(expectedPreviousTradingDate!==null&&latestDailyCloseDate!==null){
+      if(latestDailyCloseDate===currentExchangeTradingDate){
+        if(previousDailyCloseDate!==null){
+          dailyReferenceResolved=true;
+          if(previousDailyClose!==null&&previousDailyClose>0&&previousDailyCloseDate===expectedPreviousTradingDate)dailyReferenceClose=previousDailyClose;
+        }
+      } else if(latestDailyCloseDate===expectedPreviousTradingDate){
+        dailyReferenceResolved=true;
+        if(latestDailyClose!==null&&latestDailyClose>0)dailyReferenceClose=latestDailyClose;
+      } else if(latestDailyCloseDate<expectedPreviousTradingDate){
+        dailyReferenceResolved=true;
+        if(hasVerifiedImmediatePreviousClose)dailyReferenceClose=immediatePreviousClose;
+      } else dailyReferenceResolved=true;
+    }
+    var completedDailyReferenceClose=dailyReferenceResolved?dailyReferenceClose:(hasVerifiedImmediatePreviousClose?immediatePreviousClose:(provider.dailyClosePairHasGap===true?null:previousDailyClose));
+    var regularReferenceClose=previousClose!==null?previousClose:(dailyReferenceResolved?dailyReferenceClose:(hasVerifiedImmediatePreviousClose?immediatePreviousClose:null));
     var displayPrice=null;
     var displayPriceSession=null;
     var referencePrice=null;
@@ -405,7 +428,7 @@
         displayPriceSession='pre';
         referencePrice=regularReferenceClose;
         previousClose=referencePrice;
-        providerTimestamp=finiteNumber(provider.preMarketTime);
+        providerTimestamp=preMarketTime;
         providerTimestampSource=providerTimestamp===null?null:'preMarketTime';
         status='ok';
       } else if(regularMarketPrice!==null){
@@ -436,7 +459,7 @@
       if(useDailyClosePair){
         displayPrice=useNewerRegularClose?regularMarketPrice:latestDailyClose;
         displayPriceSession='regularClose';
-        referencePrice=useNewerRegularClose?(useVerifiedImmediateForNewerRegularClose?immediatePreviousClose:latestDailyClose):(hasVerifiedImmediatePreviousClose?immediatePreviousClose:(provider.dailyClosePairHasGap===true?null:previousDailyClose));
+        referencePrice=completedDailyReferenceClose;
         previousClose=referencePrice;
         providerTimestamp=useNewerRegularClose?regularMarketTime:latestDailyCloseTime;
         providerTimestampSource=providerTimestamp===null?null:(useNewerRegularClose?'regularMarketTime':'latestDailyCloseTime');
