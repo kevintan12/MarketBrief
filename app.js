@@ -163,6 +163,7 @@ function tickClock(){
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function showView(name){
+  if(name!=='Settings'&&_tickerDrag)cancelTickerDrag();
   // Save search content BEFORE switching away
   if(currentView==='Search'){
     // Try mobile first, then desktop; normalize IDs to always use 'tickRes' base
@@ -1269,6 +1270,7 @@ function doChangePIN(pid){
 
 
 function renderSettingsPanelTo(pid){
+  if(_tickerDrag)cancelTickerDrag();
   var el=document.getElementById(pid); if(!el)return;
 
   function mktSection(listKey,mkt,flag,label,showFixed){
@@ -1276,11 +1278,12 @@ function renderSettingsPanelTo(pid){
     var custom=S[listKey][mkt]||[];
     var fixedHtml=fixed.map(function(t){return '<span class="ttag fixed">🔒 '+esc(t.sym)+'</span>';}).join('');
     var customHtml=custom.map(function(t,i){
-      return '<span class="ttag">'
+      return '<span class="ttag ticker-row" data-list-key="'+listKey+'" data-mkt="'+mkt+'" data-idx="'+i+'">'
         +'<input type="checkbox" class="ticker-select" data-mkt="'+mkt+'" data-idx="'+i+'" onchange="updateTickerSelectionControls(\''+listKey+'\',\''+pid+'\')">'
-        +'<button class="mv" onclick="moveTicker(\''+listKey+'\',\''+mkt+'\','+i+',-1,\''+pid+'\')">↑</button>'
-        +'<button class="mv" onclick="moveTicker(\''+listKey+'\',\''+mkt+'\','+i+',1,\''+pid+'\')">↓</button>'
+        +'<button class="mv" aria-label="Move '+esc(t.sym)+' up" title="Move Up" onclick="moveTicker(\''+listKey+'\',\''+mkt+'\','+i+',-1,\''+pid+'\')"'+(i===0?' disabled':'')+'>↑</button>'
+        +'<button class="mv" aria-label="Move '+esc(t.sym)+' down" title="Move Down" onclick="moveTicker(\''+listKey+'\',\''+mkt+'\','+i+',1,\''+pid+'\')"'+(i===custom.length-1?' disabled':'')+'>↓</button>'
         +esc(t.sym)+' <button class="del" onclick="removeTicker(\''+listKey+'\',\''+mkt+'\','+i+',\''+pid+'\')">×</button>'
+        +'<span class="ticker-drag-handle" aria-hidden="true" title="Drag to reorder" onpointerdown="startTickerDrag(event,\''+listKey+'\',\''+mkt+'\','+i+',\''+pid+'\')">⠿</span>'
         +'</span>';
     }).join('');
     var iid='settAC_'+listKey+'_'+mkt+'_'+pid;
@@ -1490,10 +1493,118 @@ function addTickerDirect(listKey,mkt,sym,name,pid){
 
 function removeTicker(listKey,mkt,idx,pid){ S[listKey][mkt].splice(idx,1); renderSettingsPanelTo(pid); }
 function moveTicker(listKey,mkt,idx,dir,pid){
-  var arr=S[listKey][mkt], ni=idx+dir;
-  if(ni<0||ni>=arr.length)return;
-  var tmp=arr[idx];arr[idx]=arr[ni];arr[ni]=tmp;
-  renderSettingsPanelTo(pid);
+  reorderTicker(listKey,mkt,idx,idx+dir,pid);
+}
+
+function reorderTickerArray(listKey,mkt,fromIdx,toIdx){
+  var arr=S[listKey][mkt];
+  if(fromIdx<0||fromIdx>=arr.length||toIdx<0||toIdx>=arr.length||fromIdx===toIdx)return false;
+  var moved=arr.splice(fromIdx,1)[0];
+  arr.splice(toIdx,0,moved);
+  return true;
+}
+
+function reorderTicker(listKey,mkt,fromIdx,toIdx,pid){
+  if(reorderTickerArray(listKey,mkt,fromIdx,toIdx))renderSettingsPanelTo(pid);
+}
+
+var _tickerDrag=null;
+function positionTickerDragGhost(drag,e){
+  if(!drag.ghost)return;
+  drag.ghost.style.transform='translate3d('+(e.clientX-drag.offsetX)+'px,'+(e.clientY-drag.offsetY)+'px,0) scale(1.03)';
+}
+function clearTickerDragVisuals(drag){
+  if(drag.row)drag.row.classList.remove('drag-placeholder');
+  if(drag.ghost&&drag.ghost.parentNode)drag.ghost.parentNode.removeChild(drag.ghost);
+}
+function addTickerDragListeners(drag){
+  window.addEventListener('pointermove',moveTickerDrag,{passive:false});
+  window.addEventListener('pointerup',endTickerDrag);
+  window.addEventListener('pointercancel',cancelTickerDrag);
+  window.addEventListener('blur',cancelTickerDrag);
+  window.addEventListener('keydown',cancelTickerDragOnEscape);
+  if(drag.captureTarget&&drag.captureTarget.addEventListener)drag.captureTarget.addEventListener('lostpointercapture',cancelTickerDrag);
+}
+function removeTickerDragListeners(drag){
+  window.removeEventListener('pointermove',moveTickerDrag);
+  window.removeEventListener('pointerup',endTickerDrag);
+  window.removeEventListener('pointercancel',cancelTickerDrag);
+  window.removeEventListener('blur',cancelTickerDrag);
+  window.removeEventListener('keydown',cancelTickerDragOnEscape);
+  if(drag.captureTarget&&drag.captureTarget.removeEventListener)drag.captureTarget.removeEventListener('lostpointercapture',cancelTickerDrag);
+}
+function cancelTickerDragOnEscape(e){if(e.key==='Escape')cancelTickerDrag(e);}
+function startTickerDrag(e,listKey,mkt,idx,pid){
+  if(_tickerDrag)cancelTickerDrag();
+  var row=e.currentTarget.parentElement;
+  var rect=row&&row.getBoundingClientRect?row.getBoundingClientRect():{left:e.clientX,top:e.clientY,width:0,height:0};
+  var ghost=row&&row.cloneNode?row.cloneNode(true):null;
+  if(ghost&&document.body){
+    ghost.classList.add('ticker-drag-ghost');
+    ghost.style.width=rect.width+'px';
+    ghost.style.height=rect.height+'px';
+    document.body.appendChild(ghost);
+  }
+  var parent=row?row.parentNode:null;
+  _tickerDrag={listKey:listKey,mkt:mkt,fromIdx:idx,pid:pid,row:row,pointerId:e.pointerId,
+    parent:parent,captureTarget:parent,originalNext:row?row.nextSibling:null,ghost:ghost,
+    offsetX:e.clientX-rect.left,offsetY:e.clientY-rect.top};
+  if(parent&&parent.setPointerCapture){try{parent.setPointerCapture(e.pointerId);}catch(_){}}
+  addTickerDragListeners(_tickerDrag);
+  if(row)row.classList.add('drag-placeholder');
+  positionTickerDragGhost(_tickerDrag,e);
+  e.preventDefault();
+}
+function moveTickerDrag(e){
+  if(!_tickerDrag)return;
+  if(e.pointerId!==undefined&&e.pointerId!==_tickerDrag.pointerId)return;
+  positionTickerDragGhost(_tickerDrag,e);
+  var target=document.elementFromPoint(e.clientX,e.clientY);
+  var row=target&&target.closest?target.closest('.ticker-row'):null;
+  if(row&&row.dataset.listKey===_tickerDrag.listKey&&row.dataset.mkt===_tickerDrag.mkt){
+    var parent=_tickerDrag.parent;
+    if(parent&&row.parentNode===parent&&row!==_tickerDrag.row){
+      var rect=row.getBoundingClientRect();
+      var withinRow=e.clientY>=rect.top&&e.clientY<=rect.bottom;
+      var before=withinRow?e.clientX<(rect.left+rect.width/2):e.clientY<(rect.top+rect.height/2);
+      var rows=Array.from(parent.querySelectorAll('.ticker-row'));
+      var currentIdx=rows.indexOf(_tickerDrag.row);
+      var siblings=rows.filter(function(item){return item!==_tickerDrag.row;});
+      var insertionIdx=siblings.indexOf(row)+(before?0:1);
+      if(insertionIdx!==currentIdx){
+        parent.insertBefore(_tickerDrag.row,before?row:row.nextSibling);
+      }
+    }
+  }
+  e.preventDefault();
+}
+function endTickerDrag(e){
+  finishTickerDrag(true,e);
+}
+function cancelTickerDrag(e){
+  finishTickerDrag(false,e);
+}
+function finishTickerDrag(commit,e){
+  var drag=_tickerDrag;
+  if(!drag)return;
+  if(e&&e.pointerId!==undefined&&e.pointerId!==drag.pointerId)return;
+  var finalIdx=-1;
+  if(commit&&drag.parent&&drag.row){
+    finalIdx=Array.from(drag.parent.querySelectorAll('.ticker-row')).indexOf(drag.row);
+  }
+  var changed=commit&&finalIdx>=0&&reorderTickerArray(drag.listKey,drag.mkt,drag.fromIdx,finalIdx);
+  _tickerDrag=null;
+  removeTickerDragListeners(drag);
+  if(drag.captureTarget&&drag.captureTarget.releasePointerCapture){
+    try{if(!drag.captureTarget.hasPointerCapture||drag.captureTarget.hasPointerCapture(drag.pointerId))drag.captureTarget.releasePointerCapture(drag.pointerId);}catch(_){}
+  }
+  if(!commit&&drag.parent&&drag.row){
+    if(drag.originalNext&&drag.originalNext.parentNode===drag.parent)drag.parent.insertBefore(drag.row,drag.originalNext);
+    else drag.parent.appendChild(drag.row);
+  }
+  clearTickerDragVisuals(drag);
+  if(changed)renderSettingsPanelTo(drag.pid);
+  if(e)e.preventDefault();
 }
 
 function exportSettings(pid){

@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const appCssSource = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
 
 function sourceBetween(startText, endText) {
   const start = appSource.indexOf(startText);
@@ -15,6 +16,7 @@ function sourceBetween(startText, endText) {
 }
 
 const stateSource = sourceBetween('var MarketBrief =', '// ── Boot');
+const navigationSource = sourceBetween('function showView', '// ── Desktop');
 const getAllTickersSource = sourceBetween('function getAllTickers', 'var _quoteFetches');
 const settingsListSource = sourceBetween('function renderSettingsPanelTo', 'function exportSettings');
 const persistenceSource = appSource.slice(appSource.indexOf('function exportSettings'));
@@ -32,13 +34,22 @@ function createHarness(initialStorage = {}) {
   const localStorage = createStorage(initialStorage);
   const sessionStorage = createStorage();
   const elements = {};
+  const windowListeners = {};
+  const window = {
+    addEventListener(type, handler) { windowListeners[type] = handler; },
+    removeEventListener(type, handler) { if (windowListeners[type] === handler) delete windowListeners[type]; }
+  };
   const document = {
+    querySelectorAll() { return []; },
+    elementFromPoint() { return null; },
     getElementById(id) {
       if (!elements[id]) {
         elements[id] = {
           value: '',
           innerHTML: '',
           textContent: '',
+          style: {},
+          classList: {toggle() {}, add() {}, remove() {}, contains() { return false; }},
           select() {},
           setSelectionRange() {},
           addEventListener() {},
@@ -49,7 +60,7 @@ function createHarness(initialStorage = {}) {
     }
   };
   const context = {
-    window: {}, document, localStorage, sessionStorage,
+    window, document, localStorage, sessionStorage,
     navigator: {clipboard: {writeText() {}}},
     location: {reload() {}},
     confirm() { return true; },
@@ -58,10 +69,10 @@ function createHarness(initialStorage = {}) {
     atob(value) { return Buffer.from(value, 'base64').toString('binary'); },
     escape, unescape, encodeURIComponent, decodeURIComponent,
     esc(value) { return String(value); },
-    console
+    renderIndices() {}, updateLiveIndicator() {}, console
   };
   vm.createContext(context);
-  vm.runInContext(stateSource + getAllTickersSource + settingsListSource + persistenceSource, context);
+  vm.runInContext(stateSource + navigationSource + getAllTickersSource + settingsListSource + persistenceSource, context);
   return {context, elements, localStorage};
 }
 
@@ -149,6 +160,9 @@ test('Settings renders Watchlist and My Stocks through list-aware controls', () 
   assert.match(html, /moveTicker\('myStocks','US'/);
   assert.match(html, /selectAll_customTickers_settingsPanel/);
   assert.match(html, /selectAll_myStocks_settingsPanel/);
+  assert.equal((html.match(/class="ticker-drag-handle"/g) || []).length, 2);
+  assert.match(html, /aria-label="Move AAPL up"[^>]* disabled/);
+  assert.match(html, /aria-label="Move AAPL down"[^>]* disabled/);
   assert.doesNotMatch(html, /class="ticker-select"[^>]* checked/);
   assert.ok(html.indexOf('My Stocks — by Market') < html.indexOf('Watchlist — by Market'));
   assert.ok(html.indexOf('Change PIN') < html.indexOf('★ Proxy URL'));
@@ -184,6 +198,285 @@ test('list-aware reorder preserves Watchlist and My Stocks independently', () =>
   context.moveTicker('customTickers', 'SG', 0, 1, 'settingsPanel');
   assert.deepEqual(Array.from(context.S.customTickers.SG, item => item.sym), ['O39.SI', 'D05.SI']);
   assert.deepEqual(Array.from(context.S.myStocks.SG, item => item.sym), ['Z74.SI', 'C6L.SI']);
+
+  context.moveTicker('customTickers', 'SG', 0, -1, 'settingsPanel');
+  context.moveTicker('myStocks', 'SG', 1, 1, 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.SG, item => item.sym), ['O39.SI', 'D05.SI']);
+  assert.deepEqual(Array.from(context.S.myStocks.SG, item => item.sym), ['Z74.SI', 'C6L.SI']);
+});
+
+function dragClassList() {
+  const values = new Set();
+  return {
+    add(...names) { names.forEach(name => values.add(name)); },
+    remove(...names) { names.forEach(name => values.delete(name)); },
+    contains(name) { return values.has(name); }
+  };
+}
+
+function pointerEvent(pointerType, handle) {
+  return {
+    pointerType,
+    pointerId: 1,
+    clientX: 10,
+    clientY: 10,
+    currentTarget: handle,
+    preventDefault() {}
+  };
+}
+
+function dragRow(listKey, mkt, idx) {
+  return {dataset: {listKey, mkt, idx: String(idx)}, classList: dragClassList()};
+}
+
+function dragParent(rows) {
+  const parent = {
+    children: rows.slice(),
+    insertBefore(node, reference) {
+      this.children = this.children.filter(item => item !== node);
+      const index = reference ? this.children.indexOf(reference) : -1;
+      if (index < 0) this.children.push(node); else this.children.splice(index, 0, node);
+    },
+    appendChild(node) { this.children = this.children.filter(item => item !== node); this.children.push(node); },
+    querySelectorAll() { return this.children; }
+  };
+  rows.forEach((row, index) => {
+    row.parentNode = parent;
+    row.nextSibling = rows[index + 1] || null;
+    row.getBoundingClientRect = () => ({left: index * 100, right: index * 100 + 80, top: 0, bottom: 28, width: 80, height: 28});
+  });
+  return parent;
+}
+
+test('mouse drag reorders only the target list and persists through save/reload', () => {
+  const harness = createHarness();
+  harness.context.S.customTickers.US.push(ticker('AAPL', 'US'), ticker('MSFT', 'US'));
+  harness.context.S.myStocks.US.push(ticker('VEEV', 'US'), ticker('NVDA', 'US'));
+  const sourceRow = dragRow('customTickers', 'US', 0);
+  const targetRow = dragRow('customTickers', 'US', 1);
+  dragParent([sourceRow, targetRow]);
+  const handle = {parentElement: sourceRow, setPointerCapture() {}};
+  harness.context.document.elementFromPoint = () => ({closest: () => targetRow});
+
+  harness.context.startTickerDrag(pointerEvent('mouse', handle), 'customTickers', 'US', 0, 'settingsPanel');
+  const move = pointerEvent('mouse', handle); move.clientX = 190; move.clientY = 14;
+  harness.context.moveTickerDrag(move);
+  harness.context.endTickerDrag(pointerEvent('mouse', handle));
+  assert.deepEqual(Array.from(harness.context.S.customTickers.US, item => item.sym), ['MSFT', 'AAPL']);
+  assert.deepEqual(Array.from(harness.context.S.myStocks.US, item => item.sym), ['VEEV', 'NVDA']);
+  assert.doesNotMatch(harness.elements.settingsPanel.innerHTML, /class="ticker-select"[^>]* checked/);
+
+  harness.context.document.getElementById('cfgProxy_settingsPanel').value = '';
+  harness.context.document.getElementById('cfgStyle_settingsPanel').value = 'detailed';
+  harness.context.document.getElementById('cfgTz_settingsPanel').value = 'Asia/Singapore';
+  harness.context.saveSettings('settingsPanel');
+  const reloaded = createHarness({mb5: harness.localStorage.value('mb5')});
+  reloaded.context.loadSettings();
+  assert.deepEqual(Array.from(reloaded.context.S.customTickers.US, item => item.sym), ['MSFT', 'AAPL']);
+  assert.deepEqual(Array.from(reloaded.context.S.myStocks.US, item => item.sym), ['VEEV', 'NVDA']);
+});
+
+test('touch drag reorders My Stocks without changing Watchlist or fixed indices', () => {
+  const harness = createHarness();
+  harness.context.S.customTickers.SG.push(ticker('D05.SI', 'SG'));
+  harness.context.S.myStocks.SG.push(ticker('O39.SI', 'SG'), ticker('C6L.SI', 'SG'));
+  const fixedBefore = JSON.stringify(harness.context.S.fixedTickers);
+  const sourceRow = dragRow('myStocks', 'SG', 1);
+  const targetRow = dragRow('myStocks', 'SG', 0);
+  dragParent([targetRow, sourceRow]);
+  const handle = {parentElement: sourceRow, setPointerCapture() {}};
+  harness.context.document.elementFromPoint = () => ({closest: () => targetRow});
+
+  harness.context.startTickerDrag(pointerEvent('touch', handle), 'myStocks', 'SG', 1, 'settingsPanel');
+  harness.context.moveTickerDrag(pointerEvent('touch', handle));
+  harness.context.endTickerDrag(pointerEvent('touch', handle));
+  assert.deepEqual(Array.from(harness.context.S.myStocks.SG, item => item.sym), ['C6L.SI', 'O39.SI']);
+  assert.deepEqual(Array.from(harness.context.S.customTickers.SG, item => item.sym), ['D05.SI']);
+  assert.equal(JSON.stringify(harness.context.S.fixedTickers), fixedBefore);
+});
+
+test('dragged ticker floats while the in-list placeholder reflows before drop', () => {
+  const harness = createHarness();
+  harness.context.S.customTickers.US.push(ticker('AAPL', 'US'), ticker('MSFT', 'US'), ticker('NVDA', 'US'));
+  const ghost = {classList: dragClassList(), style: {}, parentNode: null};
+  const rows = [dragRow('customTickers', 'US', 0), dragRow('customTickers', 'US', 1), dragRow('customTickers', 'US', 2)];
+  rows.forEach((row, index) => {
+    row.getBoundingClientRect = () => ({left: index * 100, top: 0, width: 80, height: 28});
+    row.cloneNode = () => ghost;
+  });
+  const capture = {pointerId: null, listeners: {}};
+  const parent = {
+    children: rows.slice(),
+    insertBefore(node, reference) {
+      this.children = this.children.filter(item => item !== node);
+      const index = reference ? this.children.indexOf(reference) : -1;
+      if (index < 0) this.children.push(node);
+      else this.children.splice(index, 0, node);
+    },
+    appendChild(node) {
+      this.children = this.children.filter(item => item !== node);
+      this.children.push(node);
+    },
+    querySelectorAll() { return this.children; },
+    setPointerCapture(pointerId) { capture.pointerId = pointerId; },
+    hasPointerCapture(pointerId) { return capture.pointerId === pointerId; },
+    releasePointerCapture(pointerId) { if (capture.pointerId === pointerId) capture.pointerId = null; },
+    addEventListener(type, handler) { capture.listeners[type] = handler; },
+    removeEventListener(type, handler) { if (capture.listeners[type] === handler) delete capture.listeners[type]; }
+  };
+  rows.forEach((row, index) => {
+    row.parentNode = parent;
+    row.nextSibling = rows[index + 1] || null;
+  });
+  harness.context.document.body = {
+    appendChild(node) { node.parentNode = this; },
+    removeChild(node) { node.parentNode = null; }
+  };
+  let hitRow = rows[1];
+  harness.context.document.elementFromPoint = () => ({closest: () => hitRow});
+  let handleCaptureCalls = 0;
+  const handle = {parentElement: rows[0], setPointerCapture() { handleCaptureCalls += 1; }};
+  const start = pointerEvent('mouse', handle);
+  start.clientX = 10;
+  start.clientY = 10;
+  harness.context.startTickerDrag(start, 'customTickers', 'US', 0, 'settingsPanel');
+  assert.equal(rows[0].classList.contains('drag-placeholder'), true);
+  assert.equal(ghost.classList.contains('ticker-drag-ghost'), true);
+  assert.equal(capture.pointerId, 1);
+  assert.equal(handleCaptureCalls, 0);
+
+  const move = pointerEvent('mouse', handle);
+  move.clientX = 190;
+  move.clientY = 14;
+  harness.context.moveTickerDrag(move);
+  assert.deepEqual(parent.children, [rows[1], rows[0], rows[2]]);
+  assert.equal(capture.pointerId, 1);
+
+  hitRow = rows[2];
+  move.clientX = 290;
+  harness.context.moveTickerDrag(move);
+  assert.deepEqual(parent.children, [rows[1], rows[2], rows[0]]);
+  assert.equal(capture.pointerId, 1);
+  assert.equal(ghost.style.transform, 'translate3d(280px,4px,0) scale(1.03)');
+  harness.context._tickerDrag.toIdx = 0;
+
+  const pointerUpOutside = pointerEvent('mouse', handle);
+  pointerUpOutside.target = harness.context.document.body;
+  harness.context.endTickerDrag(pointerUpOutside);
+  assert.deepEqual(Array.from(harness.context.S.customTickers.US, item => item.sym), ['MSFT', 'NVDA', 'AAPL']);
+  assert.equal(capture.pointerId, null);
+  assert.equal(ghost.parentNode, null);
+  assert.match(appCssSource, /\.ticker-row\.drag-placeholder\{[^}]*pointer-events:none/);
+  assert.match(appCssSource, /\.ticker-drag-ghost\{[^}]*pointer-events:none/);
+});
+
+test('dragging second ticker before first commits the placeholder DOM index', () => {
+  const harness = createHarness();
+  harness.context.S.myStocks.US.push(ticker('AAPL', 'US'), ticker('MSFT', 'US'));
+  const rows = [dragRow('myStocks', 'US', 0), dragRow('myStocks', 'US', 1)];
+  const parent = {
+    children: rows.slice(),
+    insertBefore(node, reference) {
+      this.children = this.children.filter(item => item !== node);
+      const index = reference ? this.children.indexOf(reference) : -1;
+      if (index < 0) this.children.push(node); else this.children.splice(index, 0, node);
+    },
+    appendChild(node) { this.children = this.children.filter(item => item !== node); this.children.push(node); },
+    querySelectorAll() { return this.children; }
+  };
+  rows.forEach((row, index) => {
+    row.parentNode = parent;
+    row.nextSibling = rows[index + 1] || null;
+    row.getBoundingClientRect = () => ({left: index * 100, top: 0, width: 80, height: 28});
+  });
+  const handle = {parentElement: rows[1], setPointerCapture() {}};
+  harness.context.document.elementFromPoint = () => ({closest: () => rows[0]});
+  harness.context.startTickerDrag(pointerEvent('touch', handle), 'myStocks', 'US', 1, 'settingsPanel');
+  const move = pointerEvent('touch', handle); move.clientX = 0; move.clientY = 0;
+  harness.context.moveTickerDrag(move);
+  assert.deepEqual(parent.children, [rows[1], rows[0]]);
+  harness.context.endTickerDrag(pointerEvent('touch', handle));
+  assert.deepEqual(Array.from(harness.context.S.myStocks.US, item => item.sym), ['MSFT', 'AAPL']);
+});
+
+test('pointer release without placeholder movement preserves original order', () => {
+  const harness = createHarness();
+  harness.context.S.customTickers.HK.push(ticker('0700.HK', 'HK'), ticker('9988.HK', 'HK'));
+  const row = dragRow('customTickers', 'HK', 0);
+  const handle = {parentElement: row, setPointerCapture() {}};
+  harness.context.startTickerDrag(pointerEvent('mouse', handle), 'customTickers', 'HK', 0, 'settingsPanel');
+  harness.context.endTickerDrag(pointerEvent('mouse', handle));
+  assert.deepEqual(Array.from(harness.context.S.customTickers.HK, item => item.sym), ['0700.HK', '9988.HK']);
+});
+
+test('drag cleanup removes clones on cancel, rerender, navigation and replacement drag', () => {
+  const harness = createHarness();
+  harness.context.S.customTickers.US.push(ticker('AAPL', 'US'), ticker('MSFT', 'US'));
+  const rows = [dragRow('customTickers', 'US', 0), dragRow('customTickers', 'US', 1)];
+  const parentListeners = {};
+  let capturedPointerId = null;
+  const parent = {
+    children: rows.slice(),
+    insertBefore(node, reference) {
+      this.children = this.children.filter(item => item !== node);
+      const index = reference ? this.children.indexOf(reference) : -1;
+      if (index < 0) this.children.push(node); else this.children.splice(index, 0, node);
+    },
+    appendChild(node) { this.children = this.children.filter(item => item !== node); this.children.push(node); },
+    querySelectorAll() { return this.children; },
+    setPointerCapture(pointerId) { capturedPointerId = pointerId; },
+    hasPointerCapture(pointerId) { return capturedPointerId === pointerId; },
+    releasePointerCapture(pointerId) { if (capturedPointerId === pointerId) capturedPointerId = null; },
+    addEventListener(type, handler) { parentListeners[type] = handler; },
+    removeEventListener(type, handler) { if (parentListeners[type] === handler) delete parentListeners[type]; }
+  };
+  rows.forEach((row, index) => {
+    row.parentNode = parent;
+    row.nextSibling = rows[index + 1] || null;
+    row.getBoundingClientRect = () => ({left: index * 100, top: 0, width: 80, height: 28});
+  });
+  const activeGhosts = [];
+  harness.context.document.body = {
+    appendChild(node) { node.parentNode = this; activeGhosts.push(node); },
+    removeChild(node) { node.parentNode = null; const index = activeGhosts.indexOf(node); if (index >= 0) activeGhosts.splice(index, 1); }
+  };
+  function begin(row, index) {
+    const ghost = {classList: dragClassList(), style: {}, parentNode: null};
+    row.cloneNode = () => ghost;
+    const handle = {
+      parentElement: row,
+      setPointerCapture() { throw new Error('movable handle must not capture the pointer'); },
+      addEventListener() {}, removeEventListener() {}
+    };
+    harness.context.startTickerDrag(pointerEvent('mouse', handle), 'customTickers', 'US', index, 'settingsPanel');
+    return ghost;
+  }
+
+  const cancelledGhost = begin(rows[0], 0);
+  harness.context.document.elementFromPoint = () => ({closest: () => rows[1]});
+  const move = pointerEvent('mouse', {parentElement: rows[0]}); move.clientX = 190; move.clientY = 14;
+  harness.context.moveTickerDrag(move);
+  assert.equal(capturedPointerId, 1);
+  parentListeners.lostpointercapture(pointerEvent('mouse', {parentElement: rows[0]}));
+  assert.equal(cancelledGhost.parentNode, null);
+  assert.equal(capturedPointerId, null);
+  assert.deepEqual(parent.children, rows);
+  assert.deepEqual(Array.from(harness.context.S.customTickers.US, item => item.sym), ['AAPL', 'MSFT']);
+
+  const firstGhost = begin(rows[0], 0);
+  const replacementGhost = begin(rows[1], 1);
+  assert.equal(firstGhost.parentNode, null);
+  assert.equal(activeGhosts.length, 1);
+  assert.equal(activeGhosts[0], replacementGhost);
+
+  harness.context.renderSettingsPanelTo('settingsPanel');
+  assert.equal(replacementGhost.parentNode, null);
+  const navigationGhost = begin(rows[0], 0);
+  harness.context.currentView = 'Settings';
+  harness.context.isDesktop = false;
+  harness.context.showView('Dash');
+  assert.equal(navigationGhost.parentNode, null);
+  assert.equal(activeGhosts.length, 0);
 });
 
 function installSelectionDom(harness, listKey, boxes) {

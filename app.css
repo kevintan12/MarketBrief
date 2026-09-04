@@ -152,6 +152,11 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 .ttag .del{background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:0;line-height:1;}
 .ttag .mv{background:none;border:none;color:var(--mut);cursor:pointer;font-size:0.9rem;padding:0 2px;line-height:1;}
 .ttag .mv:hover{color:var(--acc);}
+.ttag .mv:disabled{color:var(--bor);cursor:not-allowed;}
+.ticker-drag-handle{margin-left:2px;color:var(--mut);font-size:1.05rem;line-height:1;cursor:grab;touch-action:none;user-select:none;}
+.ticker-drag-handle:hover{color:var(--acc);}
+.ticker-row.drag-placeholder{opacity:0;pointer-events:none;}
+.ticker-drag-ghost{position:fixed;left:0;top:0;z-index:10000;pointer-events:none;box-sizing:border-box;opacity:0.96;box-shadow:0 8px 22px rgba(0,0,0,0.45);cursor:grabbing;will-change:transform;}
 .delete-selected-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:3px 4px;background:transparent;border:0;border-radius:5px;color:var(--mut);font-family:'DM Mono',monospace;font-size:0.9rem;font-weight:400;line-height:1.2;cursor:pointer;transition:color 0.2s,opacity 0.2s;}
 .delete-selected-btn img{width:21px;height:21px;object-fit:contain;opacity:0.75;transition:opacity 0.2s;}
 .delete-selected-btn:hover:not(:disabled){color:var(--txt);}
