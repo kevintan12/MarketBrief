@@ -1391,7 +1391,7 @@ function tickerSelectionControls(listKey,pid){
     +'<label class="snote" style="display:flex;align-items:center;gap:6px;margin:0">'
       +'<input type="checkbox" id="selectAll_'+listKey+'_'+pid+'" onchange="toggleTickerSelection(\''+listKey+'\',\''+pid+'\')"> Select All'
     +'</label>'
-    +'<button class="del" id="deleteSelected_'+listKey+'_'+pid+'" onclick="deleteSelectedTickers(\''+listKey+'\',\''+pid+'\')" disabled>Delete Selected</button>'
+    +'<button class="delete-selected-btn" id="deleteSelected_'+listKey+'_'+pid+'" onclick="deleteSelectedTickers(\''+listKey+'\',\''+pid+'\')" disabled><img src="assets/trash-delete.png?rev=20260904-settings-icon" alt="" aria-hidden="true">Delete Selected</button>'
   +'</div>';
 }
 
