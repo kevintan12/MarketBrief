@@ -38,7 +38,8 @@
   <div class="sidebar-wrap" id="desktopWrap" style="display:none">
     <div class="sidebar">
       
-      <button class="snav-item on" id="sn-Dash"     onclick="showView('Dash')"><span class="snav-ico">◈</span> Dashboard</button>
+      <button class="snav-item on" id="sn-MyStocks" onclick="showView('MyStocks')"><span class="snav-ico">◆</span> My Stocks</button>
+      <button class="snav-item"    id="sn-Watchlist" onclick="showView('Watchlist')"><span class="snav-ico">◇</span> Watchlist</button>
       <button class="snav-item"    id="sn-Search"   onclick="showView('Search')"><span class="snav-ico">⌕</span> Search</button>
       <button class="snav-item"    id="sn-Invest"   onclick="showView('Invest')"><span class="snav-ico">◎</span> Invest</button>
       <button class="snav-item"    id="sn-Settings" onclick="showView('Settings')"><span class="snav-ico">⚙</span> Settings</button>
@@ -58,9 +59,11 @@
       </div>
       <div class="slabel notop">Market Indices <span id="liveIndM" style="font-size:0.85rem;margin-left:6px"></span></div>
       <div class="idx-scroll" id="idxGrid"><div class="msg">Loading… <span class="spin"></span></div></div>
-      <button class="ai-btn" id="aiBtnM" onclick="triggerSummary()">✦ Generate AI Summary</button>
-      <div class="slabel"><span class="dot"></span>AI Summary</div>
-      <div id="sumArea"></div>
+      <div id="dashboardAIM">
+        <button class="ai-btn" id="aiBtnM" onclick="triggerSummary()">✦ Generate Market Brief</button>
+        <div class="slabel"><span class="dot"></span>AI Summary</div>
+        <div id="sumArea"></div>
+      </div>
     </div>
 
     <div id="vSearch" class="content" style="display:none">
@@ -82,7 +85,8 @@
 </div>
 
 <div class="bnav" id="mBnav">
-  <button class="bitem on" id="bn-Dash"     onclick="showView('Dash')"><span class="bico">◈</span>Dashboard</button>
+  <button class="bitem on" id="bn-MyStocks" onclick="showView('MyStocks')"><span class="bico">◆</span>My Stocks</button>
+  <button class="bitem"    id="bn-Watchlist" onclick="showView('Watchlist')"><span class="bico">◇</span>Watchlist</button>
   <button class="bitem"    id="bn-Search"   onclick="showView('Search')"><span class="bico">⌕</span>Search</button>
   <button class="bitem"    id="bn-Invest"   onclick="showView('Invest')"><span class="bico">◎</span>Invest</button>
   <button class="bitem"    id="bn-Settings" onclick="showView('Settings')"><span class="bico">⚙</span>Settings</button>

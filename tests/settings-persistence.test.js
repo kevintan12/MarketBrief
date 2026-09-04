@@ -16,7 +16,7 @@ function sourceBetween(startText, endText) {
 }
 
 const stateSource = sourceBetween('var MarketBrief =', '// ── Boot');
-const navigationSource = sourceBetween('function showView', '// ── Desktop');
+const navigationSource = sourceBetween('function isDashboardView', '// ── Desktop');
 const getAllTickersSource = sourceBetween('function getAllTickers', 'var _quoteFetches');
 const settingsListSource = sourceBetween('function renderSettingsPanelTo', 'function exportSettings');
 const persistenceSource = appSource.slice(appSource.indexOf('function exportSettings'));
@@ -69,7 +69,7 @@ function createHarness(initialStorage = {}) {
     atob(value) { return Buffer.from(value, 'base64').toString('binary'); },
     escape, unescape, encodeURIComponent, decodeURIComponent,
     esc(value) { return String(value); },
-    renderIndices() {}, updateLiveIndicator() {}, console
+    renderIndices() {}, updateLiveIndicator() {}, restoreCurrentBrief() {}, console
   };
   vm.createContext(context);
   vm.runInContext(stateSource + navigationSource + getAllTickersSource + settingsListSource + persistenceSource, context);
@@ -136,18 +136,22 @@ test('old export without myStocks remains compatible', () => {
   assert.deepEqual(JSON.parse(localStorage.value('mb5')).myStocks, {US: [], SG: [], HK: []});
 });
 
-test('getAllTickers output is unchanged when myStocks changes', () => {
+test('getAllTickers uses the active Dashboard-style list', () => {
   const {context} = createHarness();
   context.S.customTickers.US.push(ticker('AAPL', 'US'));
-  const before = Array.from(context.getAllTickers(), item => item.sym);
   context.S.myStocks.US.push(ticker('VEEV', 'US'));
   context.S.myStocks.SG.push(ticker('D05.SI', 'SG'));
-  assert.deepEqual(Array.from(context.getAllTickers(), item => item.sym), before);
+  assert.ok(context.getAllTickers().some(item => item.sym === 'VEEV'));
+  assert.ok(context.getAllTickers().some(item => item.sym === 'D05.SI'));
+  assert.ok(!context.getAllTickers().some(item => item.sym === 'AAPL'));
+  context.activeTickerList = 'customTickers';
+  assert.ok(context.getAllTickers().some(item => item.sym === 'AAPL'));
   assert.ok(!context.getAllTickers().some(item => item.sym === 'VEEV' || item.sym === 'D05.SI'));
 });
 
 test('Settings renders Watchlist and My Stocks through list-aware controls', () => {
   const {context, elements} = createHarness();
+  context.S.fixedTickers = [ticker('^DJI', 'US'), ticker('^STI', 'SG'), ticker('^HSI', 'HK')];
   context.S.customTickers.US.push(ticker('AAPL', 'US'));
   context.S.myStocks.US.push(ticker('VEEV', 'US'));
   context.renderSettingsPanelTo('settingsPanel');
@@ -160,6 +164,8 @@ test('Settings renders Watchlist and My Stocks through list-aware controls', () 
   assert.match(html, /moveTicker\('myStocks','US'/);
   assert.match(html, /selectAll_customTickers_settingsPanel/);
   assert.match(html, /selectAll_myStocks_settingsPanel/);
+  assert.doesNotMatch(html, /\^DJI|\^STI|\^HSI/);
+  assert.doesNotMatch(html, /Index tickers are fixed/);
   assert.equal((html.match(/class="ticker-drag-handle"/g) || []).length, 2);
   assert.match(html, /aria-label="Move AAPL up"[^>]* disabled/);
   assert.match(html, /aria-label="Move AAPL down"[^>]* disabled/);
@@ -474,7 +480,7 @@ test('drag cleanup removes clones on cancel, rerender, navigation and replacemen
   const navigationGhost = begin(rows[0], 0);
   harness.context.currentView = 'Settings';
   harness.context.isDesktop = false;
-  harness.context.showView('Dash');
+  harness.context.showView('MyStocks');
   assert.equal(navigationGhost.parentNode, null);
   assert.equal(activeGhosts.length, 0);
 });

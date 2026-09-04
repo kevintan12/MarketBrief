@@ -59,6 +59,8 @@ function createHarness({ tickers, requests }) {
     setInterval,
     clearInterval,
     S: { proxyUrl: 'https://example.test' },
+    activeTickerList: 'myStocks',
+    _summaryInFlight: false,
     mktData: tickers.map(ticker => ({ sym: ticker.sym, mkt: ticker.mkt, price: 1, chg: 1, pct: 1 })),
     getAllTickers: () => tickers,
     fetchQuote: symbol => typeof requests[symbol] === 'function' ? requests[symbol]() : requests[symbol],
@@ -418,4 +420,19 @@ test('manual Dashboard Refresh still rebuilds the complete market dataset', asyn
     { sym: '^STI', price: 5744.11, chg: 33.74, pct: 0.591 }
   );
   assert.equal(context.calls.render, 1);
+});
+
+test('manual load from a previous ticker-list view cannot replace the newly selected view', async () => {
+  const oldListQuote = deferred();
+  const context = createHarness({
+    tickers: [{ sym: 'OLD', name: 'Old', sub: 'SG', flag: 'SG', mkt: 'SG' }],
+    requests: { OLD: oldListQuote.promise }
+  });
+  context.activeTickerList = 'myStocks';
+  const oldLoad = context.loadDash();
+  context.activeTickerList = 'customTickers';
+  context.mktData = [];
+  oldListQuote.resolve({ canonical: canonical(10, 2, 25) });
+  await oldLoad;
+  assert.deepEqual(context.mktData, []);
 });

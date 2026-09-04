@@ -20,7 +20,7 @@ function renderIndices(){
   var all=mktData;
   var filtered=curFilter==='all'?all:all.filter(function(d){return d.mkt===curFilter;});
   if(!filtered.length){setGridHTML('<div class="msg">No data for this filter.</div>');return;}
-  // Sort order: US index, US watchlist, SG index, SG watchlist, HK index, HK watchlist
+  // Sort order: US index, US user list, SG index, SG user list, HK index, HK user list
   var MKT_ORDER={US:0,SG:1,HK:2};
   var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^STI':1,'^HSI':1};
   function sortKey(d){
@@ -40,13 +40,13 @@ function renderIndices(){
       var html='';
       var lastGroup='';
       var groupLabels={US:'🇺🇸 US Markets',SG:'🇸🇬 Singapore Markets',HK:'🇭🇰 Hong Kong Markets'};
-      var subLabels={idx:'Indices',watch:'Watchlist'};
+      var userListLabel=activeTickerList==='myStocks'?'My Stocks':'Watchlist';
       sorted.forEach(function(d){
         var isIdx=FIXED_SYMS[d.sym]?'idx':'watch';
         var grpKey=d.mkt+'-'+isIdx;
         if(grpKey!==lastGroup){
           lastGroup=grpKey;
-          var grpLabel=(isIdx==='idx'?groupLabels[d.mkt]+' · Indices':groupLabels[d.mkt]+' · Watchlist');
+          var grpLabel=(isIdx==='idx'?groupLabels[d.mkt]+' · Indices':groupLabels[d.mkt]+' · '+userListLabel);
           html+='<div style="font-size:0.78rem;letter-spacing:0.1em;color:var(--orange);text-transform:uppercase;padding:10px 4px 4px;border-top:'+(html?'1px solid rgba(249,115,22,0.2)':'none')+';">'+grpLabel+'</div>';
         }
         var cls=Math.abs(d.pct)<0.01?'neu':(d.pct>=0?'up':'dn');

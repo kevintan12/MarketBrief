@@ -104,7 +104,7 @@ MarketBrief.config = {
   }
 };
 var S = MarketBrief.config;
-var mktData=[], curFilter='all', isDesktop=false, currentView='Dash';
+var mktData=[], curFilter='all', isDesktop=false, currentView='MyStocks', activeTickerList='myStocks';
 var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^STI':1,'^HSI':1};
 var acTimers={};  // debounce timers keyed by input id
 
@@ -150,6 +150,7 @@ function detectLayout(){
   document.getElementById('mobileWrap').style.display=isDesktop?'none':'block';
   document.getElementById('mBnav').style.display=isDesktop?'none':'flex';
   if(isDesktop) renderDesktop();
+  else if(isDashboardView(currentView))restoreCurrentBrief();
 }
 
 function tickClock(){
@@ -162,6 +163,9 @@ function tickClock(){
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
+function isDashboardView(name){return name==='MyStocks'||name==='Watchlist';}
+function tickerListForView(name){return name==='MyStocks'?'myStocks':name==='Watchlist'?'customTickers':null;}
+
 function showView(name){
   if(name!=='Settings'&&_tickerDrag)cancelTickerDrag();
   // Save search content BEFORE switching away
@@ -176,15 +180,22 @@ function showView(name){
     var _inp=document.getElementById('ac_searchBox')||document.getElementById('ac_searchBoxD');
     if(_inp&&_inp.value) savedSearchQuery=_inp.value;
   }
+  var nextTickerList=tickerListForView(name);
+  var tickerListChanged=nextTickerList&&nextTickerList!==activeTickerList;
+  if(nextTickerList)activeTickerList=nextTickerList;
+  if(tickerListChanged)mktData=[];
   currentView=name;
   if(isDesktop){
-    ['Dash','Search','Invest','Settings'].forEach(function(v){
+    ['MyStocks','Watchlist','Search','Invest','Settings'].forEach(function(v){
       var e=document.getElementById('sn-'+v);if(e)e.classList.toggle('on',v===name);
     });
     renderDesktop();
   } else {
-    ['Dash','Search','Invest','Settings'].forEach(function(v){
+    document.getElementById('vDash').style.display=isDashboardView(name)?'':'none';
+    ['Search','Invest','Settings'].forEach(function(v){
       document.getElementById('v'+v).style.display=v===name?'':'none';
+    });
+    ['MyStocks','Watchlist','Search','Invest','Settings'].forEach(function(v){
       document.getElementById('bn-'+v).classList.toggle('on',v===name);
     });
     if(name==='Search'){
@@ -194,21 +205,22 @@ function showView(name){
     }
     if(name==='Settings') renderSettingsPanelTo('settingsPanel');
     if(name==='Invest') renderInvestView('investPanel');
-    if(name==='Dash') {
+    if(isDashboardView(name)) {
       renderIndices(); updateLiveIndicator();
       // Restore active chip highlight
       document.querySelectorAll('#mktChips .chip').forEach(function(b){
         b.classList.toggle('on', b.dataset.filter===curFilter);
       });
-      setTimeout(function(){var sa=document.getElementById('sumArea');if(sa&&savedSumHTML){sa.innerHTML=savedSumHTML;}},50);
+      restoreCurrentBrief();
     }
   }
+  if(tickerListChanged)loadDash();
 }
 
 // ── Desktop ───────────────────────────────────────────────────────────────────
 function renderDesktop(){
   var dc=document.getElementById('desktopContent'); if(!dc)return;
-  if(currentView==='Dash'){
+  if(isDashboardView(currentView)){
     dc.innerHTML=
       '<div class="desktop-grid">'
       +'<div class="col-left">'
@@ -224,7 +236,7 @@ function renderDesktop(){
       +'</div>'
       +'<div class="col-right">'
         +'<div class="slabel notop"><span class="dot"></span>AI Summary</div>'
-        +'<button class="ai-btn" id="aiBtnD" onclick="triggerSummary()">✦ Generate AI Summary</button>'
+        +'<button class="ai-btn" id="aiBtnD" onclick="triggerSummary()">✦ Generate Market Brief</button>'
         +'<div id="sumAreaD"></div>'
       +'</div>'
       +'</div>';
@@ -234,7 +246,7 @@ function renderDesktop(){
     document.querySelectorAll('#mktChipsD .chip').forEach(function(b){
       b.classList.toggle('on',b.dataset.filter===curFilter);
     });
-    window._tryRTimer=null;(function tryR(n){window._tryRTimer=setTimeout(function(){var sd=document.getElementById('sumAreaD');if(sd&&savedSumHTML){sd.innerHTML=savedSumHTML;}else if(n>0)tryR(n-1);},80);})(5);
+    restoreCurrentBrief();
   } else if(currentView==='Search'){
     // If we have a cached search DOM, restore it directly instead of re-rendering
     if(savedSearchHTML&&savedSearchQuery){
@@ -319,20 +331,29 @@ function setAIBtnVisible(show){
   });
 }
 function triggerSummary(){
-  if(!S.proxyUrl){setSumHTML('<div class="msg err">Add your Proxy URL in ⚙ Settings.</div>');return;}
-  if(!mktData.length){setSumHTML('<div class="msg err">Load data first — click ↻ Refresh.</div>');return;}
-  // Cancel any pending restore and clear old summary before generating fresh
-  if(window._tryRTimer){clearTimeout(window._tryRTimer);window._tryRTimer=null;}
-  savedSumHTML='';
-  setSumHTML('');
+  var briefKey=activeTickerList;
+  if(_summaryInFlight)return;
+  if(!S.proxyUrl){setSumHTML('<div class="msg err">Add your Proxy URL in ⚙ Settings.</div>',briefKey);return;}
+  if(!mktData.length){setSumHTML('<div class="msg err">Load data first — click ↻ Refresh.</div>',briefKey);return;}
+  var summaryFilter=curFilter;
+  var summaryData=mktData.map(function(item){return Object.assign({},item);});
+  savedBriefHTML[briefKey]='';
+  setSumHTML('',briefKey);
+  _summaryInFlight=true;
+  _summaryOwner=briefKey;
   setAIBtnVisible(false);
-  loadSummary();
+  loadSummary(briefKey,summaryFilter,summaryData).catch(function(e){
+    saveBriefHTML(briefKey,'<div class="msg err">Summary error: '+esc(e.message)+'</div>');
+    _summaryInFlight=false;_summaryOwner=null;
+    setAIBtnVisible(true);
+  });
 }
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 function getAllTickers(){
   var all=S.fixedTickers.slice();
-  ['US','SG','HK'].forEach(function(m){all=all.concat(S.customTickers[m]||[]);});
+  var list=S[activeTickerList]||{};
+  ['US','SG','HK'].forEach(function(m){all=all.concat(list[m]||[]);});
   return all;
 }
 var _quoteFetches={};
@@ -369,8 +390,9 @@ function shouldApplyDashboardQuote(request,quote){
   return true;
 }
 async function loadDash(){
+  var tickerList=activeTickerList;
   setGridHTML('<div class="msg">Loading… <span class="spin"></span></div>');
-  setAIBtnVisible(true);
+  setAIBtnVisible(!_summaryInFlight);
   if(!S.proxyUrl){
     setGridHTML('<div class="msg">👋 Welcome! Go to <strong style="color:var(--txt)">⚙ Settings</strong> and enter your Proxy URL.</div>');
     return;
@@ -393,17 +415,30 @@ async function loadDash(){
       }
     }
   });
+  if(tickerList!==activeTickerList)return;
   mktData=nextData;
   renderIndices();
   if(!mktData.length) setGridHTML('<div class="msg err">Could not load data. Check Proxy URL.</div>');
   startAutoRefresh();
 }
-function setSumHTML(h){var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');if(a)a.innerHTML=h;if(b)b.innerHTML=h;}
+function setSumHTML(h,briefKey){
+  var key=briefKey||activeTickerList;
+  if(!isDashboardView(currentView)||key!==activeTickerList)return;
+  var a=document.getElementById('sumArea'),b=document.getElementById('sumAreaD');
+  if(a)a.innerHTML=h;if(b)b.innerHTML=h;
+}
+function saveBriefHTML(briefKey,h){savedBriefHTML[briefKey]=h;setSumHTML(h,briefKey);}
+function restoreCurrentBrief(){
+  if(!isDashboardView(currentView))return;
+  setSumHTML(savedBriefHTML[activeTickerList]||'',activeTickerList);
+  setAIBtnVisible(!_summaryInFlight);
+}
 
 // ── Real-time auto-refresh ────────────────────────────────────────────────────
 var autoRefreshTimer=null;
 var lastSearchSym=null;
-var savedSumHTML='';
+var savedBriefHTML={myStocks:'',customTickers:''};
+var _summaryInFlight=false, _summaryOwner=null;
 var savedSearchHTML='';
 var savedSearchQuery='';
 var savedInvestHTML='';
@@ -559,11 +594,12 @@ function startAutoRefresh(){
   updateLiveIndicator();
 }
 // ── AI Summary ────────────────────────────────────────────────────────────────
-async function loadSummary(){
+async function loadSummary(briefKey,summaryFilter,summaryData){
   console.log('MB: loadSummary started');
-  setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>');
+  setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>',briefKey);
   var summaryNow=new Date();
-  var mktsToShow=curFilter==='all'?['US','SG','HK']:[curFilter];
+  var mktsToShow=summaryFilter==='all'?['US','SG','HK']:[summaryFilter];
+  var listLabel=briefKey==='myStocks'?'My Stocks':'My Watchlist';
   var styleInstr={
     detailed:'For each market section write 3-4 sentences. If the market is LIVE (session in progress), analyse what is happening RIGHT NOW in the current session — intraday moves, what is driving price action today, and what to watch for the rest of the session. If the market is closed, analyse the completed session. Cover: (1) what moved and by how much, (2) specific triggers or catalysts (macro data, Fed comments, earnings, geopolitical events, sector rotation), (3) notable individual movers, (4) near-term outlook. Be analytical, not just descriptive.',
     concise:'STRICT — each section must be exactly 2 sentences, no more. Sentence 1: key move with exact % and number. Sentence 2: single most important driver or catalyst. No sub-labels, no elaboration.',
@@ -615,7 +651,7 @@ async function loadSummary(){
       +'You MUST output all 4 links. Use fallback only if search found nothing.\n\n';
   })();
   mktsToShow.forEach(function(mkt){
-    var d=mktData.filter(function(x){return x.mkt===mkt;});
+    var d=summaryData.filter(function(x){return x.mkt===mkt;});
     if(!d.length)return;
     var state=marketStates[mkt];
     var isLive=state.regularOpen;
@@ -632,11 +668,11 @@ async function loadSummary(){
       +d.map(function(x){return x.name+': '+fmt(x.price)+' '+fmtP(x.pct);}).join('\n')+'\n\n';
     sections.push({label:sectionLabels[mkt],date:dateStr,live:isLive});
   });
-  // ── Watchlist data for prompt ──
-  var watchTickers=mktData.filter(function(x){return !FIXED_SYMS[x.sym];});
+  // ── Active user-list data for prompt ──
+  var watchTickers=summaryData.filter(function(x){return !FIXED_SYMS[x.sym];});
   var watchLines='';
   if(watchTickers.length){
-    watchLines='MY WATCHLIST DATA:\n';
+    watchLines=listLabel.toUpperCase()+' DATA:\n';
     watchTickers.forEach(function(x){
       var arr=x.pct>=0?'▲':'▼';
       watchLines+=x.name+' ('+x.sym+'): '+fmt(x.price)+' '+arr+' '+fmtD(x.chg)+' ('+fmtP(x.pct)+')\n';
@@ -673,22 +709,25 @@ async function loadSummary(){
   var headerList=sections.map(function(s,i){return (i+1)+'. '+s.label+' ('+(s.live?'🔴 LIVE':''+s.date)+')';}).join('\n');
   var sectionCount=sections.length;
   if(mktsToShow.length>1) { headerList+='\n'+(++sectionCount)+'. 📊 Overall Sentiment'; }
-  if(watchTickers.length)  { headerList+='\n'+(++sectionCount)+'. 💼 My Watchlist'; }
+  if(watchTickers.length)  { headerList+='\n'+(++sectionCount)+'. 💼 '+listLabel; }
   headerList+='\n'+(++sectionCount)+'. 🌏 Regional Markets';
   prompt+='Write a structured market summary with EXACTLY these section headers (use them verbatim):\n'
     +headerList+'\n\n'+(styleInstr[S.style]||styleInstr.detailed)+'\n'
     +(mktsToShow.length>1?'End the Overall Sentiment section with one line e.g. "Sentiment: Cautiously Bullish".\n':'End with one line e.g. "Sentiment: Cautiously Bullish".\n')
     +'For each market, comment on volume relative to average — was volume elevated, light, or normal? High volume on a move suggests institutional conviction; low volume suggests retail-driven or unconvinced market. Distinguish where possible between institutional (block trades, futures-led, options activity) and retail (momentum-chasing, meme-driven) participation.\n'
     +'Focus on what matters for a Singapore investor.\n\n'
-    +(watchTickers.length?(S.style==='bullets'?'For the 💼 My Watchlist section: write 3-4 bullet points starting with - covering overall sentiment and top 2-3 movers by % change with one-line reason each.\\n':'For the 💼 My Watchlist section: assess the overall sentiment of the watchlist (how many stocks are up vs down, breadth). Highlight the top 2-3 movers by % change — name them, give the % move, and one-line reason if identifiable. Keep to 3-4 sentences.\\n'):'')
+    +(watchTickers.length?(S.style==='bullets'?'For the 💼 '+listLabel+' section: write 3-4 bullet points starting with - covering overall sentiment and top 2-3 movers by % change with one-line reason each.\\n':'For the 💼 '+listLabel+' section: assess the overall sentiment of this list (how many stocks are up vs down, breadth). Highlight the top 2-3 movers by % change — name them, give the % move, and one-line reason if identifiable. Keep to 3-4 sentences.\\n'):'')
     +(S.style==='bullets'?'For the 🌏 Regional Markets section: write 3-4 bullet points starting with - summarising the KOSPI, Bursa Malaysia, TAIEX, and Nikkei using ONLY the regional data provided above — do not search for these figures.\\n':'For the 🌏 Regional Markets section: write one paragraph (3-4 sentences) summarising the KOSPI, Bursa Malaysia, TAIEX, and Nikkei using ONLY the regional data provided above — do not search for these figures.\\n')
 
-  var hdrHTML='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span>'
+  var briefPrefix='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div><button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
-    +'<div id="sumStream"><div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div></div></div>';
-  setSumHTML(hdrHTML);
+    +'<div id="sumStream">';
+  var briefSuffix='</div></div>';
+  var hdrHTML=briefPrefix+'<div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div>'+briefSuffix;
+  saveBriefHTML(briefKey,hdrHTML);
   // Find the VISIBLE sumStream — on desktop sumAreaD is shown, on mobile sumArea
   function getStreamEl(){
+    if(_summaryOwner!==briefKey||!isDashboardView(currentView)||activeTickerList!==briefKey)return null;
     var b=document.getElementById('sumAreaD'),a=document.getElementById('sumArea');
     var el=(b&&b.offsetParent!==null)?b.querySelector('#sumStream'):(a?a.querySelector('#sumStream'):null);
     return el||document.getElementById('sumStream');
@@ -696,7 +735,7 @@ async function loadSummary(){
   var _cdSec=20,_cdFirstToken=false;
   window._sumCdTimer=setInterval(function(){
     _cdSec--;
-    var n=document.getElementById('cdNum');
+    var _cdStream=getStreamEl();var n=_cdStream?_cdStream.querySelector('#cdNum'):null;
     if(n&&_cdSec>0) n.textContent='~'+_cdSec+'s';
     else if(_cdSec<=0) clearInterval(window._sumCdTimer);
   },1000);
@@ -728,17 +767,14 @@ async function loadSummary(){
         try{
           var ev=JSON.parse(json);
           if(ev.type==='content_block_start'&&ev.content_block&&ev.content_block.type==='tool_use'){
-            var _cdN=document.getElementById('cdNum');if(_cdN)_cdN.textContent='searching…';}
+            var _cdS=getStreamEl();var _cdN=_cdS?_cdS.querySelector('#cdNum'):null;if(_cdN)_cdN.textContent='searching…';}
           if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
             accumulated+=ev.delta.text;
             var sel=getStreamEl();
             if(!_cdFirstToken){_cdFirstToken=true;clearInterval(window._sumCdTimer);}
-              if(sel){sel.innerHTML=formatSummary(cleanAIText(accumulated));
-              // Update savedSumHTML - prefer whichever area has more content
-              var _sa2a=document.getElementById('sumArea'),_sa2b=document.getElementById('sumAreaD');
-              var _sa2=(_sa2b&&(_sa2b.innerHTML||'').length>(_sa2a&&_sa2a.innerHTML||'').length)?_sa2b:_sa2a;
-              if(_sa2&&_sa2.innerHTML&&_sa2.innerHTML.length>100) savedSumHTML=_sa2.innerHTML;
-            }
+            var rendered=formatSummary(cleanAIText(accumulated));
+            savedBriefHTML[briefKey]=briefPrefix+rendered+briefSuffix;
+            if(sel)sel.innerHTML=rendered;
           }
         }catch(_){}
       }
@@ -746,18 +782,16 @@ async function loadSummary(){
     // Final render
     var sel=getStreamEl();
     clearInterval(window._sumCdTimer);
-    if(sel)sel.innerHTML=formatSummary(cleanAIText(accumulated));
+    var finalRendered=formatSummary(cleanAIText(accumulated));
+    savedBriefHTML[briefKey]=briefPrefix+finalRendered+briefSuffix;
+    if(sel)sel.innerHTML=finalRendered;
     _sumInFlight=false;
+    _summaryInFlight=false;_summaryOwner=null;
     setAIBtnVisible(true);
-    // Save complete rendered HTML for persistence across tab switches
-    var _sa=document.getElementById('sumArea'); var _sb=document.getElementById('sumAreaD');
-    var _saLen=(_sa&&_sa.innerHTML)?_sa.innerHTML.length:0;
-    var _sbLen=(_sb&&_sb.innerHTML)?_sb.innerHTML.length:0;
-    var _best=_sbLen>_saLen?_sb:_sa;
-    if(_best&&_best.innerHTML&&_best.innerHTML.length>100) savedSumHTML=_best.innerHTML;
   }catch(e){
-    setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>');
+    saveBriefHTML(briefKey,'<div class="msg err">Summary error: '+esc(e.message)+'</div>');
     _sumInFlight=false;
+    _summaryInFlight=false;_summaryOwner=null;
     setAIBtnVisible(true);
   }
 }
@@ -1273,10 +1307,8 @@ function renderSettingsPanelTo(pid){
   if(_tickerDrag)cancelTickerDrag();
   var el=document.getElementById(pid); if(!el)return;
 
-  function mktSection(listKey,mkt,flag,label,showFixed){
-    var fixed=showFixed?S.fixedTickers.filter(function(t){return t.mkt===mkt;}):[];
+  function mktSection(listKey,mkt,flag,label){
     var custom=S[listKey][mkt]||[];
-    var fixedHtml=fixed.map(function(t){return '<span class="ttag fixed">🔒 '+esc(t.sym)+'</span>';}).join('');
     var customHtml=custom.map(function(t,i){
       return '<span class="ttag ticker-row" data-list-key="'+listKey+'" data-mkt="'+mkt+'" data-idx="'+i+'">'
         +'<input type="checkbox" class="ticker-select" data-mkt="'+mkt+'" data-idx="'+i+'" onchange="updateTickerSelectionControls(\''+listKey+'\',\''+pid+'\')">'
@@ -1289,7 +1321,7 @@ function renderSettingsPanelTo(pid){
     var iid='settAC_'+listKey+'_'+mkt+'_'+pid;
     return '<div class="mkt-section">'
       +'<div class="mkt-section-title">'+flag+' '+label+'</div>'
-      +'<div class="ticker-tags">'+fixedHtml+customHtml+'</div>'
+      +'<div class="ticker-tags">'+customHtml+'</div>'
       +'<div class="tadd-ac-wrap" id="sAcWrap_'+listKey+'_'+mkt+'_'+pid+'">'
         +'<input class="tadd-ac-input" id="'+iid+'" placeholder="Search to add '+label+' ticker…" autocomplete="off">'
       +'</div>'
@@ -1302,19 +1334,19 @@ function renderSettingsPanelTo(pid){
       +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
       +tickerSelectionControls('myStocks',pid)
       +'<div id="tickerList_myStocks_'+pid+'">'
-        +mktSection('myStocks','US','🇺🇸','US Stocks',false)
-        +mktSection('myStocks','SG','🇸🇬','SGX Stocks',false)
-        +mktSection('myStocks','HK','🇭🇰','HKEX Stocks',false)
+        +mktSection('myStocks','US','🇺🇸','US Stocks')
+        +mktSection('myStocks','SG','🇸🇬','SGX Stocks')
+        +mktSection('myStocks','HK','🇭🇰','HKEX Stocks')
       +'</div>'
     +'</div>'
     +'<div class="srow">'
       +'<div class="slbl">Watchlist — by Market</div>'
-      +'<div class="snote" style="margin-bottom:12px">🔒 Index tickers are fixed. Use ↑↓ to reorder. Search by name to add.</div>'
+      +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
       +tickerSelectionControls('customTickers',pid)
       +'<div id="tickerList_customTickers_'+pid+'">'
-        +mktSection('customTickers','US','🇺🇸','US Stocks',true)
-        +mktSection('customTickers','SG','🇸🇬','SGX Stocks',true)
-        +mktSection('customTickers','HK','🇭🇰','HKEX Stocks',true)
+        +mktSection('customTickers','US','🇺🇸','US Stocks')
+        +mktSection('customTickers','SG','🇸🇬','SGX Stocks')
+        +mktSection('customTickers','HK','🇭🇰','HKEX Stocks')
       +'</div>'
     +'</div>'
     +'<div class="srow">'
