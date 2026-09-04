@@ -39,17 +39,19 @@ test('HK lunch grace polls for fifteen minutes then stops before afternoon resum
   assertPolling('HK', '2026-09-03T05:00:00Z', 'regularAfternoon', true, 0, true);
 });
 
-test('SG and HK close grace uses five-second and sixty-second phases then stops', () => {
+test('SG and HK close grace uses five-second and sixty-second phases then stops after sixty minutes', () => {
   assertPolling('SG', '2026-09-03T09:00:00Z', 'closed', false, 5, true);
   assertPolling('SG', '2026-09-03T09:29:59Z', 'closed', false, 5, true);
   assertPolling('SG', '2026-09-03T09:30:00Z', 'closed', false, 60, true);
-  assertPolling('SG', '2026-09-03T09:44:59Z', 'closed', false, 60, true);
-  assertPolling('SG', '2026-09-03T09:45:00Z', 'closed', false, 0, false);
+  assertPolling('SG', '2026-09-03T09:45:00Z', 'closed', false, 60, true);
+  assertPolling('SG', '2026-09-03T09:59:59Z', 'closed', false, 60, true);
+  assertPolling('SG', '2026-09-03T10:00:00Z', 'closed', false, 0, false);
   assertPolling('HK', '2026-09-03T08:00:00Z', 'closed', false, 5, true);
   assertPolling('HK', '2026-09-03T08:29:59Z', 'closed', false, 5, true);
   assertPolling('HK', '2026-09-03T08:30:00Z', 'closed', false, 60, true);
-  assertPolling('HK', '2026-09-03T08:44:59Z', 'closed', false, 60, true);
-  assertPolling('HK', '2026-09-03T08:45:00Z', 'closed', false, 0, false);
+  assertPolling('HK', '2026-09-03T08:45:00Z', 'closed', false, 60, true);
+  assertPolling('HK', '2026-09-03T08:59:59Z', 'closed', false, 60, true);
+  assertPolling('HK', '2026-09-03T09:00:00Z', 'closed', false, 0, false);
 });
 
 test('US session behavior has no polling grace', () => {

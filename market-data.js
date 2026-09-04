@@ -24,7 +24,7 @@
         {name:'lunchBreak',start:'12:00',end:'13:00',regularOpen:false,quoteExpectedToMove:false},
         {name:'regularAfternoon',start:'13:00',end:'17:00',regularOpen:true,quoteExpectedToMove:true}
       ],
-      pollingGrace:{lunchBreak:{fastUntilMinutes:30,slowUntilMinutes:60},close:{fastUntilMinutes:30,slowUntilMinutes:45}},
+      pollingGrace:{lunchBreak:{fastUntilMinutes:30,slowUntilMinutes:60},close:{fastUntilMinutes:30,slowUntilMinutes:60}},
       symbolSuffixes:['.SI'],
       indexSymbols:['^STI']
     },
@@ -37,7 +37,7 @@
         {name:'lunchBreak',start:'12:00',end:'13:00',regularOpen:false,quoteExpectedToMove:false},
         {name:'regularAfternoon',start:'13:00',end:'16:00',regularOpen:true,quoteExpectedToMove:true}
       ],
-      pollingGrace:{lunchBreak:{fastUntilMinutes:15,slowUntilMinutes:15},close:{fastUntilMinutes:30,slowUntilMinutes:45}},
+      pollingGrace:{lunchBreak:{fastUntilMinutes:15,slowUntilMinutes:15},close:{fastUntilMinutes:30,slowUntilMinutes:60}},
       symbolSuffixes:['.HK'],
       indexSymbols:['^HSI']
     }
