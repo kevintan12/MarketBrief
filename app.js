@@ -1294,12 +1294,16 @@ function renderSettingsPanelTo(pid){
   }
 
   el.innerHTML=
-    '<div class="srow" style="border-color:rgba(0,212,255,0.4)">'
-      +'<div class="slbl" style="color:var(--acc)">★ Proxy URL</div>'
-      +'<input class="sinp" type="url" id="cfgProxy_'+pid+'" placeholder="https://mb-proxy.vercel.app" value="'+esc(S.proxyUrl)+'">'
-      +'<div class="snote">Your Vercel proxy URL for live market data.</div>'
+    '<div class="srow">'
+      +'<div class="slbl">My Stocks — by Market</div>'
+      +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
+      +tickerSelectionControls('myStocks',pid)
+      +'<div id="tickerList_myStocks_'+pid+'">'
+        +mktSection('myStocks','US','🇺🇸','US Stocks',false)
+        +mktSection('myStocks','SG','🇸🇬','SGX Stocks',false)
+        +mktSection('myStocks','HK','🇭🇰','HKEX Stocks',false)
+      +'</div>'
     +'</div>'
-
     +'<div class="srow">'
       +'<div class="slbl">Watchlist — by Market</div>'
       +'<div class="snote" style="margin-bottom:12px">🔒 Index tickers are fixed. Use ↑↓ to reorder. Search by name to add.</div>'
@@ -1308,16 +1312,6 @@ function renderSettingsPanelTo(pid){
         +mktSection('customTickers','US','🇺🇸','US Stocks',true)
         +mktSection('customTickers','SG','🇸🇬','SGX Stocks',true)
         +mktSection('customTickers','HK','🇭🇰','HKEX Stocks',true)
-      +'</div>'
-    +'</div>'
-    +'<div class="srow">'
-      +'<div class="slbl">My Stocks — by Market</div>'
-      +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
-      +tickerSelectionControls('myStocks',pid)
-      +'<div id="tickerList_myStocks_'+pid+'">'
-        +mktSection('myStocks','US','🇺🇸','US Stocks',false)
-        +mktSection('myStocks','SG','🇸🇬','SGX Stocks',false)
-        +mktSection('myStocks','HK','🇭🇰','HKEX Stocks',false)
       +'</div>'
     +'</div>'
     +'<div class="srow">'
@@ -1355,6 +1349,11 @@ function renderSettingsPanelTo(pid){
       +'<input class="sinp" type="password" id="cfgConPin_'+pid+'" placeholder="Confirm new PIN" maxlength="6" style="margin-bottom:8px">'
       +'<button class="savebtn" style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:var(--acc)" onclick="doChangePIN(\''+pid+'\')" >Update PIN</button>'
       +'<div id="pinChgMsg_'+pid+'" style="margin-top:6px"></div>'
+    +'</div>'
+    +'<div class="srow" style="border-color:rgba(0,212,255,0.4)">'
+      +'<div class="slbl" style="color:var(--acc)">★ Proxy URL</div>'
+      +'<input class="sinp" type="url" id="cfgProxy_'+pid+'" placeholder="https://mb-proxy.vercel.app" value="'+esc(S.proxyUrl)+'">'
+      +'<div class="snote">Your Vercel proxy URL for live market data.</div>'
     +'</div>'
     +'<div class="srow" style="border-color:rgba(239,68,68,0.2)">'
       +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'

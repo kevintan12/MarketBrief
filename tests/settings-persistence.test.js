@@ -150,6 +150,9 @@ test('Settings renders Watchlist and My Stocks through list-aware controls', () 
   assert.match(html, /selectAll_customTickers_settingsPanel/);
   assert.match(html, /selectAll_myStocks_settingsPanel/);
   assert.doesNotMatch(html, /class="ticker-select"[^>]* checked/);
+  assert.ok(html.indexOf('My Stocks — by Market') < html.indexOf('Watchlist — by Market'));
+  assert.ok(html.indexOf('Change PIN') < html.indexOf('★ Proxy URL'));
+  assert.ok(html.indexOf('★ Proxy URL') < html.indexOf('Disclaimer'));
 });
 
 test('list-aware add and remove mutate only the requested list', () => {
