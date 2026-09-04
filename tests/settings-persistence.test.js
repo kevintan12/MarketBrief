@@ -52,6 +52,7 @@ function createHarness(initialStorage = {}) {
     window: {}, document, localStorage, sessionStorage,
     navigator: {clipboard: {writeText() {}}},
     location: {reload() {}},
+    confirm() { return true; },
     setTimeout() {}, clearTimeout() {},
     btoa(value) { return Buffer.from(value, 'binary').toString('base64'); },
     atob(value) { return Buffer.from(value, 'base64').toString('binary'); },
@@ -146,6 +147,9 @@ test('Settings renders Watchlist and My Stocks through list-aware controls', () 
   assert.match(html, /settAC_myStocks_US_settingsPanel/);
   assert.match(html, /moveTicker\('customTickers','US'/);
   assert.match(html, /moveTicker\('myStocks','US'/);
+  assert.match(html, /selectAll_customTickers_settingsPanel/);
+  assert.match(html, /selectAll_myStocks_settingsPanel/);
+  assert.doesNotMatch(html, /class="ticker-select"[^>]* checked/);
 });
 
 test('list-aware add and remove mutate only the requested list', () => {
@@ -177,4 +181,88 @@ test('list-aware reorder preserves Watchlist and My Stocks independently', () =>
   context.moveTicker('customTickers', 'SG', 0, 1, 'settingsPanel');
   assert.deepEqual(Array.from(context.S.customTickers.SG, item => item.sym), ['O39.SI', 'D05.SI']);
   assert.deepEqual(Array.from(context.S.myStocks.SG, item => item.sym), ['Z74.SI', 'C6L.SI']);
+});
+
+function installSelectionDom(harness, listKey, boxes) {
+  const pid = 'settingsPanel';
+  harness.elements['tickerList_' + listKey + '_' + pid] = {
+    querySelectorAll() { return boxes; }
+  };
+  harness.elements['selectAll_' + listKey + '_' + pid] = {checked: false, indeterminate: false};
+  harness.elements['deleteSelected_' + listKey + '_' + pid] = {disabled: true};
+}
+
+test('Select All and partial state remain independent per list', () => {
+  const harness = createHarness();
+  const watchBoxes = [
+    {checked: false, dataset: {mkt: 'US', idx: '0'}},
+    {checked: false, dataset: {mkt: 'SG', idx: '0'}}
+  ];
+  const stockBoxes = [{checked: false, dataset: {mkt: 'HK', idx: '0'}}];
+  installSelectionDom(harness, 'customTickers', watchBoxes);
+  installSelectionDom(harness, 'myStocks', stockBoxes);
+
+  harness.elements.selectAll_customTickers_settingsPanel.checked = true;
+  harness.context.toggleTickerSelection('customTickers', 'settingsPanel');
+  assert.ok(watchBoxes.every(box => box.checked));
+  assert.ok(stockBoxes.every(box => !box.checked));
+  assert.equal(harness.elements.selectAll_customTickers_settingsPanel.indeterminate, false);
+
+  watchBoxes[0].checked = false;
+  harness.context.updateTickerSelectionControls('customTickers', 'settingsPanel');
+  assert.equal(harness.elements.selectAll_customTickers_settingsPanel.checked, false);
+  assert.equal(harness.elements.selectAll_customTickers_settingsPanel.indeterminate, true);
+  assert.equal(harness.elements.deleteSelected_customTickers_settingsPanel.disabled, false);
+
+  watchBoxes[1].checked = false;
+  harness.context.updateTickerSelectionControls('customTickers', 'settingsPanel');
+  assert.equal(harness.elements.selectAll_customTickers_settingsPanel.indeterminate, false);
+  assert.equal(harness.elements.deleteSelected_customTickers_settingsPanel.disabled, true);
+});
+
+test('Delete Selected confirms count, cancel preserves data and confirm deletes only target selection', () => {
+  const harness = createHarness();
+  harness.context.S.customTickers.US.push(ticker('AAPL', 'US'), ticker('MSFT', 'US'));
+  harness.context.S.customTickers.SG.push(ticker('D05.SI', 'SG'));
+  harness.context.S.myStocks.US.push(ticker('AAPL', 'US'));
+  const boxes = [
+    {checked: true, dataset: {mkt: 'US', idx: '0'}},
+    {checked: false, dataset: {mkt: 'US', idx: '1'}},
+    {checked: true, dataset: {mkt: 'SG', idx: '0'}}
+  ];
+  installSelectionDom(harness, 'customTickers', boxes);
+  let prompt = '';
+  harness.context.confirm = message => { prompt = message; return false; };
+  harness.context.deleteSelectedTickers('customTickers', 'settingsPanel');
+  assert.match(prompt, /2 selected tickers/);
+  assert.deepEqual(Array.from(harness.context.S.customTickers.US, item => item.sym), ['AAPL', 'MSFT']);
+  assert.deepEqual(Array.from(harness.context.S.customTickers.SG, item => item.sym), ['D05.SI']);
+
+  harness.context.confirm = () => true;
+  harness.context.renderSettingsPanelTo = () => {};
+  harness.context.deleteSelectedTickers('customTickers', 'settingsPanel');
+  assert.deepEqual(Array.from(harness.context.S.customTickers.US, item => item.sym), ['MSFT']);
+  assert.deepEqual(Array.from(harness.context.S.customTickers.SG, item => item.sym), []);
+  assert.deepEqual(Array.from(harness.context.S.myStocks.US, item => item.sym), ['AAPL']);
+});
+
+test('selection is transient and absent from saved and exported settings', () => {
+  const harness = createHarness();
+  harness.context.S.myStocks.US.push(ticker('VEEV', 'US'));
+  harness.context.document.getElementById('cfgProxy_settingsPanel').value = '';
+  harness.context.document.getElementById('cfgStyle_settingsPanel').value = 'detailed';
+  harness.context.document.getElementById('cfgTz_settingsPanel').value = 'Asia/Singapore';
+  harness.context.saveSettings('settingsPanel');
+  const saved = JSON.parse(harness.localStorage.value('mb5'));
+  assert.equal(Object.prototype.hasOwnProperty.call(saved, 'selection'), false);
+
+  harness.context.exportSettings('settingsPanel');
+  const code = harness.elements.expOut_settingsPanel.innerHTML.match(/readonly>([^<]+)<\/textarea>/)[1];
+  const exported = JSON.parse(decodeURIComponent(escape(Buffer.from(code, 'base64').toString('binary'))));
+  assert.equal(Object.prototype.hasOwnProperty.call(exported, 'selection'), false);
+
+  const reloaded = createHarness({mb5: JSON.stringify(saved)});
+  reloaded.context.loadSettings();
+  reloaded.context.renderSettingsPanelTo('settingsPanel');
+  assert.doesNotMatch(reloaded.elements.settingsPanel.innerHTML, /class="ticker-select"[^>]* checked/);
 });

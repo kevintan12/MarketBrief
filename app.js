@@ -1277,6 +1277,7 @@ function renderSettingsPanelTo(pid){
     var fixedHtml=fixed.map(function(t){return '<span class="ttag fixed">🔒 '+esc(t.sym)+'</span>';}).join('');
     var customHtml=custom.map(function(t,i){
       return '<span class="ttag">'
+        +'<input type="checkbox" class="ticker-select" data-mkt="'+mkt+'" data-idx="'+i+'" onchange="updateTickerSelectionControls(\''+listKey+'\',\''+pid+'\')">'
         +'<button class="mv" onclick="moveTicker(\''+listKey+'\',\''+mkt+'\','+i+',-1,\''+pid+'\')">↑</button>'
         +'<button class="mv" onclick="moveTicker(\''+listKey+'\',\''+mkt+'\','+i+',1,\''+pid+'\')">↓</button>'
         +esc(t.sym)+' <button class="del" onclick="removeTicker(\''+listKey+'\',\''+mkt+'\','+i+',\''+pid+'\')">×</button>'
@@ -1302,16 +1303,22 @@ function renderSettingsPanelTo(pid){
     +'<div class="srow">'
       +'<div class="slbl">Watchlist — by Market</div>'
       +'<div class="snote" style="margin-bottom:12px">🔒 Index tickers are fixed. Use ↑↓ to reorder. Search by name to add.</div>'
-      +mktSection('customTickers','US','🇺🇸','US Stocks',true)
-      +mktSection('customTickers','SG','🇸🇬','SGX Stocks',true)
-      +mktSection('customTickers','HK','🇭🇰','HKEX Stocks',true)
+      +tickerSelectionControls('customTickers',pid)
+      +'<div id="tickerList_customTickers_'+pid+'">'
+        +mktSection('customTickers','US','🇺🇸','US Stocks',true)
+        +mktSection('customTickers','SG','🇸🇬','SGX Stocks',true)
+        +mktSection('customTickers','HK','🇭🇰','HKEX Stocks',true)
+      +'</div>'
     +'</div>'
     +'<div class="srow">'
       +'<div class="slbl">My Stocks — by Market</div>'
       +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
-      +mktSection('myStocks','US','🇺🇸','US Stocks',false)
-      +mktSection('myStocks','SG','🇸🇬','SGX Stocks',false)
-      +mktSection('myStocks','HK','🇭🇰','HKEX Stocks',false)
+      +tickerSelectionControls('myStocks',pid)
+      +'<div id="tickerList_myStocks_'+pid+'">'
+        +mktSection('myStocks','US','🇺🇸','US Stocks',false)
+        +mktSection('myStocks','SG','🇸🇬','SGX Stocks',false)
+        +mktSection('myStocks','HK','🇭🇰','HKEX Stocks',false)
+      +'</div>'
     +'</div>'
     +'<div class="srow">'
       +'<div class="slbl">Summary Style</div>'
@@ -1378,6 +1385,51 @@ function renderSettingsPanelTo(pid){
       });
     });
   });
+}
+
+function tickerSelectionControls(listKey,pid){
+  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+    +'<label class="snote" style="display:flex;align-items:center;gap:6px;margin:0">'
+      +'<input type="checkbox" id="selectAll_'+listKey+'_'+pid+'" onchange="toggleTickerSelection(\''+listKey+'\',\''+pid+'\')"> Select All'
+    +'</label>'
+    +'<button class="del" id="deleteSelected_'+listKey+'_'+pid+'" onclick="deleteSelectedTickers(\''+listKey+'\',\''+pid+'\')" disabled>Delete Selected</button>'
+  +'</div>';
+}
+
+function getTickerSelectionBoxes(listKey,pid){
+  var list=document.getElementById('tickerList_'+listKey+'_'+pid);
+  return list?Array.from(list.querySelectorAll('.ticker-select')):[];
+}
+
+function updateTickerSelectionControls(listKey,pid){
+  var boxes=getTickerSelectionBoxes(listKey,pid);
+  var selected=boxes.filter(function(box){return box.checked;}).length;
+  var selectAll=document.getElementById('selectAll_'+listKey+'_'+pid);
+  var deleteButton=document.getElementById('deleteSelected_'+listKey+'_'+pid);
+  if(selectAll){
+    selectAll.checked=boxes.length>0&&selected===boxes.length;
+    selectAll.indeterminate=selected>0&&selected<boxes.length;
+  }
+  if(deleteButton)deleteButton.disabled=selected===0;
+}
+
+function toggleTickerSelection(listKey,pid){
+  var selectAll=document.getElementById('selectAll_'+listKey+'_'+pid);
+  getTickerSelectionBoxes(listKey,pid).forEach(function(box){box.checked=selectAll.checked;});
+  updateTickerSelectionControls(listKey,pid);
+}
+
+function deleteSelectedTickers(listKey,pid){
+  var selected=getTickerSelectionBoxes(listKey,pid).filter(function(box){return box.checked;});
+  if(!selected.length)return;
+  if(!confirm('Delete '+selected.length+' selected ticker'+(selected.length===1?'':'s')+'?'))return;
+  ['US','SG','HK'].forEach(function(mkt){
+    var indexes=selected.filter(function(box){return box.dataset.mkt===mkt;})
+      .map(function(box){return Number(box.dataset.idx);})
+      .sort(function(a,b){return b-a;});
+    indexes.forEach(function(idx){S[listKey][mkt].splice(idx,1);});
+  });
+  renderSettingsPanelTo(pid);
 }
 
 async function settAcFetch(q,wid,mkt,pid,listKey){
