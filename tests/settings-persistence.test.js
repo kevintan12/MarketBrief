@@ -16,6 +16,7 @@ function sourceBetween(startText, endText) {
 
 const stateSource = sourceBetween('var MarketBrief =', '// ── Boot');
 const getAllTickersSource = sourceBetween('function getAllTickers', 'var _quoteFetches');
+const settingsListSource = sourceBetween('function renderSettingsPanelTo', 'function exportSettings');
 const persistenceSource = appSource.slice(appSource.indexOf('function exportSettings'));
 
 function createStorage(initial = {}) {
@@ -39,7 +40,9 @@ function createHarness(initialStorage = {}) {
           innerHTML: '',
           textContent: '',
           select() {},
-          setSelectionRange() {}
+          setSelectionRange() {},
+          addEventListener() {},
+          appendChild() {}
         };
       }
       return elements[id];
@@ -53,10 +56,11 @@ function createHarness(initialStorage = {}) {
     btoa(value) { return Buffer.from(value, 'binary').toString('base64'); },
     atob(value) { return Buffer.from(value, 'base64').toString('binary'); },
     escape, unescape, encodeURIComponent, decodeURIComponent,
+    esc(value) { return String(value); },
     console
   };
   vm.createContext(context);
-  vm.runInContext(stateSource + getAllTickersSource + persistenceSource, context);
+  vm.runInContext(stateSource + getAllTickersSource + settingsListSource + persistenceSource, context);
   return {context, elements, localStorage};
 }
 
@@ -128,4 +132,49 @@ test('getAllTickers output is unchanged when myStocks changes', () => {
   context.S.myStocks.SG.push(ticker('D05.SI', 'SG'));
   assert.deepEqual(Array.from(context.getAllTickers(), item => item.sym), before);
   assert.ok(!context.getAllTickers().some(item => item.sym === 'VEEV' || item.sym === 'D05.SI'));
+});
+
+test('Settings renders Watchlist and My Stocks through list-aware controls', () => {
+  const {context, elements} = createHarness();
+  context.S.customTickers.US.push(ticker('AAPL', 'US'));
+  context.S.myStocks.US.push(ticker('VEEV', 'US'));
+  context.renderSettingsPanelTo('settingsPanel');
+  const html = elements.settingsPanel.innerHTML;
+  assert.match(html, /Watchlist — by Market/);
+  assert.match(html, /My Stocks — by Market/);
+  assert.match(html, /settAC_customTickers_US_settingsPanel/);
+  assert.match(html, /settAC_myStocks_US_settingsPanel/);
+  assert.match(html, /moveTicker\('customTickers','US'/);
+  assert.match(html, /moveTicker\('myStocks','US'/);
+});
+
+test('list-aware add and remove mutate only the requested list', () => {
+  const {context} = createHarness();
+  context.addTickerDirect('customTickers', 'US', 'AAPL', 'Apple', 'settingsPanel');
+  context.addTickerDirect('customTickers', 'US', 'AAPL', 'Apple', 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), ['AAPL']);
+  assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), []);
+
+  context.addTickerDirect('myStocks', 'US', 'AAPL', 'Apple', 'settingsPanel');
+  context.addTickerDirect('myStocks', 'US', 'AAPL', 'Apple', 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), ['AAPL']);
+  assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), ['AAPL']);
+
+  context.removeTicker('myStocks', 'US', 0, 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), ['AAPL']);
+  assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), []);
+});
+
+test('list-aware reorder preserves Watchlist and My Stocks independently', () => {
+  const {context} = createHarness();
+  context.S.customTickers.SG.push(ticker('D05.SI', 'SG'), ticker('O39.SI', 'SG'));
+  context.S.myStocks.SG.push(ticker('C6L.SI', 'SG'), ticker('Z74.SI', 'SG'));
+
+  context.moveTicker('myStocks', 'SG', 0, 1, 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.SG, item => item.sym), ['D05.SI', 'O39.SI']);
+  assert.deepEqual(Array.from(context.S.myStocks.SG, item => item.sym), ['Z74.SI', 'C6L.SI']);
+
+  context.moveTicker('customTickers', 'SG', 0, 1, 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.SG, item => item.sym), ['O39.SI', 'D05.SI']);
+  assert.deepEqual(Array.from(context.S.myStocks.SG, item => item.sym), ['Z74.SI', 'C6L.SI']);
 });

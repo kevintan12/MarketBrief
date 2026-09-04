@@ -1271,22 +1271,22 @@ function doChangePIN(pid){
 function renderSettingsPanelTo(pid){
   var el=document.getElementById(pid); if(!el)return;
 
-  function mktSection(mkt,flag,label){
-    var fixed=S.fixedTickers.filter(function(t){return t.mkt===mkt;});
-    var custom=S.customTickers[mkt]||[];
+  function mktSection(listKey,mkt,flag,label,showFixed){
+    var fixed=showFixed?S.fixedTickers.filter(function(t){return t.mkt===mkt;}):[];
+    var custom=S[listKey][mkt]||[];
     var fixedHtml=fixed.map(function(t){return '<span class="ttag fixed">🔒 '+esc(t.sym)+'</span>';}).join('');
     var customHtml=custom.map(function(t,i){
       return '<span class="ttag">'
-        +'<button class="mv" onclick="moveTicker(\''+mkt+'\','+i+',-1,\''+pid+'\')">↑</button>'
-        +'<button class="mv" onclick="moveTicker(\''+mkt+'\','+i+',1,\''+pid+'\')">↓</button>'
-        +esc(t.sym)+' <button class="del" onclick="removeTicker(\''+mkt+'\','+i+',\''+pid+'\')">×</button>'
+        +'<button class="mv" onclick="moveTicker(\''+listKey+'\',\''+mkt+'\','+i+',-1,\''+pid+'\')">↑</button>'
+        +'<button class="mv" onclick="moveTicker(\''+listKey+'\',\''+mkt+'\','+i+',1,\''+pid+'\')">↓</button>'
+        +esc(t.sym)+' <button class="del" onclick="removeTicker(\''+listKey+'\',\''+mkt+'\','+i+',\''+pid+'\')">×</button>'
         +'</span>';
     }).join('');
-    var iid='settAC_'+mkt+'_'+pid;
+    var iid='settAC_'+listKey+'_'+mkt+'_'+pid;
     return '<div class="mkt-section">'
       +'<div class="mkt-section-title">'+flag+' '+label+'</div>'
       +'<div class="ticker-tags">'+fixedHtml+customHtml+'</div>'
-      +'<div class="tadd-ac-wrap" id="sAcWrap_'+mkt+'_'+pid+'">'
+      +'<div class="tadd-ac-wrap" id="sAcWrap_'+listKey+'_'+mkt+'_'+pid+'">'
         +'<input class="tadd-ac-input" id="'+iid+'" placeholder="Search to add '+label+' ticker…" autocomplete="off">'
       +'</div>'
       +'</div>';
@@ -1302,9 +1302,16 @@ function renderSettingsPanelTo(pid){
     +'<div class="srow">'
       +'<div class="slbl">Watchlist — by Market</div>'
       +'<div class="snote" style="margin-bottom:12px">🔒 Index tickers are fixed. Use ↑↓ to reorder. Search by name to add.</div>'
-      +mktSection('US','🇺🇸','US Stocks')
-      +mktSection('SG','🇸🇬','SGX Stocks')
-      +mktSection('HK','🇭🇰','HKEX Stocks')
+      +mktSection('customTickers','US','🇺🇸','US Stocks',true)
+      +mktSection('customTickers','SG','🇸🇬','SGX Stocks',true)
+      +mktSection('customTickers','HK','🇭🇰','HKEX Stocks',true)
+    +'</div>'
+    +'<div class="srow">'
+      +'<div class="slbl">My Stocks — by Market</div>'
+      +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
+      +mktSection('myStocks','US','🇺🇸','US Stocks',false)
+      +mktSection('myStocks','SG','🇸🇬','SGX Stocks',false)
+      +mktSection('myStocks','HK','🇭🇰','HKEX Stocks',false)
     +'</div>'
     +'<div class="srow">'
       +'<div class="slbl">Summary Style</div>'
@@ -1348,40 +1355,42 @@ function renderSettingsPanelTo(pid){
     +'</div>';
 
   // Attach autocomplete to each market add input
-  ['US','SG','HK'].forEach(function(mkt){
-    var iid='settAC_'+mkt+'_'+pid;
-    var wid='sAcWrap_'+mkt+'_'+pid;
-    var inp=document.getElementById(iid); if(!inp)return;
-    inp.addEventListener('input',function(){
-      var v=this.value.trim();
-      clearTimeout(acTimers[iid]);
-      if(v.length<2){closeSettAcDrop(wid);return;}
-      acTimers[iid]=setTimeout(function(){settAcFetch(v,wid,mkt,pid);},320);
-    });
-    inp.addEventListener('keydown',function(e){
-      var drop=document.getElementById('drop_'+wid);
-      var items=drop?Array.from(drop.querySelectorAll('.tadd-ac-item')):[];
-      var selIdx=-1;
-      items.forEach(function(it,i){if(it.classList.contains('sel'))selIdx=i;});
-      if(e.key==='ArrowDown'){e.preventDefault();var ni=selIdx<items.length-1?selIdx+1:0;items.forEach(function(it){it.classList.remove('sel');});if(items[ni])items[ni].classList.add('sel');return;}
-      if(e.key==='ArrowUp'){e.preventDefault();var pi=selIdx>0?selIdx-1:items.length-1;items.forEach(function(it){it.classList.remove('sel');});if(items[pi])items[pi].classList.add('sel');return;}
-      if(e.key==='Enter'){var target=selIdx>=0?items[selIdx]:(items.length?items[0]:null);if(target){addTickerDirect(mkt,target.dataset.sym,target.dataset.name,pid);closeSettAcDrop(wid);var inp2=document.getElementById(iid);if(inp2)inp2.value='';}return;}
-      if(e.key==='Escape')closeSettAcDrop(wid);
+  ['customTickers','myStocks'].forEach(function(listKey){
+    ['US','SG','HK'].forEach(function(mkt){
+      var iid='settAC_'+listKey+'_'+mkt+'_'+pid;
+      var wid='sAcWrap_'+listKey+'_'+mkt+'_'+pid;
+      var inp=document.getElementById(iid); if(!inp)return;
+      inp.addEventListener('input',function(){
+        var v=this.value.trim();
+        clearTimeout(acTimers[iid]);
+        if(v.length<2){closeSettAcDrop(wid);return;}
+        acTimers[iid]=setTimeout(function(){settAcFetch(v,wid,mkt,pid,listKey);},320);
+      });
+      inp.addEventListener('keydown',function(e){
+        var drop=document.getElementById('drop_'+wid);
+        var items=drop?Array.from(drop.querySelectorAll('.tadd-ac-item')):[];
+        var selIdx=-1;
+        items.forEach(function(it,i){if(it.classList.contains('sel'))selIdx=i;});
+        if(e.key==='ArrowDown'){e.preventDefault();var ni=selIdx<items.length-1?selIdx+1:0;items.forEach(function(it){it.classList.remove('sel');});if(items[ni])items[ni].classList.add('sel');return;}
+        if(e.key==='ArrowUp'){e.preventDefault();var pi=selIdx>0?selIdx-1:items.length-1;items.forEach(function(it){it.classList.remove('sel');});if(items[pi])items[pi].classList.add('sel');return;}
+        if(e.key==='Enter'){var target=selIdx>=0?items[selIdx]:(items.length?items[0]:null);if(target){addTickerDirect(listKey,mkt,target.dataset.sym,target.dataset.name,pid);closeSettAcDrop(wid);var inp2=document.getElementById(iid);if(inp2)inp2.value='';}return;}
+        if(e.key==='Escape')closeSettAcDrop(wid);
+      });
     });
   });
 }
 
-async function settAcFetch(q,wid,mkt,pid){
+async function settAcFetch(q,wid,mkt,pid,listKey){
   if(!S.proxyUrl) return;
   try{
     var r=await fetch(S.proxyUrl+'/api/quote?search='+encodeURIComponent(q));
     var data=await r.json();
     var results=(data.results||[]).slice(0,6);
-    renderSettAcDrop(results,wid,mkt,pid);
+    renderSettAcDrop(results,wid,mkt,pid,listKey);
   }catch(e){ closeSettAcDrop(wid); }
 }
 
-function renderSettAcDrop(results,wid,mkt,pid){
+function renderSettAcDrop(results,wid,mkt,pid,listKey){
   closeSettAcDrop(wid);
   if(!results.length)return;
   // Filter results to only show tickers belonging to the correct market
@@ -1403,9 +1412,9 @@ function renderSettAcDrop(results,wid,mkt,pid){
   }).join('');
   drop.querySelectorAll('.tadd-ac-item').forEach(function(item){
     item.addEventListener('click',function(){
-      addTickerDirect(mkt,this.dataset.sym,this.dataset.name,pid);
+      addTickerDirect(listKey,mkt,this.dataset.sym,this.dataset.name,pid);
       closeSettAcDrop(wid);
-      var iid='settAC_'+mkt+'_'+pid;
+      var iid='settAC_'+listKey+'_'+mkt+'_'+pid;
       var inp=document.getElementById(iid); if(inp) inp.value='';
     });
   });
@@ -1416,18 +1425,21 @@ function closeSettAcDrop(wid){
   var d=document.getElementById('drop_'+wid); if(d) d.remove();
 }
 
-function addTickerDirect(mkt,sym,name,pid){
-  var all=getAllTickers().map(function(t){return t.sym;});
+function addTickerDirect(listKey,mkt,sym,name,pid){
+  var all=[];
+  ['US','SG','HK'].forEach(function(m){all=all.concat(S[listKey][m]||[]);});
+  if(listKey==='customTickers')all=all.concat(S.fixedTickers);
+  all=all.map(function(t){return t.sym;});
   if(all.indexOf(sym)>-1)return;
   var flag=sym.endsWith('.L')?'🇬🇧':({'US':'🇺🇸','SG':'🇸🇬','HK':'🇭🇰'}[mkt]||'🌐');
   var sub=sym.endsWith('.L')?'UK · LSE':({'US':'US · NYSE/Nasdaq','SG':'SG · SGX','HK':'HK · HKEX'}[mkt]||'');
-  S.customTickers[mkt].push({sym:sym,name:name||sym,sub:sub,flag:flag,mkt:mkt});
+  S[listKey][mkt].push({sym:sym,name:name||sym,sub:sub,flag:flag,mkt:mkt});
   renderSettingsPanelTo(pid);
 }
 
-function removeTicker(mkt,idx,pid){ S.customTickers[mkt].splice(idx,1); renderSettingsPanelTo(pid); }
-function moveTicker(mkt,idx,dir,pid){
-  var arr=S.customTickers[mkt], ni=idx+dir;
+function removeTicker(listKey,mkt,idx,pid){ S[listKey][mkt].splice(idx,1); renderSettingsPanelTo(pid); }
+function moveTicker(listKey,mkt,idx,dir,pid){
+  var arr=S[listKey][mkt], ni=idx+dir;
   if(ni<0||ni>=arr.length)return;
   var tmp=arr[idx];arr[idx]=arr[ni];arr[ni]=tmp;
   renderSettingsPanelTo(pid);
