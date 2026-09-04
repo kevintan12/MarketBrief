@@ -25,18 +25,17 @@ test('SG lunch grace uses five-second and sixty-second phases before afternoon r
   assertPolling('SG', '2026-09-03T04:00:00Z', 'lunchBreak', false, 5, true);
   assertPolling('SG', '2026-09-03T04:29:59Z', 'lunchBreak', false, 5, true);
   assertPolling('SG', '2026-09-03T04:30:00Z', 'lunchBreak', false, 60, true);
-  assertPolling('SG', '2026-09-03T04:44:59Z', 'lunchBreak', false, 60, true);
-  assertPolling('SG', '2026-09-03T04:45:00Z', 'lunchBreak', false, 0, false);
+  assertPolling('SG', '2026-09-03T04:45:00Z', 'lunchBreak', false, 60, true);
+  assertPolling('SG', '2026-09-03T04:59:59Z', 'lunchBreak', false, 60, true);
   assertPolling('SG', '2026-09-03T05:00:00Z', 'regularAfternoon', true, 0, true);
 });
 
-test('HK lunch grace uses five-second and sixty-second phases before afternoon resumes', () => {
+test('HK lunch grace polls for fifteen minutes then stops before afternoon resumes', () => {
   assertPolling('HK', '2026-09-03T03:59:59Z', 'regularMorning', true, 0, true);
   assertPolling('HK', '2026-09-03T04:00:00Z', 'lunchBreak', false, 5, true);
-  assertPolling('HK', '2026-09-03T04:29:59Z', 'lunchBreak', false, 5, true);
-  assertPolling('HK', '2026-09-03T04:30:00Z', 'lunchBreak', false, 60, true);
-  assertPolling('HK', '2026-09-03T04:44:59Z', 'lunchBreak', false, 60, true);
-  assertPolling('HK', '2026-09-03T04:45:00Z', 'lunchBreak', false, 0, false);
+  assertPolling('HK', '2026-09-03T04:14:59Z', 'lunchBreak', false, 5, true);
+  assertPolling('HK', '2026-09-03T04:15:00Z', 'lunchBreak', false, 0, false);
+  assertPolling('HK', '2026-09-03T04:59:59Z', 'lunchBreak', false, 0, false);
   assertPolling('HK', '2026-09-03T05:00:00Z', 'regularAfternoon', true, 0, true);
 });
 

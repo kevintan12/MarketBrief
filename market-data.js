@@ -24,6 +24,7 @@
         {name:'lunchBreak',start:'12:00',end:'13:00',regularOpen:false,quoteExpectedToMove:false},
         {name:'regularAfternoon',start:'13:00',end:'17:00',regularOpen:true,quoteExpectedToMove:true}
       ],
+      pollingGrace:{lunchBreak:{fastUntilMinutes:30,slowUntilMinutes:60},close:{fastUntilMinutes:30,slowUntilMinutes:45}},
       symbolSuffixes:['.SI'],
       indexSymbols:['^STI']
     },
@@ -36,6 +37,7 @@
         {name:'lunchBreak',start:'12:00',end:'13:00',regularOpen:false,quoteExpectedToMove:false},
         {name:'regularAfternoon',start:'13:00',end:'16:00',regularOpen:true,quoteExpectedToMove:true}
       ],
+      pollingGrace:{lunchBreak:{fastUntilMinutes:15,slowUntilMinutes:15},close:{fastUntilMinutes:30,slowUntilMinutes:45}},
       symbolSuffixes:['.HK'],
       indexSymbols:['^HSI']
     }
@@ -273,16 +275,19 @@
     var state=getSessionState(symbolOrMarket,now);
     if((state.market!=='SG'&&state.market!=='HK')||!state.tradingDay)return 0;
     var graceStart=null;
+    var gracePolicy=null;
     if(state.session==='lunchBreak'){
       var lunchWindow=markets[state.market].sessions.find(function(window){return window.name==='lunchBreak';});
       graceStart=lunchWindow?lunchWindow.start:null;
+      gracePolicy=markets[state.market].pollingGrace.lunchBreak;
     } else if(state.session==='closed'){
       graceStart=markets[state.market].close;
+      gracePolicy=markets[state.market].pollingGrace.close;
     }
-    if(graceStart===null)return 0;
+    if(graceStart===null||gracePolicy===null)return 0;
     var minutesAfterSegment=minutesFromTime(state.exchangeTime)-minutesFromTime(graceStart);
-    if(minutesAfterSegment>=0&&minutesAfterSegment<30)return 5;
-    if(minutesAfterSegment>=30&&minutesAfterSegment<45)return 60;
+    if(minutesAfterSegment>=0&&minutesAfterSegment<gracePolicy.fastUntilMinutes)return 5;
+    if(minutesAfterSegment>=gracePolicy.fastUntilMinutes&&minutesAfterSegment<gracePolicy.slowUntilMinutes)return 60;
     return 0;
   }
 
