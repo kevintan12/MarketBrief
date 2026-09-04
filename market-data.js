@@ -368,7 +368,7 @@
     var latestDailyClose=finiteNumber(provider.latestDailyClose);
     var previousDailyClose=finiteNumber(provider.previousDailyClose);
     var immediatePreviousClose=finiteNumber(provider.immediatePreviousClose);
-    var hasVerifiedImmediatePreviousClose=provider.immediatePreviousCloseSource==='yahooChart1d'&&immediatePreviousClose!==null&&immediatePreviousClose>0;
+    var immediatePreviousCloseTime=finiteNumber(provider.immediatePreviousCloseTime);
     var regularMarketTime=finiteNumber(provider.regularMarketTime);
     var latestDailyCloseTime=finiteNumber(provider.latestDailyCloseTime);
     var previousDailyCloseTime=finiteNumber(provider.previousDailyCloseTime);
@@ -383,11 +383,13 @@
     var preMarketDate=exchangeDateKey(preMarketTime,providerTimezone);
     var latestDailyCloseDate=exchangeDateKey(latestDailyCloseTime,providerTimezone);
     var previousDailyCloseDate=exchangeDateKey(previousDailyCloseTime,providerTimezone);
-    if((regularMarketDate===null||preMarketDate===null||latestDailyCloseDate===null||previousDailyCloseDate===null)&&providerTimezone!==marketTimezone){
+    var immediatePreviousCloseDate=exchangeDateKey(immediatePreviousCloseTime,providerTimezone);
+    if((regularMarketDate===null||preMarketDate===null||latestDailyCloseDate===null||previousDailyCloseDate===null||immediatePreviousCloseDate===null)&&providerTimezone!==marketTimezone){
       regularMarketDate=exchangeDateKey(regularMarketTime,marketTimezone);
       preMarketDate=exchangeDateKey(preMarketTime,marketTimezone);
       latestDailyCloseDate=exchangeDateKey(latestDailyCloseTime,marketTimezone);
       previousDailyCloseDate=exchangeDateKey(previousDailyCloseTime,marketTimezone);
+      immediatePreviousCloseDate=exchangeDateKey(immediatePreviousCloseTime,marketTimezone);
     }
     var currentExchangeTradingDate=providerMarketState==='PRE'&&market==='US'&&preMarketDate!==null?preMarketDate:regularMarketDate;
     var useNewerRegularClose=useDailyClosePair&&providerMarketState!=='CLOSED'&&regularMarketPrice!==null&&regularMarketDate!==null&&latestDailyCloseDate!==null&&regularMarketDate>latestDailyCloseDate;
@@ -395,6 +397,7 @@
     if(currentExchangeTradingDate!==null){
       try{expectedPreviousTradingDate=getPreviousTradingDate(market,currentExchangeTradingDate);}catch(e){}
     }
+    var hasVerifiedImmediatePreviousClose=immediatePreviousClose!==null&&immediatePreviousClose>0&&immediatePreviousCloseDate!==null&&immediatePreviousCloseDate===expectedPreviousTradingDate;
     var dailyReferenceClose=null;
     var dailyReferenceResolved=false;
     if(expectedPreviousTradingDate!==null&&latestDailyCloseDate!==null){

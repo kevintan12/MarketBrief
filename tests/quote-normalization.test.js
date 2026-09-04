@@ -23,6 +23,7 @@ function rawQuote(symbol, marketState, providerOverrides, rawOverrides) {
       previousDailyClose: 100,
       dailyClosePairHasGap: false,
       immediatePreviousClose: null,
+      immediatePreviousCloseTime: null,
       immediatePreviousCloseSource: null,
       ...providerOverrides
     },
@@ -48,17 +49,17 @@ test('equal completed closes produce zero change', () => {
   assert.equal(quote.percentChange, 0);
 });
 
-test('verified immediate previous close preserves the existing fallback when dates are unavailable', () => {
+test('immediate previous close without a timestamp remains unavailable', () => {
   const quote = normalizeQuote(rawQuote('^HSI', 'CLOSED', {
     latestDailyClose: 25329.73046875,
     previousDailyClose: 25566.990234375,
     dailyClosePairHasGap: false,
     immediatePreviousClose: 25584.80,
-    immediatePreviousCloseSource: 'yahooChart1d'
+    immediatePreviousCloseSource: 'yahooChart5d'
   }), '^HSI');
   assert.equal(quote.displayPrice, 25329.73046875);
-  assert.equal(quote.referencePrice, 25584.80);
-  assert.ok(Math.abs(quote.change - (-255.06953125)) < 1e-9);
+  assert.equal(quote.referencePrice, 25566.990234375);
+  assert.ok(Math.abs(quote.change - (25329.73046875 - 25566.990234375)) < 1e-9);
 });
 
 test('STI trailing-null completed session uses verified immediate previous close', () => {
@@ -71,13 +72,52 @@ test('STI trailing-null completed session uses verified immediate previous close
     previousDailyClose: 5755.35986328125,
     dailyClosePairHasGap: false,
     immediatePreviousClose: 5744.11,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: 1788310800,
+    immediatePreviousCloseSource: 'yahooChart5dQuery2',
     exchangeTimezoneName: 'Asia/Singapore'
   }), '^STI');
   assert.equal(quote.displayPrice, 5759.46);
   assert.equal(quote.referencePrice, 5744.11);
   assert.ok(Math.abs(quote.change - 15.35) < 1e-9);
   assert.ok(Math.abs(quote.percentChange - (15.35 / 5744.11 * 100)) < 1e-9);
+});
+
+test('HSI missing expected daily row accepts dated query1 fallback', () => {
+  const quote = normalizeQuote(rawQuote('^HSI', null, {
+    regularMarketPrice: 25737.60,
+    regularMarketPreviousClose: null,
+    regularMarketTime: Date.parse('2026-09-04T04:05:00Z') / 1000,
+    latestDailyClose: 25311.2109375,
+    latestDailyCloseTime: Date.parse('2026-09-02T01:30:00Z') / 1000,
+    previousDailyClose: 25329.73046875,
+    previousDailyCloseTime: Date.parse('2026-09-01T01:30:00Z') / 1000,
+    immediatePreviousClose: 25213.31,
+    immediatePreviousCloseTime: Date.parse('2026-09-03T01:30:00Z') / 1000,
+    immediatePreviousCloseSource: 'yahooChart5dQuery1',
+    exchangeTimezoneName: 'Asia/Hong_Kong'
+  }), '^HSI');
+  assert.equal(quote.displayPrice, 25737.60);
+  assert.equal(quote.referencePrice, 25213.31);
+  assert.ok(Math.abs(quote.change - 524.29) < 1e-9);
+});
+
+test('stale dated immediate previous close is rejected', () => {
+  const quote = normalizeQuote(rawQuote('^HSI', null, {
+    regularMarketPrice: 25737.60,
+    regularMarketPreviousClose: null,
+    regularMarketTime: Date.parse('2026-09-04T04:05:00Z') / 1000,
+    latestDailyClose: 25311.2109375,
+    latestDailyCloseTime: Date.parse('2026-09-02T01:30:00Z') / 1000,
+    previousDailyClose: 25329.73046875,
+    previousDailyCloseTime: Date.parse('2026-09-01T01:30:00Z') / 1000,
+    immediatePreviousClose: 25311.20,
+    immediatePreviousCloseTime: Date.parse('2026-09-02T01:30:00Z') / 1000,
+    immediatePreviousCloseSource: 'arbitrary-provenance',
+    exchangeTimezoneName: 'Asia/Hong_Kong'
+  }), '^HSI');
+  assert.equal(quote.referencePrice, null);
+  assert.equal(quote.change, null);
+  assert.equal(quote.percentChange, null);
 });
 
 test('HSI expected previous trading-date close outranks stale verified immediate close', () => {
@@ -89,7 +129,8 @@ test('HSI expected previous trading-date close outranks stale verified immediate
     latestDailyCloseTime: 1788312600,
     previousDailyClose: 25329.73046875,
     immediatePreviousClose: 25329.70,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: 1788226200,
+    immediatePreviousCloseSource: 'yahooChart5d',
     exchangeTimezoneName: 'Asia/Hong_Kong'
   }), '^HSI');
   assert.equal(quote.displayPrice, 25251.90);
@@ -107,7 +148,8 @@ test('post-close HSI rollover uses previous daily close from expected trading da
     previousDailyClose: 25311.2109375,
     previousDailyCloseTime: 1788312600,
     immediatePreviousClose: 25329.70,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: 1788226200,
+    immediatePreviousCloseSource: 'yahooChart5d',
     dailyClosePairHasGap: false,
     exchangeTimezoneName: 'Asia/Hong_Kong'
   }), '^HSI');
@@ -126,7 +168,8 @@ test('post-close STI rollover uses previous daily close from expected trading da
     previousDailyClose: 5744.11,
     previousDailyCloseTime: 1788310800,
     immediatePreviousClose: 5710.37,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: 1788224400,
+    immediatePreviousCloseSource: 'yahooChart5d',
     dailyClosePairHasGap: false,
     exchangeTimezoneName: 'Asia/Singapore'
   }), '^STI');
@@ -145,7 +188,8 @@ test('ordinary HK equity rollover uses dated previous daily close', () => {
     previousDailyClose: 608.0,
     previousDailyCloseTime: 1788312600,
     immediatePreviousClose: 605.0,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: 1788226200,
+    immediatePreviousCloseSource: 'yahooChart5d',
     exchangeTimezoneName: 'Asia/Hong_Kong'
   }), '0700.HK');
   assert.equal(quote.referencePrice, 608.0);
@@ -161,7 +205,8 @@ test('expected previous trading date skips weekend and holiday', () => {
     latestDailyCloseTime: Date.parse('2026-09-04T20:00:00Z') / 1000,
     previousDailyClose: 100,
     immediatePreviousClose: 100,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: Date.parse('2026-09-03T20:00:00Z') / 1000,
+    immediatePreviousCloseSource: 'yahooChart5d',
     exchangeTimezoneName: 'America/New_York'
   }), '^GSPC');
   assert.equal(quote.displayPrice, 120);
@@ -178,7 +223,8 @@ test('newer regular close prefers verified immediate close over stale latest dai
     latestDailyCloseTime: 1788224400,
     previousDailyClose: 90,
     immediatePreviousClose: 110,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: 1788310800,
+    immediatePreviousCloseSource: 'yahooChart5d',
     exchangeTimezoneName: 'Asia/Singapore'
   }), 'TEST.SI');
   assert.equal(quote.displayPrice, 120);
@@ -189,8 +235,8 @@ test('newer regular close prefers verified immediate close over stale latest dai
 test('older daily history without a verified immediate close remains conservative', () => {
   [
     { immediatePreviousClose: 110, immediatePreviousCloseSource: null },
-    { immediatePreviousClose: 110, immediatePreviousCloseSource: 'unverified' },
-    { immediatePreviousClose: -1, immediatePreviousCloseSource: 'yahooChart1d' }
+    { immediatePreviousClose: 110, immediatePreviousCloseTime: 1788224400, immediatePreviousCloseSource: 'unverified' },
+    { immediatePreviousClose: -1, immediatePreviousCloseTime: 1788310800, immediatePreviousCloseSource: 'yahooChart5d' }
   ].forEach(fallback => {
     const quote = normalizeQuote(rawQuote('^STI', null, {
       regularMarketPrice: 120,
@@ -216,7 +262,8 @@ test('HSI verified immediate previous close remains authoritative', () => {
     latestDailyCloseTime: 1788226200,
     previousDailyClose: 25566.990234375,
     immediatePreviousClose: 25311.21,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: 1788312600,
+    immediatePreviousCloseSource: 'yahooChart5d',
     exchangeTimezoneName: 'Asia/Hong_Kong'
   }), '^HSI');
   assert.equal(quote.displayPrice, 25482.56);
@@ -259,7 +306,7 @@ test('gap-free completed pair without verified immediate close remains unchanged
 
 test('gapped completed pair without verified fallback remains conservative', () => {
   [
-    { immediatePreviousClose: -1, immediatePreviousCloseSource: 'yahooChart1d' },
+    { immediatePreviousClose: -1, immediatePreviousCloseTime: 1767722400, immediatePreviousCloseSource: 'yahooChart5d' },
     { immediatePreviousClose: 25584.80, immediatePreviousCloseSource: 'unverified' }
   ].forEach(fallback => {
     const quote = normalizeQuote(rawQuote('^HSI', 'CLOSED', {
@@ -279,7 +326,8 @@ test('regularMarketPreviousClose overrides verified fallback', () => {
   const quote = normalizeQuote(rawQuote('VEEV', 'REGULAR', {
     regularMarketPreviousClose: 100,
     immediatePreviousClose: 95,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: Date.parse('2026-01-06T21:00:00Z') / 1000,
+    immediatePreviousCloseSource: 'yahooChart5d',
     dailyClosePairHasGap: false
   }), 'VEEV');
   assert.equal(quote.referencePrice, 100);
@@ -292,7 +340,8 @@ test('US pre-market uses verified fallback when regular previous close is unavai
     preMarketPrice: 108,
     preMarketTime: 1767790800,
     immediatePreviousClose: 100,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: Date.parse('2026-01-06T21:00:00Z') / 1000,
+    immediatePreviousCloseSource: 'yahooChart5d',
     dailyClosePairHasGap: false
   }), 'AAPL');
   assert.equal(quote.displayPriceSession, 'pre');
@@ -306,7 +355,8 @@ test('regular session uses verified fallback when regular previous close is unav
   const quote = normalizeQuote(rawQuote('VEEV', 'REGULAR', {
     regularMarketPreviousClose: null,
     immediatePreviousClose: 100,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: Date.parse('2026-01-06T21:00:00Z') / 1000,
+    immediatePreviousCloseSource: 'yahooChart5d',
     dailyClosePairHasGap: false
   }), 'VEEV');
   assert.equal(quote.referencePrice, 100);
@@ -320,7 +370,8 @@ test('US post-market ignores verified immediate previous close', () => {
     postMarketPrice: 112,
     postMarketTime: 1767823200,
     immediatePreviousClose: 100,
-    immediatePreviousCloseSource: 'yahooChart1d',
+    immediatePreviousCloseTime: Date.parse('2026-01-06T21:00:00Z') / 1000,
+    immediatePreviousCloseSource: 'yahooChart5d',
     dailyClosePairHasGap: true
   }), 'AAPL');
   assert.equal(quote.displayPriceSession, 'post');
