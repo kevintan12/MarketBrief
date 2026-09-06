@@ -136,5 +136,7 @@ test('legacy Market Brief remains on the streaming claude route only', () => {
   const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
   assert.match(summarySource, /\/api\/quote\?claude=1/);
   assert.doesNotMatch(summarySource, /claudeAnalysis=1/);
+  assert.doesNotMatch(summarySource, /analysisPackage=1/);
   assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /claudeAnalysis/);
+  assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /analysisPackage/);
 });

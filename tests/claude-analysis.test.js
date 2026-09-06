@@ -12,6 +12,11 @@ function load(overrides = {}) {
     S: {
       proxyUrl: 'https://proxy.example',
       tz: 'Asia/Singapore',
+      fixedTickers: [
+        {sym: '^DJI', mkt: 'US'}, {sym: '^IXIC', mkt: 'US'},
+        {sym: '^GSPC', mkt: 'US'}, {sym: '^RUT', mkt: 'US'},
+        {sym: '^STI', mkt: 'SG'}, {sym: '^HSI', mkt: 'HK'}
+      ],
       myStocks: {US: [], SG: [], HK: []},
       customTickers: {US: [], SG: [], HK: []}
     },
@@ -38,6 +43,18 @@ function packages() {
       unresolvedGaps: [], furtherReadings: []
     }
   }));
+}
+
+function canonicalUsEnvelope() {
+  return {
+    analysisRequest: {
+      selectedScope: 'US', generatedAt: '2026-09-06T10:00:00.000Z',
+      userTimezone: 'Asia/Singapore', reportType: 'MARKET_BRIEF'
+    },
+    marketPackages: [packages()[1]],
+    portfolioContext: {myStocks: [], watchlist: []},
+    outputRequirements: {header: 'REPORT HEADER / ANALYSIS CONTEXT', sections: [], maximumWords: 2500}
+  };
 }
 
 test('maps current filters to canonical scopes and preserves ALL market order', () => {
@@ -85,6 +102,82 @@ test('keeps My Stocks and Watchlist portfolio context separate, ordered and scop
   us.myStocks[0].symbol = 'CHANGED';
   assert.equal(mineUS[0].sym, 'MSFT');
   assert.equal(watchUS[0].sym, 'VEEV');
+});
+
+test('builds exact US package request from ordered fixed anchors and user-managed membership', () => {
+  const mine = [{sym: 'MSFT'}, {sym: 'AAPL'}];
+  const watch = [{sym: 'VEEV'}, {sym: 'NVDA'}];
+  const context = load();
+  context.S.myStocks.US = mine;
+  context.S.customTickers.US = watch;
+  const request = context.window.MarketBrief.claudeAnalysis.createMarketBriefPackageRequest({filter: 'US'});
+  assert.deepEqual(Object.keys(request), ['benchmarkAnchors', 'selectedScope', 'userTimezone', 'myStocks', 'watchlist']);
+  assert.deepEqual(Array.from(request.benchmarkAnchors, item => item.symbol), ['^DJI', '^IXIC', '^GSPC', '^RUT']);
+  assert.deepEqual(Array.from(request.myStocks, item => item.symbol), ['MSFT', 'AAPL']);
+  assert.deepEqual(Array.from(request.watchlist, item => item.symbol), ['VEEV', 'NVDA']);
+  assert.equal(request.selectedScope, 'US');
+  assert.equal(request.userTimezone, 'Asia/Singapore');
+  request.benchmarkAnchors[0].symbol = 'CHANGED';
+  request.myStocks[0].symbol = 'CHANGED';
+  assert.equal(context.S.fixedTickers[0].sym, '^DJI');
+  assert.equal(mine[0].sym, 'MSFT');
+  assert.equal(watch[0].sym, 'VEEV');
+  assert.throws(() => context.window.MarketBrief.claudeAnalysis.createMarketBriefPackageRequest({filter: 'SG'}), /supports US only/);
+});
+
+test('rejects benchmark overlap before package fetch', async () => {
+  let calls = 0;
+  const context = load();
+  context.S.myStocks.US = [{sym: '^RUT'}];
+  await assert.rejects(context.window.MarketBrief.claudeAnalysis.requestMarketBriefPackage({
+    fetchImpl: async () => { calls++; }
+  }), /cannot be portfolio membership/);
+  context.S.myStocks.US = [];
+  context.S.customTickers.US = [{sym: '^DJI'}];
+  await assert.rejects(context.window.MarketBrief.claudeAnalysis.requestMarketBriefPackage({
+    fetchImpl: async () => { calls++; }
+  }), /cannot be portfolio membership/);
+  assert.equal(calls, 0);
+});
+
+test('posts package request once and passes canonical envelope through directly without Claude', async () => {
+  const calls = [];
+  const expected = canonicalUsEnvelope();
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const result = await api.requestMarketBriefPackage({
+    fetchImpl: async (url, options) => {
+      calls.push({url, options});
+      return {ok: true, status: 200, async json() { return expected; }};
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://proxy.example/api/quote?analysisPackage=1');
+  assert.doesNotMatch(calls[0].url, /claude/i);
+  assert.equal(calls[0].options.method, 'POST');
+  assert.deepEqual(Object.keys(calls[0].options.headers), ['Content-Type']);
+  assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
+  assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)), ['benchmarkAnchors', 'selectedScope', 'userTimezone', 'myStocks', 'watchlist']);
+  assert.equal(result, expected);
+});
+
+test('package transport preserves structured failures and handles malformed and network failures deterministically', async () => {
+  const api = load().window.MarketBrief.claudeAnalysis;
+  for (const status of [400, 502]) {
+    await assert.rejects(api.requestMarketBriefPackage({fetchImpl: async () => ({
+      ok: false, status, async json() { return {error: {type: 'PACKAGE_FAILURE', message: 'package failed', upstreamStatus: status}}; }
+    })}), error => error.type === 'PACKAGE_FAILURE' && error.upstreamStatus === status);
+  }
+  await assert.rejects(api.requestMarketBriefPackage({fetchImpl: async () => ({
+    ok: true, status: 200, async json() { return {}; }
+  })}), error => error.type === 'MALFORMED_RESPONSE');
+  await assert.rejects(api.requestMarketBriefPackage({fetchImpl: async () => ({
+    ok: true, status: 200, async json() { throw new Error('bad json'); }
+  })}), error => error.type === 'MALFORMED_RESPONSE');
+  let calls = 0;
+  await assert.rejects(api.requestMarketBriefPackage({fetchImpl: async () => {
+    calls++; throw new Error('offline');
+  }}), error => error.type === 'NETWORK_FAILURE');
+  assert.equal(calls, 1);
 });
 
 test('rejects missing canonical packages before fetch', async () => {
