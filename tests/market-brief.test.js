@@ -131,3 +131,10 @@ test('streaming ownership and PDF selection remain tied to the initiating/curren
   assert.match(summarySource, /savedBriefHTML\[briefKey\]=briefPrefix\+finalRendered\+briefSuffix/);
   assert.match(pdfSource, /contentEl=\(b&&b\.offsetParent!==null\)\?b:a/);
 });
+
+test('legacy Market Brief remains on the streaming claude route only', () => {
+  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
+  assert.match(summarySource, /\/api\/quote\?claude=1/);
+  assert.doesNotMatch(summarySource, /claudeAnalysis=1/);
+  assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /claudeAnalysis/);
+});
