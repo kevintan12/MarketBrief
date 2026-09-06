@@ -22,7 +22,7 @@ function renderIndices(){
   if(!filtered.length){setGridHTML('<div class="msg">No data for this filter.</div>');return;}
   // Sort order: US index, US user list, SG index, SG user list, HK index, HK user list
   var MKT_ORDER={US:0,SG:1,HK:2};
-  var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^STI':1,'^HSI':1};
+  var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^RUT':1,'^STI':1,'^HSI':1};
   function sortKey(d){
     var mo=MKT_ORDER[d.mkt]!=null?MKT_ORDER[d.mkt]:3;
     var isIdx=FIXED_SYMS[d.sym]?0:1;

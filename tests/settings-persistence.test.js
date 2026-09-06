@@ -151,7 +151,7 @@ test('getAllTickers uses the active Dashboard-style list', () => {
 
 test('Settings renders Watchlist and My Stocks through list-aware controls', () => {
   const {context, elements} = createHarness();
-  context.S.fixedTickers = [ticker('^DJI', 'US'), ticker('^STI', 'SG'), ticker('^HSI', 'HK')];
+  context.S.fixedTickers = [ticker('^DJI', 'US'), ticker('^IXIC', 'US'), ticker('^GSPC', 'US'), ticker('^RUT', 'US'), ticker('^STI', 'SG'), ticker('^HSI', 'HK')];
   context.S.customTickers.US.push(ticker('AAPL', 'US'));
   context.S.myStocks.US.push(ticker('VEEV', 'US'));
   context.renderSettingsPanelTo('settingsPanel');
@@ -164,7 +164,7 @@ test('Settings renders Watchlist and My Stocks through list-aware controls', () 
   assert.match(html, /moveTicker\('myStocks','US'/);
   assert.match(html, /selectAll_customTickers_settingsPanel/);
   assert.match(html, /selectAll_myStocks_settingsPanel/);
-  assert.doesNotMatch(html, /\^DJI|\^STI|\^HSI/);
+  assert.doesNotMatch(html, /\^DJI|\^IXIC|\^GSPC|\^RUT|\^STI|\^HSI/);
   assert.doesNotMatch(html, /Index tickers are fixed/);
   assert.equal((html.match(/class="ticker-drag-handle"/g) || []).length, 2);
   assert.match(html, /aria-label="Move AAPL up"[^>]* disabled/);
@@ -190,6 +190,16 @@ test('list-aware add and remove mutate only the requested list', () => {
   context.removeTicker('myStocks', 'US', 0, 'settingsPanel');
   assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), ['AAPL']);
   assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), []);
+});
+
+test('fixed anchors cannot be added to either user-managed ticker list', () => {
+  const {context} = createHarness();
+  Array.from(context.S.fixedTickers).forEach(item => {
+    context.addTickerDirect('customTickers', item.mkt, item.sym, item.name, 'settingsPanel');
+    context.addTickerDirect('myStocks', item.mkt, item.sym, item.name, 'settingsPanel');
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(context.S.customTickers)), {US: [], SG: [], HK: []});
+  assert.deepEqual(JSON.parse(JSON.stringify(context.S.myStocks)), {US: [], SG: [], HK: []});
 });
 
 test('list-aware reorder preserves Watchlist and My Stocks independently', () => {

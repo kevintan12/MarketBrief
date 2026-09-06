@@ -84,11 +84,12 @@ document.addEventListener('keydown',function(e){
 var MarketBrief = window.MarketBrief = window.MarketBrief || {};
 MarketBrief.config = {
   proxyUrl:'', style:'detailed', tz:'Asia/Singapore',
-  // DJI first, then IXIC, then GSPC for US order
+  // DJI first, then IXIC, then GSPC, then RUT for US order
   fixedTickers:[
     {sym:'^DJI',  name:'Dow Jones', sub:'US · DJIA',              flag:'🇺🇸', mkt:'US'},
     {sym:'^IXIC', name:'Nasdaq',    sub:'US · Composite',         flag:'🇺🇸', mkt:'US'},
     {sym:'^GSPC', name:'S&P 500',   sub:'US · NYSE/Nasdaq',       flag:'🇺🇸', mkt:'US'},
+    {sym:'^RUT',  name:'Russell 2000',sub:'US · Russell 2000',     flag:'🇺🇸', mkt:'US'},
     {sym:'^STI',  name:'STI',       sub:'SG · Straits Times Idx', flag:'🇸🇬', mkt:'SG'},
     {sym:'^HSI',  name:'Hang Seng', sub:'HK · Hang Seng Idx',    flag:'🇭🇰', mkt:'HK'},
   ],
@@ -105,7 +106,7 @@ MarketBrief.config = {
 };
 var S = MarketBrief.config;
 var mktData=[], curFilter='all', isDesktop=false, currentView='MyStocks', activeTickerList='myStocks';
-var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^STI':1,'^HSI':1};
+var FIXED_SYMS={'^DJI':1,'^IXIC':1,'^GSPC':1,'^RUT':1,'^STI':1,'^HSI':1};
 var acTimers={};  // debounce timers keyed by input id
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -1514,7 +1515,7 @@ function closeSettAcDrop(wid){
 function addTickerDirect(listKey,mkt,sym,name,pid){
   var all=[];
   ['US','SG','HK'].forEach(function(m){all=all.concat(S[listKey][m]||[]);});
-  if(listKey==='customTickers')all=all.concat(S.fixedTickers);
+  all=all.concat(S.fixedTickers);
   all=all.map(function(t){return t.sym;});
   if(all.indexOf(sym)>-1)return;
   var flag=sym.endsWith('.L')?'🇬🇧':({'US':'🇺🇸','SG':'🇸🇬','HK':'🇭🇰'}[mkt]||'🌐');

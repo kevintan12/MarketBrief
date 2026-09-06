@@ -45,6 +45,20 @@ test('startup defaults to My Stocks and active ticker source follows the selecte
   assert.deepEqual(Array.from(context.getAllTickers(), item => item.sym), ['^STI', 'AAPL']);
 });
 
+test('fixed market anchors have the exact configured set and order in both views', () => {
+  const context = {window: {}};
+  vm.createContext(context);
+  vm.runInContext(sourceBetween('var MarketBrief =', '// ── Boot'), context);
+  vm.runInContext(sourceBetween('function getAllTickers', 'var _quoteFetches'), context);
+  const expected = ['^DJI', '^IXIC', '^GSPC', '^RUT', '^STI', '^HSI'];
+  assert.deepEqual(Array.from(context.S.fixedTickers, item => item.sym), expected);
+  context.S.myStocks.US.push(ticker('VEEV', 'US'));
+  context.S.customTickers.US.push(ticker('AAPL', 'US'));
+  assert.deepEqual(Array.from(context.getAllTickers(), item => item.sym), [...expected, 'VEEV']);
+  context.activeTickerList = 'customTickers';
+  assert.deepEqual(Array.from(context.getAllTickers(), item => item.sym), [...expected, 'AAPL']);
+});
+
 test('switching My Stocks and Watchlist clears prior data and reloads the shared view', () => {
   const elements = {};
   ['vDash', 'vSearch', 'vInvest', 'vSettings',
