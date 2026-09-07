@@ -57,6 +57,54 @@ function canonicalUsEnvelope() {
   };
 }
 
+function populatedUsEnvelope() {
+  const envelope = canonicalUsEnvelope();
+  envelope.marketPackages[0].telemetry = {
+    benchmarkSnapshots: [{reference: 't1', snapshot: {symbol: '^GSPC', instrumentName: 'S&P <500>'}}],
+    stockSnapshots: []
+  };
+  envelope.marketPackages[0].evidenceContext.evidence = [{
+    reference: 'e1', item: {
+      title: 'Trusted <Market> report',
+      canonicalUrl: 'https://example.test/market?x=1&y=2'
+    }
+  }];
+  return envelope;
+}
+
+function structuredResult(envelope, status = 'NORMAL') {
+  const sections = [
+    'EXECUTIVE MARKET SUMMARY', 'KEY MARKET DRIVERS', 'WHAT DROVE / IS DRIVING THE MARKET',
+    'STOCKS & SECTORS IN FOCUS', 'MY STOCKS & WATCHLIST - MATERIAL MOVEMENTS',
+    'MARKET INTERPRETATION', 'KEY RISKS', 'OPPORTUNITIES', 'WHAT TO WATCH FOR NEXT',
+    'MARKETBRIEF TAKEAWAY', 'FURTHER READINGS'
+  ].map((name, index) => ({
+    name,
+    content: index === 10 || status === 'FAILED' ? null : index === 0 ? 'Safe <script>alert(1)</script> analysis.' : 'Supported analysis.',
+    evidenceRefs: index === 10 || status === 'FAILED' ? [] : ['e1'],
+    telemetryRefs: index === 10 || status === 'FAILED' ? [] : ['t1'],
+    uncertainties: status === 'DEGRADED' && index === 7 ? ['Evidence remains incomplete.'] : []
+  }));
+  if(status === 'DEGRADED'){
+    sections[7].content = null;
+    sections[7].evidenceRefs = [];
+    sections[7].telemetryRefs = [];
+  }
+  return {
+    status,
+    reportContext: {
+      header: 'REPORT HEADER / ANALYSIS CONTEXT', selectedScope: 'US',
+      generatedAt: envelope.analysisRequest.generatedAt,
+      userTimezone: envelope.analysisRequest.userTimezone,
+      reportType: 'MARKET_BRIEF', markets: ['US']
+    },
+    sections,
+    evidenceReferences: status === 'FAILED' ? [] : ['e1'],
+    furtherReadings: status === 'FAILED' ? [] : ['e1'],
+    evidenceGaps: status === 'NORMAL' ? [] : ['A canonical evidence gap remains.']
+  };
+}
+
 test('maps current filters to canonical scopes and preserves ALL market order', () => {
   const api = load().window.MarketBrief.claudeAnalysis;
   assert.equal(api.mapScope('all'), 'ALL');
@@ -244,6 +292,76 @@ test('posts exactly one JSON request and returns structured result without retry
   assert.ok(body.marketPackages[0].evidenceContext);
   assert.equal(Object.hasOwn(body.marketPackages[0], 'evidenceCollection'), false);
   assert.equal(result, expected);
+});
+
+test('posts an acquired canonical envelope to structured analysis unchanged', async () => {
+  const envelope = populatedUsEnvelope();
+  const expected = structuredResult(envelope);
+  const calls = [];
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const result = await api.requestMarketBriefAnalysis({
+    envelope,
+    fetchImpl: async (url, options) => {
+      calls.push({url, options});
+      return {ok: true, status: 200, async json() { return {result: expected}; }};
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://proxy.example/api/quote?claudeAnalysis=1');
+  assert.equal(calls[0].options.body, JSON.stringify(envelope));
+  assert.deepEqual(JSON.parse(calls[0].options.body), envelope);
+  assert.equal(result, expected);
+});
+
+test('renders canonical header and all eleven sections safely with package-owned references', () => {
+  const envelope = populatedUsEnvelope();
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const html = api.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+  assert.match(html, /REPORT HEADER \/ ANALYSIS CONTEXT/);
+  assert.match(html, /Status: NORMAL/);
+  let previous = -1;
+  structuredResult(envelope).sections.forEach((section, index) => {
+    const position = html.indexOf(`${index + 1}. ${section.name.replace(/&/g, '&amp;')}`);
+    assert.ok(position > previous, `${section.name} must render in frozen order`);
+    previous = position;
+  });
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /Safe &lt;script&gt;alert\(1\)&lt;\/script&gt; analysis/);
+  assert.match(html, /Trusted &lt;Market&gt; report/);
+  assert.match(html, /S&amp;P &lt;500&gt;/);
+  assert.match(html, /href="https:\/\/example\.test\/market\?x=1&amp;y=2"/);
+});
+
+test('renders DEGRADED and FAILED results without fabricating unavailable content', () => {
+  const envelope = populatedUsEnvelope();
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const degraded = api.renderMarketBriefAnalysis(structuredResult(envelope, 'DEGRADED'), envelope);
+  const failed = api.renderMarketBriefAnalysis(structuredResult(envelope, 'FAILED'), envelope);
+  assert.match(degraded, /Status: DEGRADED/);
+  assert.match(degraded, /Evidence remains incomplete/);
+  assert.match(degraded, /No supported analysis is available from the supplied package/);
+  assert.match(failed, /Status: FAILED/);
+  assert.match(failed, /A canonical evidence gap remains/);
+  assert.doesNotMatch(failed, /Supported analysis/);
+});
+
+test('rejects unknown structured references and never renders unsupplied Further Reading URLs', () => {
+  const envelope = populatedUsEnvelope();
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const unknownEvidence = structuredResult(envelope);
+  unknownEvidence.sections[0].evidenceRefs = ['e999'];
+  assert.throws(() => api.renderMarketBriefAnalysis(unknownEvidence, envelope), /evidence reference/);
+  const unknownTelemetry = structuredResult(envelope);
+  unknownTelemetry.sections[0].telemetryRefs = ['t999'];
+  assert.throws(() => api.renderMarketBriefAnalysis(unknownTelemetry, envelope), /telemetry reference/);
+  const unknownReading = structuredResult(envelope);
+  unknownReading.furtherReadings = ['e999'];
+  assert.throws(() => api.renderMarketBriefAnalysis(unknownReading, envelope), /Further Reading reference/);
+  const unsafeEnvelope = populatedUsEnvelope();
+  unsafeEnvelope.marketPackages[0].evidenceContext.evidence[0].item.canonicalUrl = 'javascript:alert(1)';
+  const html = api.renderMarketBriefAnalysis(structuredResult(unsafeEnvelope), unsafeEnvelope);
+  assert.doesNotMatch(html, /javascript:/);
+  assert.match(html, /No validated Further Readings were supplied/);
 });
 
 test('preserves backend failure types and handles malformed and network failures deterministically', async () => {

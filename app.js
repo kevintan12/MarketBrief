@@ -338,6 +338,22 @@ function triggerSummary(){
   if(!mktData.length){setSumHTML('<div class="msg err">Load data first — click ↻ Refresh.</div>',briefKey);return;}
   var summaryFilter=curFilter;
   var summaryData=mktData.map(function(item){return Object.assign({},item);});
+  var useStructured=summaryFilter==='US';
+  var previousBrief=savedBriefHTML[briefKey]||'';
+  if(useStructured){
+    _summaryInFlight=true;
+    _summaryOwner=briefKey;
+    setAIBtnVisible(false);
+    loadStructuredSummary(briefKey,previousBrief).then(function(){
+      _summaryInFlight=false;_summaryOwner=null;
+      setAIBtnVisible(true);
+    }).catch(function(e){
+      setSumHTML('<div class="msg err">Market Brief error: '+esc(e.message)+'</div>'+previousBrief,briefKey);
+      _summaryInFlight=false;_summaryOwner=null;
+      setAIBtnVisible(true);
+    });
+    return;
+  }
   savedBriefHTML[briefKey]='';
   setSumHTML('',briefKey);
   _summaryInFlight=true;
@@ -595,6 +611,22 @@ function startAutoRefresh(){
   updateLiveIndicator();
 }
 // ── AI Summary ────────────────────────────────────────────────────────────────
+async function loadStructuredSummary(briefKey,previousBrief){
+  var analysis=MarketBrief.claudeAnalysis;
+  if(!analysis)throw new Error('Structured Market Brief helper unavailable');
+  var initiatingList=briefKey==='myStocks'?'myStocks':briefKey==='customTickers'?'watchlist':null;
+  if(!initiatingList)throw new Error('Invalid Market Brief owner');
+  var retained=previousBrief||'';
+  setSumHTML('<div class="msg">Preparing market package… <span class="spin"></span></div>'+retained,briefKey);
+  var envelope=await analysis.requestMarketBriefPackage({filter:'US',initiatingList:initiatingList});
+  if(!envelope||!envelope.analysisRequest||envelope.analysisRequest.initiatingList!==initiatingList)
+    throw new Error('Market Brief package owner mismatch');
+  setSumHTML('<div class="msg">Generating structured analysis… <span class="spin"></span></div>'+retained,briefKey);
+  var result=await analysis.requestMarketBriefAnalysis({envelope:envelope});
+  var rendered=analysis.renderMarketBriefAnalysis(result,envelope);
+  saveBriefHTML(briefKey,rendered);
+}
+
 async function loadSummary(briefKey,summaryFilter,summaryData){
   console.log('MB: loadSummary started');
   setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>',briefKey);

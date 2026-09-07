@@ -69,6 +69,139 @@ test('triggerSummary captures owner, filter and data snapshot and permits one re
   assert.equal(context._summaryOwner, 'myStocks');
 });
 
+test('US routes to one structured generation while SG, HK and ALL retain legacy routing', async () => {
+  for (const filter of ['US', 'SG', 'HK', 'all']) {
+    const calls = [];
+    let finish;
+    const pending = new Promise(resolve => { finish = resolve; });
+    const context = {
+      activeTickerList: 'customTickers', curFilter: filter,
+      mktData: [{sym: 'AAPL', mkt: 'US'}],
+      S: {proxyUrl: 'https://example.test'},
+      savedBriefHTML: {myStocks: 'mine', customTickers: 'watch'},
+      _summaryInFlight: false, _summaryOwner: null, Object,
+      setSumHTML() {}, setAIBtnVisible() {}, esc(value) { return String(value); },
+      loadStructuredSummary(...args) { calls.push(['structured', ...args]); return pending; },
+      loadSummary(...args) { calls.push(['legacy', ...args]); return pending; }
+    };
+    vm.createContext(context);
+    vm.runInContext(sourceBetween('function triggerSummary', '// ── Data'), context);
+    context.triggerSummary();
+    context.triggerSummary();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], filter === 'US' ? 'structured' : 'legacy');
+    assert.equal(calls[0][1], 'customTickers');
+    if (filter === 'US') {
+      assert.equal(calls[0][2], 'watch');
+      assert.equal(context.savedBriefHTML.customTickers, 'watch');
+    } else {
+      assert.equal(calls[0][2], filter);
+      assert.equal(context.savedBriefHTML.customTickers, '');
+    }
+    finish();
+    await pending;
+    await Promise.resolve();
+  }
+});
+
+test('failed US regeneration preserves the previous keyed report', async () => {
+  const visible = [];
+  const context = {
+    activeTickerList: 'myStocks', curFilter: 'US', mktData: [{sym: 'AAPL', mkt: 'US'}],
+    S: {proxyUrl: 'https://example.test'},
+    savedBriefHTML: {myStocks: '<div>Previous valid report</div>', customTickers: '<div>Watch</div>'},
+    _summaryInFlight: false, _summaryOwner: null, Object,
+    setSumHTML(html, key) { visible.push([key, html]); }, setAIBtnVisible() {},
+    esc(value) { return String(value); },
+    loadStructuredSummary() { return Promise.reject(new Error('package unavailable')); },
+    loadSummary() { throw new Error('legacy path must not run'); }
+  };
+  vm.createContext(context);
+  vm.runInContext(sourceBetween('function triggerSummary', '// ── Data'), context);
+  context.triggerSummary();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(context.savedBriefHTML.myStocks, '<div>Previous valid report</div>');
+  assert.equal(context.savedBriefHTML.customTickers, '<div>Watch</div>');
+  assert.match(visible.at(-1)[1], /package unavailable/);
+  assert.match(visible.at(-1)[1], /Previous valid report/);
+  assert.equal(context._summaryInFlight, false);
+  assert.equal(context._summaryOwner, null);
+});
+
+test('structured loader maps ownership, hands off the envelope and stores only the initiating key', async () => {
+  const calls = [];
+  const envelope = {analysisRequest: {initiatingList: 'myStocks'}};
+  const result = {status: 'NORMAL'};
+  const saved = {myStocks: 'old mine', customTickers: 'old watch'};
+  const visible = [];
+  const context = {
+    MarketBrief: {claudeAnalysis: {
+      async requestMarketBriefPackage(options) { calls.push(['package', options]); return envelope; },
+      async requestMarketBriefAnalysis(options) { calls.push(['analysis', options]); return result; },
+      renderMarketBriefAnalysis(actualResult, actualEnvelope) {
+        calls.push(['render', actualResult, actualEnvelope]);
+        return '<div>Structured My Stocks</div>';
+      }
+    }},
+    setSumHTML(html, key) { visible.push([key, html]); },
+    saveBriefHTML(key, html) { saved[key] = html; visible.push([key, html]); },
+    Error
+  };
+  vm.createContext(context);
+  vm.runInContext(sourceBetween('async function loadStructuredSummary', 'async function loadSummary'), context);
+  await context.loadStructuredSummary('myStocks', 'old mine');
+  assert.equal(calls[0][0], 'package');
+  assert.equal(calls[0][1].filter, 'US');
+  assert.equal(calls[0][1].initiatingList, 'myStocks');
+  assert.equal(calls[1][0], 'analysis');
+  assert.equal(calls[1][1].envelope, envelope);
+  assert.deepEqual(calls[2], ['render', result, envelope]);
+  assert.equal(saved.myStocks, '<div>Structured My Stocks</div>');
+  assert.equal(saved.customTickers, 'old watch');
+  assert.match(visible[0][1], /Preparing market package/);
+  assert.match(visible[1][1], /Generating structured analysis/);
+
+  envelope.analysisRequest.initiatingList = 'watchlist';
+  await context.loadStructuredSummary('customTickers', 'old watch');
+  assert.equal(calls[3][0], 'package');
+  assert.equal(calls[3][1].filter, 'US');
+  assert.equal(calls[3][1].initiatingList, 'watchlist');
+  assert.equal(saved.customTickers, '<div>Structured My Stocks</div>');
+});
+
+test('structured completion remains keyed to its initiating view after navigation', async () => {
+  let resolvePackage;
+  const packagePromise = new Promise(resolve => { resolvePackage = resolve; });
+  const elements = {sumArea: element(), sumAreaD: element(), aiBtnM: element(), aiBtnD: element()};
+  const envelope = {analysisRequest: {initiatingList: 'myStocks'}};
+  const context = {
+    activeTickerList: 'myStocks', currentView: 'MyStocks',
+    document: {getElementById(id) { return elements[id] || null; }},
+    isDashboardView(name) { return name === 'MyStocks' || name === 'Watchlist'; },
+    setAIBtnVisible() {}, Error,
+    MarketBrief: {claudeAnalysis: {
+      requestMarketBriefPackage() { return packagePromise; },
+      async requestMarketBriefAnalysis() { return {status: 'NORMAL'}; },
+      renderMarketBriefAnalysis() { return '<div>Mine completed</div>'; }
+    }}
+  };
+  vm.createContext(context);
+  vm.runInContext(sourceBetween('function setSumHTML', 'function isAnyMarketOpen'), context);
+  vm.runInContext(sourceBetween('async function loadStructuredSummary', 'async function loadSummary'), context);
+  const generation = context.loadStructuredSummary('myStocks', 'old mine');
+  context.activeTickerList = 'customTickers';
+  context.currentView = 'Watchlist';
+  context.savedBriefHTML.customTickers = '<div>Watch remains</div>';
+  context.restoreCurrentBrief();
+  resolvePackage(envelope);
+  await generation;
+  assert.equal(context.savedBriefHTML.myStocks, '<div>Mine completed</div>');
+  assert.equal(context.savedBriefHTML.customTickers, '<div>Watch remains</div>');
+  assert.equal(elements.sumArea.innerHTML, '<div>Watch remains</div>');
+  assert.equal(elements.sumAreaD.innerHTML, '<div>Watch remains</div>');
+});
+
 async function capturePrompt(briefKey, filter, summaryData) {
   let prompt = '';
   const context = {

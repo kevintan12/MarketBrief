@@ -14,6 +14,8 @@
     {name:'MARKETBRIEF TAKEAWAY',purpose:'State the concise evidence-supported MarketBrief conclusion without padding.'},
     {name:'FURTHER READINGS',purpose:'Use only the validated Further Readings references supplied by MarketBrief; do not create or alter URLs.'}
   ];
+  var REPORT_HEADER='REPORT HEADER / ANALYSIS CONTEXT';
+  var ANALYSIS_STATUSES={NORMAL:true,DEGRADED:true,FAILED:true};
 
   function mapScope(filter){
     var scope=String(filter||'').toUpperCase();
@@ -171,6 +173,142 @@
       &&Array.isArray(payload.outputRequirements.sections);
   }
 
+  function escapeHTML(value){
+    return String(value===null||value===undefined?'':value)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function canonicalReferenceMaps(envelope){
+    if(!isCanonicalMarketBriefEnvelope(envelope))throw new TypeError('Invalid canonical Market Brief envelope');
+    var evidence={},telemetry={};
+    envelope.marketPackages.forEach(function(pkg){
+      if(!Array.isArray(pkg.evidenceContext.evidence))throw new TypeError('Invalid canonical evidence references');
+      pkg.evidenceContext.evidence.forEach(function(entry){
+        if(!entry||typeof entry.reference!=='string'||!entry.reference||evidence[entry.reference]||!entry.item)
+          throw new TypeError('Invalid canonical evidence reference');
+        evidence[entry.reference]=entry.item;
+      });
+      ['benchmarkSnapshots','stockSnapshots'].forEach(function(key){
+        if(!Array.isArray(pkg.telemetry[key]))throw new TypeError('Invalid canonical telemetry references');
+        pkg.telemetry[key].forEach(function(entry){
+          if(!entry||typeof entry.reference!=='string'||!entry.reference||telemetry[entry.reference]||!entry.snapshot)
+            throw new TypeError('Invalid canonical telemetry reference');
+          telemetry[entry.reference]=entry.snapshot;
+        });
+      });
+    });
+    return {evidence:evidence,telemetry:telemetry};
+  }
+
+  function requireReferenceArray(value,available,name){
+    if(!Array.isArray(value))throw new TypeError('Invalid structured '+name+' references');
+    var seen={};
+    value.forEach(function(reference){
+      if(typeof reference!=='string'||!available[reference]||seen[reference])
+        throw new TypeError('Invalid structured '+name+' reference');
+      seen[reference]=true;
+    });
+    return value;
+  }
+
+  function requireStringArray(value,name){
+    if(!Array.isArray(value)||value.some(function(item){return typeof item!=='string'||!item.trim();}))
+      throw new TypeError('Invalid structured '+name);
+    return value;
+  }
+
+  function validEvidenceUrl(value){
+    return typeof value==='string'&&/^https?:\/\/[^\s"'<>]+$/i.test(value);
+  }
+
+  function renderText(value){
+    return String(value).split(/\r?\n/).map(function(line){
+      return '<div style="font-size:1.05rem;line-height:1.8;color:var(--txt);margin-bottom:4px;">'
+        +escapeHTML(line)+'</div>';
+    }).join('');
+  }
+
+  function renderSectionReferences(section,maps){
+    var items=[];
+    section.evidenceRefs.forEach(function(reference){
+      var item=maps.evidence[reference];
+      var label=escapeHTML(item.title||reference);
+      items.push(validEvidenceUrl(item.canonicalUrl)
+        ?'<a href="'+escapeHTML(item.canonicalUrl)+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;">'+label+'</a>'
+        :label);
+    });
+    section.telemetryRefs.forEach(function(reference){
+      var snapshot=maps.telemetry[reference];
+      items.push(escapeHTML(snapshot.instrumentName||snapshot.symbol||reference));
+    });
+    return items.length?'<div style="color:var(--mut);font-size:0.85rem;margin-top:8px;">References: '+items.join(' · ')+'</div>':'';
+  }
+
+  function renderMarketBriefAnalysis(result,envelope){
+    var maps=canonicalReferenceMaps(envelope);
+    if(!hasExactKeys(result,['status','reportContext','sections','evidenceReferences','furtherReadings','evidenceGaps'])
+      ||!ANALYSIS_STATUSES[result.status])throw new TypeError('Invalid structured Market Brief result');
+    var context=result.reportContext;
+    if(!hasExactKeys(context,['header','selectedScope','generatedAt','userTimezone','reportType','markets'])
+      ||context.header!==REPORT_HEADER
+      ||context.selectedScope!==envelope.analysisRequest.selectedScope
+      ||context.generatedAt!==envelope.analysisRequest.generatedAt
+      ||context.userTimezone!==envelope.analysisRequest.userTimezone
+      ||context.reportType!==envelope.analysisRequest.reportType
+      ||!Array.isArray(context.markets))throw new TypeError('Invalid structured Market Brief report context');
+    if(!Array.isArray(result.sections)||result.sections.length!==REPORT_SECTIONS.length)
+      throw new TypeError('Invalid structured Market Brief sections');
+    requireReferenceArray(result.evidenceReferences,maps.evidence,'evidence');
+    requireReferenceArray(result.furtherReadings,maps.evidence,'Further Reading');
+    requireStringArray(result.evidenceGaps,'evidence gaps');
+
+    var html='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;">'
+      +'<div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span>'
+      +'<span class="sumdate" style="margin-left:4px">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(context.generatedAt)+'</span></div>'
+      +'<button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
+      +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
+      +escapeHTML(context.header)+'</div>'
+      +'<div style="color:var(--mut);font-size:0.9rem;line-height:1.6;">Scope: '+escapeHTML(context.selectedScope)
+      +' · Status: '+escapeHTML(result.status)+' · Generated: '+escapeHTML(context.generatedAt)
+      +' · Timezone: '+escapeHTML(context.userTimezone)+'</div>';
+    if(result.evidenceGaps.length){
+      html+='<div class="msg" style="margin-top:12px;"><strong>Evidence gaps</strong><br>'
+        +result.evidenceGaps.map(escapeHTML).join('<br>')+'</div>';
+    }
+    result.sections.forEach(function(section,index){
+      if(!hasExactKeys(section,['name','content','evidenceRefs','telemetryRefs','uncertainties'])
+        ||section.name!==REPORT_SECTIONS[index].name
+        ||(section.content!==null&&(typeof section.content!=='string'||!section.content.trim())))
+        throw new TypeError('Invalid structured Market Brief section '+(index+1));
+      requireReferenceArray(section.evidenceRefs,maps.evidence,'evidence');
+      requireReferenceArray(section.telemetryRefs,maps.telemetry,'telemetry');
+      requireStringArray(section.uncertainties,'uncertainties');
+      html+='<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(249,115,22,0.25);">'
+        +(index+1)+'. '+escapeHTML(section.name)+'</div>';
+      if(index===REPORT_SECTIONS.length-1){
+        var readings=[];
+        result.furtherReadings.forEach(function(reference){
+          var item=maps.evidence[reference];
+          if(validEvidenceUrl(item.canonicalUrl))readings.push('<div style="margin-bottom:8px;"><a href="'
+            +escapeHTML(item.canonicalUrl)+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;">'
+            +escapeHTML(item.title||reference)+'</a></div>');
+        });
+        html+=readings.length?readings.join(''):'<div style="color:var(--mut);">No validated Further Readings were supplied.</div>';
+      }else if(section.content!==null){
+        html+=renderText(section.content);
+      }else{
+        html+='<div style="color:var(--mut);">No supported analysis is available from the supplied package.</div>';
+      }
+      if(section.uncertainties.length){
+        html+='<div style="color:var(--mut);font-size:0.9rem;margin-top:8px;">Uncertainty: '
+          +section.uncertainties.map(escapeHTML).join(' · ')+'</div>';
+      }
+      html+=renderSectionReferences(section,maps);
+    });
+    return html+'</div>';
+  }
+
   async function requestMarketBriefPackage(options){
     options=options||{};
     var request=createMarketBriefPackageRequest(options);
@@ -202,7 +340,12 @@
 
   async function requestMarketBriefAnalysis(options){
     options=options||{};
-    var request=createMarketBriefRequest(options);
+    var request;
+    if(Object.prototype.hasOwnProperty.call(options,'envelope')){
+      if(!isCanonicalMarketBriefEnvelope(options.envelope))
+        throw analysisError('INVALID_REQUEST','Canonical Market Brief envelope is required');
+      request=options.envelope;
+    }else request=createMarketBriefRequest(options);
     var fetchImpl=options.fetchImpl||(typeof fetch==='function'?fetch:null);
     if(!fetchImpl)throw analysisError('NETWORK_FAILURE','Structured Claude analysis transport unavailable');
     var response;
@@ -236,6 +379,7 @@
     createMarketBriefPackageRequest:createMarketBriefPackageRequest,
     requestMarketBriefPackage:requestMarketBriefPackage,
     createMarketBriefRequest:createMarketBriefRequest,
-    requestMarketBriefAnalysis:requestMarketBriefAnalysis
+    requestMarketBriefAnalysis:requestMarketBriefAnalysis,
+    renderMarketBriefAnalysis:renderMarketBriefAnalysis
   };
 })();
