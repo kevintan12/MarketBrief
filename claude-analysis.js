@@ -229,6 +229,22 @@
     }).join('');
   }
 
+  function formatReportTimestamp(value,timeZone){
+    var date=new Date(value);
+    if(!Number.isFinite(date.getTime()))throw new TypeError('Invalid structured Market Brief generation time');
+    var parts;
+    try{
+      parts=new Intl.DateTimeFormat('en-GB',{
+        timeZone:timeZone,day:'2-digit',month:'2-digit',year:'numeric',
+        hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'
+      }).formatToParts(date);
+    }catch(e){throw new TypeError('Invalid structured Market Brief user timezone');}
+    var values={};
+    parts.forEach(function(part){if(part.type!=='literal')values[part.type]=part.value;});
+    var zone=timeZone==='Asia/Singapore'?'SGT':values.timeZoneName||timeZone;
+    return values.day+'-'+values.month+'-'+values.year+' · '+values.hour+':'+values.minute+' '+zone;
+  }
+
   function renderSectionReferences(section,maps){
     var items=[];
     section.evidenceRefs.forEach(function(reference){
@@ -262,20 +278,15 @@
     requireReferenceArray(result.evidenceReferences,maps.evidence,'evidence');
     requireReferenceArray(result.furtherReadings,maps.evidence,'Further Reading');
     requireStringArray(result.evidenceGaps,'evidence gaps');
+    var generatedForReader=formatReportTimestamp(context.generatedAt,context.userTimezone);
 
     var html='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;">'
       +'<div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span>'
-      +'<span class="sumdate" style="margin-left:4px">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(context.generatedAt)+'</span></div>'
+      +'<span class="sumdate" style="margin-left:4px">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(result.status)
+      +' · '+escapeHTML(generatedForReader)+'</span></div>'
       +'<button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
       +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
-      +escapeHTML(context.header)+'</div>'
-      +'<div style="color:var(--mut);font-size:0.9rem;line-height:1.6;">Scope: '+escapeHTML(context.selectedScope)
-      +' · Status: '+escapeHTML(result.status)+' · Generated: '+escapeHTML(context.generatedAt)
-      +' · Timezone: '+escapeHTML(context.userTimezone)+'</div>';
-    if(result.evidenceGaps.length){
-      html+='<div class="msg" style="margin-top:12px;"><strong>Evidence gaps</strong><br>'
-        +result.evidenceGaps.map(escapeHTML).join('<br>')+'</div>';
-    }
+      +escapeHTML(context.header)+'</div>';
     result.sections.forEach(function(section,index){
       if(!hasExactKeys(section,['name','content','evidenceRefs','telemetryRefs','uncertainties'])
         ||section.name!==REPORT_SECTIONS[index].name
@@ -299,10 +310,6 @@
         html+=renderText(section.content);
       }else{
         html+='<div style="color:var(--mut);">No supported analysis is available from the supplied package.</div>';
-      }
-      if(section.uncertainties.length){
-        html+='<div style="color:var(--mut);font-size:0.9rem;margin-top:8px;">Uncertainty: '
-          +section.uncertainties.map(escapeHTML).join(' · ')+'</div>';
       }
       html+=renderSectionReferences(section,maps);
     });
