@@ -25,6 +25,11 @@
     return SCOPE_MARKETS[mapScope(filter)].slice();
   }
 
+  function normalizeInitiatingList(value){
+    if(value==='myStocks'||value==='watchlist')return value;
+    throw new TypeError('Invalid Market Brief initiating list');
+  }
+
   function getPortfolioList(listKey,filter){
     var source=S[listKey];
     if(!source||typeof source!=='object')throw new TypeError('Missing Market Brief portfolio list');
@@ -72,6 +77,7 @@
   function createMarketBriefPackageRequest(options){
     options=options||{};
     var scope=mapScope(options.filter===undefined?'US':options.filter);
+    var initiatingList=normalizeInitiatingList(options.initiatingList);
     if(scope!=='US')throw new TypeError('Market Brief package acquisition supports US only');
     if(!S||typeof S.tz!=='string'||!S.tz)throw new TypeError('Missing user timezone');
     var benchmarkAnchors=getUsBenchmarkAnchors();
@@ -81,6 +87,7 @@
     return {
       benchmarkAnchors:benchmarkAnchors,
       selectedScope:scope,
+      initiatingList:initiatingList,
       userTimezone:S.tz,
       myStocks:getUsPackageMembership('myStocks',benchmarkSymbols),
       watchlist:getUsPackageMembership('customTickers',benchmarkSymbols)
@@ -120,12 +127,14 @@
   function createMarketBriefRequest(options){
     options=options||{};
     var scope=mapScope(options.filter);
+    var initiatingList=normalizeInitiatingList(options.initiatingList);
     var generatedAt=options.now===undefined?new Date():new Date(options.now);
     if(!Number.isFinite(generatedAt.getTime()))throw new TypeError('Invalid Market Brief generation time');
     if(!S||typeof S.tz!=='string'||!S.tz)throw new TypeError('Missing user timezone');
     return {
       analysisRequest:{
         selectedScope:scope,
+        initiatingList:initiatingList,
         generatedAt:generatedAt.toISOString(),
         userTimezone:S.tz,
         reportType:'MARKET_BRIEF'
@@ -149,8 +158,9 @@
 
   function isCanonicalMarketBriefEnvelope(payload){
     return hasExactKeys(payload,['analysisRequest','marketPackages','portfolioContext','outputRequirements'])
-      &&hasExactKeys(payload.analysisRequest,['selectedScope','generatedAt','userTimezone','reportType'])
+      &&hasExactKeys(payload.analysisRequest,['selectedScope','initiatingList','generatedAt','userTimezone','reportType'])
       &&payload.analysisRequest.selectedScope==='US'
+      &&(payload.analysisRequest.initiatingList==='myStocks'||payload.analysisRequest.initiatingList==='watchlist')
       &&payload.analysisRequest.reportType==='MARKET_BRIEF'
       &&Number.isFinite(new Date(payload.analysisRequest.generatedAt).getTime())
       &&Array.isArray(payload.marketPackages)&&payload.marketPackages.length===1

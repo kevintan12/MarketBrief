@@ -48,7 +48,7 @@ function packages() {
 function canonicalUsEnvelope() {
   return {
     analysisRequest: {
-      selectedScope: 'US', generatedAt: '2026-09-06T10:00:00.000Z',
+      selectedScope: 'US', initiatingList: 'myStocks', generatedAt: '2026-09-06T10:00:00.000Z',
       userTimezone: 'Asia/Singapore', reportType: 'MARKET_BRIEF'
     },
     marketPackages: [packages()[1]],
@@ -70,11 +70,12 @@ test('maps current filters to canonical scopes and preserves ALL market order', 
 test('builds MARKET_BRIEF request with UTC time, S.tz and canonical package order', () => {
   const context = load();
   const request = context.window.MarketBrief.claudeAnalysis.createMarketBriefRequest({
-    filter: 'all', listKey: 'myStocks', marketPackages: packages(), now: '2026-09-06T12:34:56+08:00'
+    filter: 'all', initiatingList: 'myStocks', marketPackages: packages(), now: '2026-09-06T12:34:56+08:00'
   });
   assert.deepEqual(Object.keys(request), ['analysisRequest', 'marketPackages', 'portfolioContext', 'outputRequirements']);
   assert.equal(request.analysisRequest.reportType, 'MARKET_BRIEF');
   assert.equal(request.analysisRequest.selectedScope, 'ALL');
+  assert.equal(request.analysisRequest.initiatingList, 'myStocks');
   assert.equal(request.analysisRequest.generatedAt, '2026-09-06T04:34:56.000Z');
   assert.equal(request.analysisRequest.userTimezone, 'Asia/Singapore');
   assert.deepEqual(Array.from(request.marketPackages, item => item.market), ['US', 'SG', 'HK']);
@@ -110,19 +111,40 @@ test('builds exact US package request from ordered fixed anchors and user-manage
   const context = load();
   context.S.myStocks.US = mine;
   context.S.customTickers.US = watch;
-  const request = context.window.MarketBrief.claudeAnalysis.createMarketBriefPackageRequest({filter: 'US'});
-  assert.deepEqual(Object.keys(request), ['benchmarkAnchors', 'selectedScope', 'userTimezone', 'myStocks', 'watchlist']);
+  const request = context.window.MarketBrief.claudeAnalysis.createMarketBriefPackageRequest({
+    filter: 'US', initiatingList: 'watchlist'
+  });
+  assert.deepEqual(Object.keys(request), ['benchmarkAnchors', 'selectedScope', 'initiatingList', 'userTimezone', 'myStocks', 'watchlist']);
   assert.deepEqual(Array.from(request.benchmarkAnchors, item => item.symbol), ['^DJI', '^IXIC', '^GSPC', '^RUT']);
   assert.deepEqual(Array.from(request.myStocks, item => item.symbol), ['MSFT', 'AAPL']);
   assert.deepEqual(Array.from(request.watchlist, item => item.symbol), ['VEEV', 'NVDA']);
   assert.equal(request.selectedScope, 'US');
+  assert.equal(request.initiatingList, 'watchlist');
   assert.equal(request.userTimezone, 'Asia/Singapore');
   request.benchmarkAnchors[0].symbol = 'CHANGED';
   request.myStocks[0].symbol = 'CHANGED';
   assert.equal(context.S.fixedTickers[0].sym, '^DJI');
   assert.equal(mine[0].sym, 'MSFT');
   assert.equal(watch[0].sym, 'VEEV');
-  assert.throws(() => context.window.MarketBrief.claudeAnalysis.createMarketBriefPackageRequest({filter: 'SG'}), /supports US only/);
+  assert.throws(() => context.window.MarketBrief.claudeAnalysis.createMarketBriefPackageRequest({
+    filter: 'SG', initiatingList: 'myStocks'
+  }), /supports US only/);
+});
+
+test('requires a canonical initiating list before either structured fetch', async () => {
+  const api = load().window.MarketBrief.claudeAnalysis;
+  for(const initiatingList of [undefined, '', 'customTickers', 'other']){
+    let calls=0;
+    await assert.rejects(api.requestMarketBriefPackage({
+      initiatingList,
+      fetchImpl:async()=>{calls++;}
+    }), /initiating list/);
+    await assert.rejects(api.requestMarketBriefAnalysis({
+      filter:'US', initiatingList, marketPackages:[packages()[1]],
+      fetchImpl:async()=>{calls++;}
+    }), /initiating list/);
+    assert.equal(calls,0);
+  }
 });
 
 test('rejects benchmark overlap before package fetch', async () => {
@@ -130,11 +152,13 @@ test('rejects benchmark overlap before package fetch', async () => {
   const context = load();
   context.S.myStocks.US = [{sym: '^RUT'}];
   await assert.rejects(context.window.MarketBrief.claudeAnalysis.requestMarketBriefPackage({
+    initiatingList: 'myStocks',
     fetchImpl: async () => { calls++; }
   }), /cannot be portfolio membership/);
   context.S.myStocks.US = [];
   context.S.customTickers.US = [{sym: '^DJI'}];
   await assert.rejects(context.window.MarketBrief.claudeAnalysis.requestMarketBriefPackage({
+    initiatingList: 'watchlist',
     fetchImpl: async () => { calls++; }
   }), /cannot be portfolio membership/);
   assert.equal(calls, 0);
@@ -145,6 +169,7 @@ test('posts package request once and passes canonical envelope through directly 
   const expected = canonicalUsEnvelope();
   const api = load().window.MarketBrief.claudeAnalysis;
   const result = await api.requestMarketBriefPackage({
+    initiatingList: 'myStocks',
     fetchImpl: async (url, options) => {
       calls.push({url, options});
       return {ok: true, status: 200, async json() { return expected; }};
@@ -156,25 +181,26 @@ test('posts package request once and passes canonical envelope through directly 
   assert.equal(calls[0].options.method, 'POST');
   assert.deepEqual(Object.keys(calls[0].options.headers), ['Content-Type']);
   assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
-  assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)), ['benchmarkAnchors', 'selectedScope', 'userTimezone', 'myStocks', 'watchlist']);
+  assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)), ['benchmarkAnchors', 'selectedScope', 'initiatingList', 'userTimezone', 'myStocks', 'watchlist']);
+  assert.equal(JSON.parse(calls[0].options.body).initiatingList, 'myStocks');
   assert.equal(result, expected);
 });
 
 test('package transport preserves structured failures and handles malformed and network failures deterministically', async () => {
   const api = load().window.MarketBrief.claudeAnalysis;
   for (const status of [400, 502]) {
-    await assert.rejects(api.requestMarketBriefPackage({fetchImpl: async () => ({
+    await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
       ok: false, status, async json() { return {error: {type: 'PACKAGE_FAILURE', message: 'package failed', upstreamStatus: status}}; }
     })}), error => error.type === 'PACKAGE_FAILURE' && error.upstreamStatus === status);
   }
-  await assert.rejects(api.requestMarketBriefPackage({fetchImpl: async () => ({
+  await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
     ok: true, status: 200, async json() { return {}; }
   })}), error => error.type === 'MALFORMED_RESPONSE');
-  await assert.rejects(api.requestMarketBriefPackage({fetchImpl: async () => ({
+  await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
     ok: true, status: 200, async json() { throw new Error('bad json'); }
   })}), error => error.type === 'MALFORMED_RESPONSE');
   let calls = 0;
-  await assert.rejects(api.requestMarketBriefPackage({fetchImpl: async () => {
+  await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => {
     calls++; throw new Error('offline');
   }}), error => error.type === 'NETWORK_FAILURE');
   assert.equal(calls, 1);
@@ -184,12 +210,12 @@ test('rejects missing canonical packages before fetch', async () => {
   let calls = 0;
   const api = load().window.MarketBrief.claudeAnalysis;
   await assert.rejects(api.requestMarketBriefAnalysis({
-    filter: 'ALL', marketPackages: [packages()[1]],
+    filter: 'ALL', initiatingList: 'myStocks', marketPackages: [packages()[1]],
     fetchImpl: async () => { calls++; }
   }), /Missing canonical market package for SG/);
   const factoryStyle = {...packages()[1], evidenceCollection: {market: 'US', items: []}};
   await assert.rejects(api.requestMarketBriefAnalysis({
-    filter: 'US', marketPackages: [factoryStyle], fetchImpl: async () => { calls++; }
+    filter: 'US', initiatingList: 'watchlist', marketPackages: [factoryStyle], fetchImpl: async () => { calls++; }
   }), /Invalid canonical market package/);
   assert.equal(calls, 0);
 });
@@ -199,7 +225,7 @@ test('posts exactly one JSON request and returns structured result without retry
   const expected = {status: 'NORMAL', findings: [], gaps: []};
   const api = load().window.MarketBrief.claudeAnalysis;
   const result = await api.requestMarketBriefAnalysis({
-    filter: 'SG', marketPackages: [packages()[2]],
+    filter: 'SG', initiatingList: 'watchlist', marketPackages: [packages()[2]],
     now: '2026-09-06T00:00:00Z',
     fetchImpl: async (url, options) => {
       calls.push({url, options});
@@ -213,6 +239,7 @@ test('posts exactly one JSON request and returns structured result without retry
   assert.deepEqual(Object.keys(calls[0].options.headers), ['Content-Type']);
   const body = JSON.parse(calls[0].options.body);
   assert.equal(body.analysisRequest.reportType, 'MARKET_BRIEF');
+  assert.equal(body.analysisRequest.initiatingList, 'watchlist');
   assert.deepEqual(Object.keys(body), ['analysisRequest', 'marketPackages', 'portfolioContext', 'outputRequirements']);
   assert.ok(body.marketPackages[0].evidenceContext);
   assert.equal(Object.hasOwn(body.marketPackages[0], 'evidenceCollection'), false);
@@ -221,7 +248,7 @@ test('posts exactly one JSON request and returns structured result without retry
 
 test('preserves backend failure types and handles malformed and network failures deterministically', async () => {
   const api = load().window.MarketBrief.claudeAnalysis;
-  const base = {filter: 'US', marketPackages: [packages()[1]]};
+  const base = {filter: 'US', initiatingList: 'myStocks', marketPackages: [packages()[1]]};
   await assert.rejects(api.requestMarketBriefAnalysis({...base, fetchImpl: async () => ({
     ok: false, status: 502, async json() { return {error: {type: 'CONTRACT_FAILURE', message: 'bad contract', upstreamStatus: 200}}; }
   })}), error => error.type === 'CONTRACT_FAILURE' && error.upstreamStatus === 200);
