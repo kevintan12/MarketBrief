@@ -447,7 +447,8 @@ function setSumHTML(h,briefKey){
 function saveBriefHTML(briefKey,h){savedBriefHTML[briefKey]=h;setSumHTML(h,briefKey);}
 function restoreCurrentBrief(){
   if(!isDashboardView(currentView))return;
-  setSumHTML(savedBriefHTML[activeTickerList]||'',activeTickerList);
+  var progress=_summaryInFlight&&_summaryOwner===activeTickerList?_structuredSummaryProgress[activeTickerList]:'';
+  setSumHTML(progress||savedBriefHTML[activeTickerList]||'',activeTickerList);
   setAIBtnVisible(!_summaryInFlight);
 }
 
@@ -456,6 +457,7 @@ var autoRefreshTimer=null;
 var lastSearchSym=null;
 var savedBriefHTML={myStocks:'',customTickers:''};
 var _summaryInFlight=false, _summaryOwner=null;
+var _structuredSummaryProgress={};
 var savedSearchHTML='';
 var savedSearchQuery='';
 var savedInvestHTML='';
@@ -611,20 +613,40 @@ function startAutoRefresh(){
   updateLiveIndicator();
 }
 // ── AI Summary ────────────────────────────────────────────────────────────────
+function formatStructuredElapsed(totalSeconds){
+  var seconds=Math.max(0,Math.floor(totalSeconds));
+  if(seconds<60)return 'Worked for '+seconds+' '+(seconds===1?'sec':'secs');
+  var minutes=Math.floor(seconds/60),remainder=seconds%60;
+  return 'Worked for '+minutes+' '+(minutes===1?'min':'mins')+' '+String(remainder).padStart(2,'0')+' secs';
+}
 async function loadStructuredSummary(briefKey,previousBrief){
   var analysis=MarketBrief.claudeAnalysis;
   if(!analysis)throw new Error('Structured Market Brief helper unavailable');
   var initiatingList=briefKey==='myStocks'?'myStocks':briefKey==='customTickers'?'watchlist':null;
   if(!initiatingList)throw new Error('Invalid Market Brief owner');
-  var retained=previousBrief||'';
-  setSumHTML('<div class="msg">Preparing market package… <span class="spin"></span></div>'+retained,briefKey);
-  var envelope=await analysis.requestMarketBriefPackage({filter:'US',initiatingList:initiatingList});
-  if(!envelope||!envelope.analysisRequest||envelope.analysisRequest.initiatingList!==initiatingList)
-    throw new Error('Market Brief package owner mismatch');
-  setSumHTML('<div class="msg">Generating structured analysis… <span class="spin"></span></div>'+retained,briefKey);
-  var result=await analysis.requestMarketBriefAnalysis({envelope:envelope});
-  var rendered=analysis.renderMarketBriefAnalysis(result,envelope);
-  saveBriefHTML(briefKey,rendered);
+  var startedAt=Date.now(),stage='Preparing market package…',timer=null;
+  function showProgress(){
+    var elapsed=Math.floor((Date.now()-startedAt)/1000);
+    var html='<div class="msg">'+stage+' <span class="spin"></span><div class="sumdate" style="margin-top:8px;">'
+      +formatStructuredElapsed(elapsed)+'</div></div>';
+    _structuredSummaryProgress[briefKey]=html;
+    setSumHTML(html,briefKey);
+  }
+  showProgress();
+  timer=setInterval(showProgress,1000);
+  try{
+    var envelope=await analysis.requestMarketBriefPackage({filter:'US',initiatingList:initiatingList});
+    if(!envelope||!envelope.analysisRequest||envelope.analysisRequest.initiatingList!==initiatingList)
+      throw new Error('Market Brief package owner mismatch');
+    stage='Generating structured analysis…';
+    showProgress();
+    var result=await analysis.requestMarketBriefAnalysis({envelope:envelope});
+    var rendered=analysis.renderMarketBriefAnalysis(result,envelope);
+    saveBriefHTML(briefKey,rendered);
+  }finally{
+    if(timer!==null)clearInterval(timer);
+    delete _structuredSummaryProgress[briefKey];
+  }
 }
 
 async function loadSummary(briefKey,summaryFilter,summaryData){
