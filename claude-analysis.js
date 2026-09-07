@@ -229,20 +229,9 @@
     }).join('');
   }
 
-  function formatReportTimestamp(value,timeZone){
-    var date=new Date(value);
-    if(!Number.isFinite(date.getTime()))throw new TypeError('Invalid structured Market Brief generation time');
-    var parts;
-    try{
-      parts=new Intl.DateTimeFormat('en-GB',{
-        timeZone:timeZone,day:'2-digit',month:'2-digit',year:'numeric',
-        hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'
-      }).formatToParts(date);
-    }catch(e){throw new TypeError('Invalid structured Market Brief user timezone');}
-    var values={};
-    parts.forEach(function(part){if(part.type!=='literal')values[part.type]=part.value;});
-    var zone=timeZone==='Asia/Singapore'?'SGT':values.timeZoneName||timeZone;
-    return values.day+'-'+values.month+'-'+values.year+' · '+values.hour+':'+values.minute+' '+zone;
+  function requireValidReportTimeZone(value){
+    try{new Intl.DateTimeFormat('en-US',{timeZone:value});}
+    catch(e){throw new TypeError('Invalid structured Market Brief user timezone');}
   }
 
   function renderSectionReferences(section,maps){
@@ -273,17 +262,14 @@
       ||context.userTimezone!==envelope.analysisRequest.userTimezone
       ||context.reportType!==envelope.analysisRequest.reportType
       ||!Array.isArray(context.markets))throw new TypeError('Invalid structured Market Brief report context');
+    requireValidReportTimeZone(envelope.analysisRequest.userTimezone);
     if(!Array.isArray(result.sections)||result.sections.length!==REPORT_SECTIONS.length)
       throw new TypeError('Invalid structured Market Brief sections');
     requireReferenceArray(result.evidenceReferences,maps.evidence,'evidence');
     requireReferenceArray(result.furtherReadings,maps.evidence,'Further Reading');
     requireStringArray(result.evidenceGaps,'evidence gaps');
-    var generatedForReader=formatReportTimestamp(context.generatedAt,context.userTimezone);
-
     var html='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;">'
-      +'<div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span>'
-      +'<span class="sumdate" style="margin-left:4px">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(result.status)
-      +' · '+escapeHTML(generatedForReader)+'</span></div>'
+      +'<span class="sumdate">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(result.status)+'</span>'
       +'<button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
       +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
       +escapeHTML(context.header)+'</div>';

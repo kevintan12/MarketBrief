@@ -318,7 +318,9 @@ test('renders canonical header and all eleven sections safely with package-owned
   const api = load().window.MarketBrief.claudeAnalysis;
   const html = api.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
   assert.match(html, /REPORT HEADER \/ ANALYSIS CONTEXT/);
-  assert.match(html, /US · NORMAL · 06-09-2026 · 18:00 SGT/);
+  assert.match(html, /US · NORMAL/);
+  assert.doesNotMatch(html, /AI · Claude/);
+  assert.doesNotMatch(html, /06-09-2026 · 18:00 SGT/);
   assert.doesNotMatch(html, /2026-09-06T10:00:00\.000Z/);
   let previous = -1;
   structuredResult(envelope).sections.forEach((section, index) => {
@@ -338,28 +340,38 @@ test('renders DEGRADED and FAILED results without fabricating unavailable conten
   const api = load().window.MarketBrief.claudeAnalysis;
   const degraded = api.renderMarketBriefAnalysis(structuredResult(envelope, 'DEGRADED'), envelope);
   const failed = api.renderMarketBriefAnalysis(structuredResult(envelope, 'FAILED'), envelope);
-  assert.match(degraded, /US · DEGRADED · 06-09-2026 · 18:00 SGT/);
+  assert.match(degraded, /US · DEGRADED/);
   assert.doesNotMatch(degraded, /Evidence remains incomplete/);
   assert.doesNotMatch(degraded, /Uncertainty:/);
   assert.doesNotMatch(degraded, /Evidence gaps/);
   assert.doesNotMatch(degraded, /A canonical evidence gap remains/);
   assert.match(degraded, /No supported analysis is available from the supplied package/);
-  assert.match(failed, /US · FAILED · 06-09-2026 · 18:00 SGT/);
+  assert.match(failed, /US · FAILED/);
   assert.doesNotMatch(failed, /Evidence gaps/);
   assert.doesNotMatch(failed, /A canonical evidence gap remains/);
   assert.doesNotMatch(failed, /Supported analysis/);
 });
 
-test('formats the generated time once in the supplied non-Singapore user timezone', () => {
+test('does not render the structured generated time in the outer header', () => {
   const envelope = populatedUsEnvelope();
   envelope.analysisRequest.generatedAt = '2026-09-07T12:47:19.351Z';
   envelope.analysisRequest.userTimezone = 'America/New_York';
   const result = structuredResult(envelope);
   const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(result, envelope);
-  assert.match(html, /US · NORMAL · 07-09-2026 · 08:47 GMT-4/);
+  assert.match(html, /US · NORMAL/);
   assert.doesNotMatch(html, /2026-09-07T12:47:19\.351Z/);
-  assert.equal((html.match(/07-09-2026 · 08:47 GMT-4/g)||[]).length, 1);
+  assert.doesNotMatch(html, /07-09-2026 · 08:47 GMT-4/);
+  assert.doesNotMatch(html, /AI · Claude/);
   assert.doesNotMatch(html, /SGT/);
+});
+
+test('validates the structured user timezone without rendering the generated time', () => {
+  const envelope = populatedUsEnvelope();
+  const api = load().window.MarketBrief.claudeAnalysis;
+  assert.doesNotThrow(() => api.renderMarketBriefAnalysis(structuredResult(envelope), envelope));
+  envelope.analysisRequest.userTimezone = 'Not/A_Timezone';
+  const result = structuredResult(envelope);
+  assert.throws(() => api.renderMarketBriefAnalysis(result, envelope), /user timezone/);
 });
 
 test('rejects unknown structured references and never renders unsupplied Further Reading URLs', () => {
