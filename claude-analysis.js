@@ -234,6 +234,38 @@
     catch(e){throw new TypeError('Invalid structured Market Brief user timezone');}
   }
 
+  function formatBenchmarkNumber(value){
+    return Number.isFinite(value)?value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+  }
+
+  function renderBenchmarkTable(envelope){
+    var labels={'^DJI':'Dow Jones','^IXIC':'NASDAQ','^GSPC':'S&amp;P 500','^RUT':'Russell 2000'};
+    var rows=[];
+    envelope.marketPackages.forEach(function(pkg){
+      pkg.telemetry.benchmarkSnapshots.forEach(function(entry){
+        var snapshot=entry.snapshot;
+        var sessions=Array.isArray(snapshot.completedSessions)?snapshot.completedSessions:[];
+        var completed=sessions.length?sessions[sessions.length-1]:null;
+        var close=completed&&Number.isFinite(completed.close)?formatBenchmarkNumber(completed.close):'—';
+        var movement='—';
+        if(completed&&Number.isFinite(completed.absoluteChange)&&Number.isFinite(completed.percentChange)){
+          var direction=completed.absoluteChange>0?'↑':completed.absoluteChange<0?'↓':'—';
+          movement=direction+' '+formatBenchmarkNumber(Math.abs(completed.absoluteChange))
+            +' ('+formatBenchmarkNumber(Math.abs(completed.percentChange))+'%)';
+        }
+        var label=labels[snapshot.symbol]||escapeHTML(snapshot.instrumentName||snapshot.symbol||'Unavailable benchmark');
+        rows.push('<tr><td style="padding:7px 10px;border-bottom:1px solid var(--bor);">'+label+'</td>'
+          +'<td style="padding:7px 10px;border-bottom:1px solid var(--bor);text-align:right;">'+close+'</td>'
+          +'<td style="padding:7px 10px;border-bottom:1px solid var(--bor);text-align:right;">'+movement+'</td></tr>');
+      });
+    });
+    return '<div style="overflow-x:auto;margin:12px 0 4px;"><table class="benchmark-table" style="width:100%;border-collapse:collapse;font-size:0.95rem;">'
+      +'<thead><tr><th style="padding:7px 10px;text-align:left;border-bottom:1px solid var(--bor);">Index</th>'
+      +'<th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--bor);">Close</th>'
+      +'<th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--bor);">Movement</th></tr></thead>'
+      +'<tbody>'+rows.join('')+'</tbody></table></div>';
+  }
+
   function renderSectionReferences(section,maps){
     var items=[];
     section.evidenceRefs.forEach(function(reference){
@@ -272,7 +304,7 @@
       +'<span class="sumdate">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(result.status)+'</span>'
       +'<button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
       +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
-      +escapeHTML(context.header)+'</div>';
+      +escapeHTML(context.header)+'</div>'+renderBenchmarkTable(envelope);
     result.sections.forEach(function(section,index){
       if(!hasExactKeys(section,['name','content','evidenceRefs','telemetryRefs','uncertainties'])
         ||section.name!==REPORT_SECTIONS[index].name

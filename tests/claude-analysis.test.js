@@ -60,7 +60,25 @@ function canonicalUsEnvelope() {
 function populatedUsEnvelope() {
   const envelope = canonicalUsEnvelope();
   envelope.marketPackages[0].telemetry = {
-    benchmarkSnapshots: [{reference: 't1', snapshot: {symbol: '^GSPC', instrumentName: 'S&P <500>'}}],
+    benchmarkSnapshots: [
+      {reference: 't1', snapshot: {
+        symbol: '^DJI', instrumentName: 'Dow Jones Industrial Average',
+        completedSessions: [
+          {close: 53000, absoluteChange: 100, percentChange: 0.19},
+          {close: 53414.25, absoluteChange: -271.86, percentChange: -0.51}
+        ],
+        currentOverlay: {lastPrice: 99999, absoluteChange: 999, percentChange: 99}
+      }},
+      {reference: 't2', snapshot: {symbol: '^IXIC', instrumentName: 'NASDAQ Composite', completedSessions: [
+        {close: 26506.99, absoluteChange: -77.07, percentChange: -0.29}
+      ], currentOverlay: null}},
+      {reference: 't3', snapshot: {symbol: '^GSPC', instrumentName: 'S&P <500>', completedSessions: [
+        {close: 7718.60, absoluteChange: -29.11, percentChange: -0.38}
+      ], currentOverlay: null}},
+      {reference: 't4', snapshot: {symbol: '^RUT', instrumentName: 'Russell 2000', completedSessions: [
+        {close: 2975.65, absoluteChange: 7.38, percentChange: 0.25}
+      ], currentOverlay: null}}
+    ],
     stockSnapshots: []
   };
   envelope.marketPackages[0].evidenceContext.evidence = [{
@@ -331,8 +349,42 @@ test('renders canonical header and all eleven sections safely with package-owned
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /Safe &lt;script&gt;alert\(1\)&lt;\/script&gt; analysis/);
   assert.match(html, /Trusted &lt;Market&gt; report/);
-  assert.match(html, /S&amp;P &lt;500&gt;/);
+  assert.match(html, /Dow Jones Industrial Average/);
   assert.match(html, /href="https:\/\/example\.test\/market\?x=1&amp;y=2"/);
+});
+
+test('renders four benchmarks from newest completed sessions before Section 1 without using overlays', () => {
+  const envelope = populatedUsEnvelope();
+  const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+  const table = html.indexOf('class="benchmark-table"');
+  const sectionOne = html.indexOf('1. EXECUTIVE MARKET SUMMARY');
+  assert.ok(table !== -1 && table < sectionOne);
+  assert.match(html, /Dow Jones[\s\S]*53,414\.25[\s\S]*↓ 271\.86 \(0\.51%\)/);
+  assert.match(html, /NASDAQ[\s\S]*26,506\.99[\s\S]*↓ 77\.07 \(0\.29%\)/);
+  assert.match(html, /S&amp;P 500[\s\S]*7,718\.60[\s\S]*↓ 29\.11 \(0\.38%\)/);
+  assert.match(html, /Russell 2000[\s\S]*2,975\.65[\s\S]*↑ 7\.38 \(0\.25%\)/);
+  assert.doesNotMatch(html, /99,999\.00|999\.00 \(99\.00%\)/);
+});
+
+test('renders unavailable benchmark close data without substituting current overlay values', () => {
+  const envelope = populatedUsEnvelope();
+  const russell = envelope.marketPackages[0].telemetry.benchmarkSnapshots[3].snapshot;
+  russell.completedSessions = [];
+  russell.currentOverlay = {lastPrice: 3001.25, absoluteChange: 32.98, percentChange: 1.11};
+  const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+  const row = html.match(/<tr><td[^>]*>Russell 2000<\/td>[\s\S]*?<\/tr>/)[0];
+  assert.match(row, />—<\/td>[\s\S]*>—<\/td>/);
+  assert.doesNotMatch(row, /3,001\.25|32\.98|1\.11/);
+});
+
+test('renders an exactly unchanged completed benchmark session neutrally', () => {
+  const envelope = populatedUsEnvelope();
+  envelope.marketPackages[0].telemetry.benchmarkSnapshots[3].snapshot.completedSessions = [
+    {close: 2975.65, absoluteChange: 0, percentChange: 0}
+  ];
+  const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+  const row = html.match(/<tr><td[^>]*>Russell 2000<\/td>[\s\S]*?<\/tr>/)[0];
+  assert.match(row, /2,975\.65[\s\S]*— 0\.00 \(0\.00%\)/);
 });
 
 test('renders DEGRADED and FAILED results without fabricating unavailable content', () => {
