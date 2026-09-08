@@ -113,7 +113,11 @@ test('failed US regeneration preserves the previous keyed report', async () => {
     _summaryInFlight: false, _summaryOwner: null, Object,
     setSumHTML(html, key) { visible.push([key, html]); }, setAIBtnVisible() {},
     esc(value) { return String(value); },
-    loadStructuredSummary() { return Promise.reject(new Error('package unavailable')); },
+    loadStructuredSummary() {
+      const error = new Error('package unavailable');
+      error.structuredElapsedText = 'Worked for 1 min 08 secs';
+      return Promise.reject(error);
+    },
     loadSummary() { throw new Error('legacy path must not run'); }
   };
   vm.createContext(context);
@@ -123,8 +127,10 @@ test('failed US regeneration preserves the previous keyed report', async () => {
   await Promise.resolve();
   assert.equal(context.savedBriefHTML.myStocks, '<div>Previous valid report</div>');
   assert.equal(context.savedBriefHTML.customTickers, '<div>Watch</div>');
+  assert.match(visible.at(-1)[1], /Worked for 1 min 08 secs/);
   assert.match(visible.at(-1)[1], /package unavailable/);
   assert.match(visible.at(-1)[1], /Previous valid report/);
+  assert.ok(visible.at(-1)[1].indexOf('Worked for 1 min 08 secs') < visible.at(-1)[1].indexOf('Market Brief error'));
   assert.equal(context._summaryInFlight, false);
   assert.equal(context._summaryOwner, null);
 });
@@ -148,7 +154,7 @@ test('structured loader maps ownership, hands off the envelope and stores only t
     }},
     setSumHTML(html, key) { visible.push([key, html]); },
     saveBriefHTML(key, html) { saved[key] = html; visible.push([key, html]); },
-    _structuredSummaryProgress: {}, Date, Error,
+    _structuredSummaryProgress: {}, Date: {now() { return 87000; }}, Error,
     setInterval(callback, delay) { timerDelays.push(delay); return 17; }, clearInterval(id) { clearedTimers.push(id); }
   };
   vm.createContext(context);
@@ -160,11 +166,11 @@ test('structured loader maps ownership, hands off the envelope and stores only t
   assert.equal(calls[1][0], 'analysis');
   assert.equal(calls[1][1].envelope, envelope);
   assert.deepEqual(calls[2], ['render', result, envelope]);
-  assert.equal(saved.myStocks, '<div>Structured My Stocks</div>');
+  assert.match(saved.myStocks, /^<div class="sumdate"[^>]*>Worked for 0 secs<\/div><div>Structured My Stocks<\/div>$/);
   assert.equal(saved.customTickers, 'old watch');
   assert.match(visible[0][1], /Preparing market package/);
   assert.doesNotMatch(visible[0][1], /old mine/);
-  assert.equal(saved.myStocks, '<div>Structured My Stocks</div>');
+  assert.match(saved.myStocks, /Worked for 0 secs/);
   assert.match(visible[1][1], /Generating structured analysis/);
   assert.deepEqual(clearedTimers, [17]);
   assert.deepEqual(timerDelays, [1000]);
@@ -175,7 +181,7 @@ test('structured loader maps ownership, hands off the envelope and stores only t
   assert.equal(calls[3][0], 'package');
   assert.equal(calls[3][1].filter, 'US');
   assert.equal(calls[3][1].initiatingList, 'watchlist');
-  assert.equal(saved.customTickers, '<div>Structured My Stocks</div>');
+  assert.match(saved.customTickers, /Worked for 0 secs/);
   assert.deepEqual(clearedTimers, [17, 17]);
   assert.deepEqual(timerDelays, [1000, 1000]);
 });
@@ -198,7 +204,12 @@ test('structured elapsed timer formats seconds and minutes and is cleaned up on 
   assert.equal(context.formatStructuredElapsed(12), 'Worked for 12 secs');
   assert.equal(context.formatStructuredElapsed(68), 'Worked for 1 min 08 secs');
   assert.equal(context.formatStructuredElapsed(134), 'Worked for 2 mins 14 secs');
-  await assert.rejects(context.loadStructuredSummary('myStocks', 'old mine'), /package unavailable/);
+  const failure = await context.loadStructuredSummary('myStocks', 'old mine').then(
+    () => null,
+    error => error
+  );
+  assert.match(failure.message, /package unavailable/);
+  assert.equal(failure.structuredElapsedText, 'Worked for 0 secs');
   assert.match(visible[0][1], /Worked for 0 secs/);
   assert.doesNotMatch(visible[0][1], /old mine/);
   assert.deepEqual(clearedTimers, [23]);
@@ -238,7 +249,8 @@ test('structured completion remains keyed to its initiating view after navigatio
   context.restoreCurrentBrief();
   resolvePackage(envelope);
   await generation;
-  assert.equal(context.savedBriefHTML.myStocks, '<div>Mine completed</div>');
+  assert.match(context.savedBriefHTML.myStocks, /Worked for 0 secs/);
+  assert.match(context.savedBriefHTML.myStocks, /Mine completed/);
   assert.equal(context.savedBriefHTML.customTickers, '<div>Watch remains</div>');
   assert.equal(elements.sumArea.innerHTML, '<div>Watch remains</div>');
   assert.equal(elements.sumAreaD.innerHTML, '<div>Watch remains</div>');

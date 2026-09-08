@@ -348,7 +348,8 @@ function triggerSummary(){
       _summaryInFlight=false;_summaryOwner=null;
       setAIBtnVisible(true);
     }).catch(function(e){
-      setSumHTML('<div class="msg err">Market Brief error: '+esc(e.message)+'</div>'+previousBrief,briefKey);
+      var elapsed=e.structuredElapsedText?'<div class="sumdate" style="margin-bottom:8px;">'+esc(e.structuredElapsedText)+'</div>':'';
+      setSumHTML(elapsed+'<div class="msg err">Market Brief error: '+esc(e.message)+'</div>'+previousBrief,briefKey);
       _summaryInFlight=false;_summaryOwner=null;
       setAIBtnVisible(true);
     });
@@ -624,7 +625,7 @@ async function loadStructuredSummary(briefKey,previousBrief){
   if(!analysis)throw new Error('Structured Market Brief helper unavailable');
   var initiatingList=briefKey==='myStocks'?'myStocks':briefKey==='customTickers'?'watchlist':null;
   if(!initiatingList)throw new Error('Invalid Market Brief owner');
-  var startedAt=Date.now(),stage='Preparing market package…',timer=null;
+  var startedAt=Date.now(),stage='Preparing market package…',timer=null,finalElapsedText=null;
   function showProgress(){
     var elapsed=Math.floor((Date.now()-startedAt)/1000);
     var html='<div class="msg">'+stage+' <span class="spin"></span><div class="sumdate" style="margin-top:8px;">'
@@ -634,6 +635,12 @@ async function loadStructuredSummary(briefKey,previousBrief){
   }
   showProgress();
   timer=setInterval(showProgress,1000);
+  function stopTimer(){
+    if(finalElapsedText===null)finalElapsedText=formatStructuredElapsed(Math.floor((Date.now()-startedAt)/1000));
+    if(timer!==null){clearInterval(timer);timer=null;}
+    delete _structuredSummaryProgress[briefKey];
+    return finalElapsedText;
+  }
   try{
     var envelope=await analysis.requestMarketBriefPackage({filter:'US',initiatingList:initiatingList});
     if(!envelope||!envelope.analysisRequest||envelope.analysisRequest.initiatingList!==initiatingList)
@@ -642,10 +649,13 @@ async function loadStructuredSummary(briefKey,previousBrief){
     showProgress();
     var result=await analysis.requestMarketBriefAnalysis({envelope:envelope});
     var rendered=analysis.renderMarketBriefAnalysis(result,envelope);
-    saveBriefHTML(briefKey,rendered);
+    var elapsedText=stopTimer();
+    saveBriefHTML(briefKey,'<div class="sumdate" style="margin-bottom:8px;">'+elapsedText+'</div>'+rendered);
+  }catch(e){
+    e.structuredElapsedText=stopTimer();
+    throw e;
   }finally{
-    if(timer!==null)clearInterval(timer);
-    delete _structuredSummaryProgress[briefKey];
+    stopTimer();
   }
 }
 
