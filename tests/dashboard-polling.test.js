@@ -96,6 +96,14 @@ function waitForRender() {
   return new Promise(resolve => setTimeout(resolve, 10));
 }
 
+async function waitForCondition(condition, timeoutMs = 250) {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() >= deadline) assert.fail('timed out waiting for expected condition');
+    await new Promise(resolve => setImmediate(resolve));
+  }
+}
+
 test('successful automatic quote is applied before another symbol settles', async () => {
   const a = deferred();
   const b = deferred();
@@ -106,7 +114,7 @@ test('successful automatic quote is applied before another symbol settles', asyn
 
   const refresh = context.silentRefreshDash({ any: true, SG: true });
   a.resolve({ canonical: canonical(20, 3, 17.65) });
-  await waitForRender();
+  await waitForCondition(() => context.calls.render === 1);
 
   assert.deepEqual(
     { price: context.mktData[0].price, chg: context.mktData[0].chg, pct: context.mktData[0].pct },
