@@ -40,7 +40,7 @@ function packages() {
     evidenceContext: {
       evidence: [], materialEvents: [], authoritativeFacts: [], principalCatalysts: [],
       supportingEvidence: [], conflictingEvidence: [], subsequentDevelopments: [],
-      unresolvedGaps: [], furtherReadings: []
+      sessionAssociations: [], unresolvedGaps: [], furtherReadings: []
     }
   }));
 }
@@ -262,6 +262,11 @@ test('package transport preserves structured failures and handles malformed and 
   await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
     ok: true, status: 200, async json() { return {}; }
   })}), error => error.type === 'MALFORMED_RESPONSE');
+  const missingSessionAssociations = canonicalUsEnvelope();
+  delete missingSessionAssociations.marketPackages[0].evidenceContext.sessionAssociations;
+  await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
+    ok: true, status: 200, async json() { return missingSessionAssociations; }
+  })}), error => error.type === 'MALFORMED_RESPONSE');
   await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
     ok: true, status: 200, async json() { throw new Error('bad json'); }
   })}), error => error.type === 'MALFORMED_RESPONSE');
@@ -328,6 +333,8 @@ test('posts an acquired canonical envelope to structured analysis unchanged', as
   assert.equal(calls[0].url, 'https://proxy.example/api/quote?claudeAnalysis=1');
   assert.equal(calls[0].options.body, JSON.stringify(envelope));
   assert.deepEqual(JSON.parse(calls[0].options.body), envelope);
+  assert.deepEqual(JSON.parse(calls[0].options.body).marketPackages[0].evidenceContext.sessionAssociations,
+    envelope.marketPackages[0].evidenceContext.sessionAssociations);
   assert.equal(result, expected);
 });
 

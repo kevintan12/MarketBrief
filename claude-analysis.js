@@ -108,7 +108,7 @@
       &&hasExactKeys(pkg.telemetry,['benchmarkSnapshots','stockSnapshots'])
       &&hasExactKeys(pkg.evidenceContext,[
         'evidence','materialEvents','authoritativeFacts','principalCatalysts','supportingEvidence',
-        'conflictingEvidence','subsequentDevelopments','unresolvedGaps','furtherReadings'
+        'conflictingEvidence','subsequentDevelopments','sessionAssociations','unresolvedGaps','furtherReadings'
       ]);
   }
 
