@@ -59,34 +59,42 @@ function canonicalUsEnvelope() {
 
 function populatedUsEnvelope() {
   const envelope = canonicalUsEnvelope();
+  envelope.marketPackages[0].marketContext.primaryCompletedSessionDate = '2026-09-04';
+  function fiveSessions(last) {
+    return [
+      {sessionDate:'2026-08-31',close:last.close-140,absoluteChange:20,percentChange:0.08},
+      {sessionDate:'2026-09-01',close:last.close-110,absoluteChange:30,percentChange:0.11},
+      {sessionDate:'2026-09-02',close:last.close-80,absoluteChange:30,percentChange:0.11},
+      {sessionDate:'2026-09-03',close:last.close-last.absoluteChange,absoluteChange:30,percentChange:0.11},
+      Object.assign({sessionDate:'2026-09-04'},last)
+    ];
+  }
   envelope.marketPackages[0].telemetry = {
     benchmarkSnapshots: [
       {reference: 't1', snapshot: {
         symbol: '^DJI', instrumentName: 'Dow Jones Industrial Average',
-        completedSessions: [
-          {close: 53000, absoluteChange: 100, percentChange: 0.19},
-          {close: 53414.25, absoluteChange: -271.86, percentChange: -0.51}
-        ],
-        currentOverlay: {lastPrice: 99999, absoluteChange: 999, percentChange: 99}
+        completedSessions: fiveSessions({close: 53414.25, absoluteChange: -271.86, percentChange: -0.51}),
+        currentOverlay: null
       }},
-      {reference: 't2', snapshot: {symbol: '^IXIC', instrumentName: 'NASDAQ Composite', completedSessions: [
-        {close: 26506.99, absoluteChange: -77.07, percentChange: -0.29}
-      ], currentOverlay: null}},
-      {reference: 't3', snapshot: {symbol: '^GSPC', instrumentName: 'S&P <500>', completedSessions: [
-        {close: 7718.60, absoluteChange: -29.11, percentChange: -0.38}
-      ], currentOverlay: null}},
-      {reference: 't4', snapshot: {symbol: '^RUT', instrumentName: 'Russell 2000', completedSessions: [
-        {close: 2975.65, absoluteChange: 7.38, percentChange: 0.25}
-      ], currentOverlay: null}}
+      {reference: 't2', snapshot: {symbol: '^IXIC', instrumentName: 'NASDAQ Composite', completedSessions:
+        fiveSessions({close: 26506.99, absoluteChange: -77.07, percentChange: -0.29}), currentOverlay: null}},
+      {reference: 't3', snapshot: {symbol: '^GSPC', instrumentName: 'S&P <500>', completedSessions:
+        fiveSessions({close: 7718.60, absoluteChange: -29.11, percentChange: -0.38}), currentOverlay: null}},
+      {reference: 't4', snapshot: {symbol: '^RUT', instrumentName: 'Russell 2000', completedSessions:
+        fiveSessions({close: 2975.65, absoluteChange: 7.38, percentChange: 0.25}), currentOverlay: null}}
     ],
     stockSnapshots: []
   };
-  envelope.marketPackages[0].evidenceContext.evidence = [{
-    reference: 'e1', item: {
+  envelope.marketPackages[0].evidenceContext.evidence = [
+    {reference: 'e1', item: {
       title: 'Trusted <Market> report',
-      canonicalUrl: 'https://example.test/market?x=1&y=2'
-    }
-  }];
+      canonicalUrl: 'https://finance.yahoo.com/markets/stocks/market-recap.html'
+    }},
+    {reference: 'e2', item: {
+      title: 'CNBC closing-market recap',
+      canonicalUrl: 'https://www.cnbc.com/2026/09/04/stock-market-today.html'
+    }}
+  ];
   return envelope;
 }
 
@@ -118,7 +126,7 @@ function structuredResult(envelope, status = 'NORMAL') {
     },
     sections,
     evidenceReferences: status === 'FAILED' ? [] : ['e1'],
-    furtherReadings: status === 'FAILED' ? [] : ['e1'],
+    furtherReadings: status === 'FAILED' ? [] : ['e1', 'e2'],
     evidenceGaps: status === 'NORMAL' ? [] : ['A canonical evidence gap remains.']
   };
 }
@@ -232,7 +240,7 @@ test('rejects benchmark overlap before package fetch', async () => {
 
 test('posts package request once and passes canonical envelope through directly without Claude', async () => {
   const calls = [];
-  const expected = canonicalUsEnvelope();
+  const expected = populatedUsEnvelope();
   const api = load().window.MarketBrief.claudeAnalysis;
   const result = await api.requestMarketBriefPackage({
     initiatingList: 'myStocks',
@@ -250,6 +258,8 @@ test('posts package request once and passes canonical envelope through directly 
   assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)), ['benchmarkAnchors', 'selectedScope', 'initiatingList', 'userTimezone', 'myStocks', 'watchlist']);
   assert.equal(JSON.parse(calls[0].options.body).initiatingList, 'myStocks');
   assert.equal(result, expected);
+  assert.deepEqual(result.marketPackages[0].telemetry.benchmarkSnapshots.map(entry => entry.snapshot.completedSessions.length),
+    [5, 5, 5, 5]);
 });
 
 test('package transport preserves structured failures and handles malformed and network failures deterministically', async () => {
@@ -333,6 +343,10 @@ test('posts an acquired canonical envelope to structured analysis unchanged', as
   assert.equal(calls[0].url, 'https://proxy.example/api/quote?claudeAnalysis=1');
   assert.equal(calls[0].options.body, JSON.stringify(envelope));
   assert.deepEqual(JSON.parse(calls[0].options.body), envelope);
+  assert.deepEqual(envelope.marketPackages[0].telemetry.benchmarkSnapshots.map(entry => entry.snapshot.completedSessions.length),
+    [5, 5, 5, 5]);
+  assert.deepEqual(JSON.parse(calls[0].options.body).marketPackages[0].telemetry.benchmarkSnapshots,
+    envelope.marketPackages[0].telemetry.benchmarkSnapshots);
   assert.deepEqual(JSON.parse(calls[0].options.body).marketPackages[0].evidenceContext.sessionAssociations,
     envelope.marketPackages[0].evidenceContext.sessionAssociations);
   assert.equal(result, expected);
@@ -344,8 +358,12 @@ test('renders canonical header and all eleven sections safely with package-owned
   const html = api.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
   assert.match(html, /REPORT HEADER \/ ANALYSIS CONTEXT/);
   assert.match(html, /US · NORMAL/);
+  assert.match(html, /Market: US/);
+  assert.match(html, /Session: Market Closed/);
+  assert.match(html, /Analysis state: Completed session/);
+  assert.match(html, /Principal completed regular session: 04-09-2026/);
+  assert.match(html, /Generated: 06-09-2026 · 18:00 SGT/);
   assert.doesNotMatch(html, /AI · Claude/);
-  assert.doesNotMatch(html, /06-09-2026 · 18:00 SGT/);
   assert.doesNotMatch(html, /2026-09-06T10:00:00\.000Z/);
   let previous = -1;
   structuredResult(envelope).sections.forEach((section, index) => {
@@ -357,11 +375,35 @@ test('renders canonical header and all eleven sections safely with package-owned
   assert.match(html, /Safe &lt;script&gt;alert\(1\)&lt;\/script&gt; analysis/);
   assert.match(html, /Trusted &lt;Market&gt; report/);
   assert.match(html, /Dow Jones Industrial Average/);
-  assert.match(html, /href="https:\/\/example\.test\/market\?x=1&amp;y=2"/);
+  assert.match(html, /href="https:\/\/finance\.yahoo\.com\/markets\/stocks\/market-recap\.html"/);
+});
+
+test('renders supported canonical US session states in clear report context', () => {
+  const cases = [
+    ['CLOSED', false, 'Market Closed', 'Completed session'],
+    ['PRE', true, 'Pre-Market', 'Live / in progress'],
+    ['REGULAR', true, 'Trading', 'Live / in progress'],
+    ['POST', true, 'After-Hours', 'Live / in progress']
+  ];
+  const api = load().window.MarketBrief.claudeAnalysis;
+  cases.forEach(([state, overlay, label, progress]) => {
+    const envelope = populatedUsEnvelope();
+    envelope.marketPackages[0].marketContext.marketState = state;
+    envelope.marketPackages[0].marketContext.includesCurrentOverlay = overlay;
+    if(overlay)envelope.marketPackages[0].telemetry.benchmarkSnapshots[0].snapshot.currentOverlay =
+      {lastPrice:99999,absoluteChange:999,percentChange:99};
+    const html = api.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+    assert.match(html, new RegExp(`Session: ${label}`));
+    assert.match(html, new RegExp(`Analysis state: ${progress.replace(/\//g, '\\/')}`));
+  });
 });
 
 test('renders four benchmarks from newest completed sessions before Section 1 without using overlays', () => {
   const envelope = populatedUsEnvelope();
+  envelope.marketPackages[0].marketContext.marketState = 'REGULAR';
+  envelope.marketPackages[0].marketContext.includesCurrentOverlay = true;
+  envelope.marketPackages[0].telemetry.benchmarkSnapshots[0].snapshot.currentOverlay =
+    {lastPrice:99999,absoluteChange:999,percentChange:99};
   const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
   const table = html.indexOf('class="benchmark-table"');
   const sectionOne = html.indexOf('1. EXECUTIVE MARKET SUMMARY');
@@ -411,7 +453,7 @@ test('renders DEGRADED and FAILED results without fabricating unavailable conten
   assert.doesNotMatch(failed, /Supported analysis/);
 });
 
-test('does not render the structured generated time in the outer header', () => {
+test('renders the structured generated time in the user timezone without a raw ISO value', () => {
   const envelope = populatedUsEnvelope();
   envelope.analysisRequest.generatedAt = '2026-09-07T12:47:19.351Z';
   envelope.analysisRequest.userTimezone = 'America/New_York';
@@ -419,18 +461,57 @@ test('does not render the structured generated time in the outer header', () => 
   const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(result, envelope);
   assert.match(html, /US · NORMAL/);
   assert.doesNotMatch(html, /2026-09-07T12:47:19\.351Z/);
-  assert.doesNotMatch(html, /07-09-2026 · 08:47 GMT-4/);
+  assert.match(html, /Generated: 07-09-2026 · 08:47 (?:GMT-4|EDT)/);
   assert.doesNotMatch(html, /AI · Claude/);
   assert.doesNotMatch(html, /SGT/);
 });
 
-test('validates the structured user timezone without rendering the generated time', () => {
+test('validates the structured user timezone while rendering the generated time', () => {
   const envelope = populatedUsEnvelope();
   const api = load().window.MarketBrief.claudeAnalysis;
   assert.doesNotThrow(() => api.renderMarketBriefAnalysis(structuredResult(envelope), envelope));
   envelope.analysisRequest.userTimezone = 'Not/A_Timezone';
   const result = structuredResult(envelope);
   assert.throws(() => api.renderMarketBriefAnalysis(result, envelope), /user timezone/);
+});
+
+test('renders validated Further Readings in supplied order and handles partial or absent lists', () => {
+  const api = load().window.MarketBrief.claudeAnalysis;
+  function renderWith(readings) {
+    const envelope = populatedUsEnvelope();
+    const result = structuredResult(envelope);
+    result.furtherReadings = readings;
+    const html = api.renderMarketBriefAnalysis(result, envelope);
+    return html.slice(html.indexOf('11. FURTHER READINGS'));
+  }
+  const both = renderWith(['e1', 'e2']);
+  const yahoo = both.indexOf('Trusted &lt;Market&gt; report');
+  const cnbc = both.indexOf('CNBC closing-market recap');
+  assert.ok(yahoo !== -1 && cnbc > yahoo);
+  assert.match(both, /href="https:\/\/finance\.yahoo\.com\/markets\/stocks\/market-recap\.html"/);
+  assert.match(both, /href="https:\/\/www\.cnbc\.com\/2026\/09\/04\/stock-market-today\.html"/);
+  assert.doesNotMatch(both, />https?:\/\//);
+  assert.match(renderWith(['e1']), /Trusted &lt;Market&gt; report/);
+  assert.doesNotMatch(renderWith(['e1']), /CNBC closing-market recap/);
+  assert.match(renderWith(['e2']), /CNBC closing-market recap/);
+  assert.doesNotMatch(renderWith(['e2']), /Trusted &lt;Market&gt; report/);
+  assert.match(renderWith([]), /No validated Further Readings were supplied/);
+});
+
+test('renders rich, degraded and portfolio-overlap fixtures without frontend filler', () => {
+  const envelope = populatedUsEnvelope();
+  envelope.portfolioContext.myStocks = [{market:'US', symbol:'MSFT', telemetryRefs:[], evidenceRefs:[], upcomingEvents:[]}];
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const rich = structuredResult(envelope);
+  rich.sections[3].content = 'Microsoft led the broad market because of a supported catalyst.';
+  rich.sections[4].content = 'Microsoft was also material to the initiating My Stocks list. An ordinary holding was not material.';
+  const richHtml = api.renderMarketBriefAnalysis(rich, envelope);
+  assert.match(richHtml, /Microsoft led the broad market/);
+  assert.match(richHtml, /Microsoft was also material to the initiating My Stocks list/);
+  const thin = structuredResult(envelope, 'DEGRADED');
+  const thinHtml = api.renderMarketBriefAnalysis(thin, envelope);
+  assert.match(thinHtml, /8\. OPPORTUNITIES[\s\S]*No supported analysis is available from the supplied package/);
+  assert.doesNotMatch(thinHtml, /buying opportunity|rebound may/i);
 });
 
 test('rejects unknown structured references and never renders unsupplied Further Reading URLs', () => {
@@ -447,7 +528,9 @@ test('rejects unknown structured references and never renders unsupplied Further
   assert.throws(() => api.renderMarketBriefAnalysis(unknownReading, envelope), /Further Reading reference/);
   const unsafeEnvelope = populatedUsEnvelope();
   unsafeEnvelope.marketPackages[0].evidenceContext.evidence[0].item.canonicalUrl = 'javascript:alert(1)';
-  const html = api.renderMarketBriefAnalysis(structuredResult(unsafeEnvelope), unsafeEnvelope);
+  const unsafeResult = structuredResult(unsafeEnvelope);
+  unsafeResult.furtherReadings = ['e1'];
+  const html = api.renderMarketBriefAnalysis(unsafeResult, unsafeEnvelope);
   assert.doesNotMatch(html, /javascript:/);
   assert.match(html, /No validated Further Readings were supplied/);
 });

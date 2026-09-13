@@ -234,6 +234,44 @@
     catch(e){throw new TypeError('Invalid structured Market Brief user timezone');}
   }
 
+  function formatReportGeneratedAt(value,timeZone){
+    var parts=new Intl.DateTimeFormat('en-GB',{
+      timeZone:timeZone,day:'2-digit',month:'2-digit',year:'numeric',
+      hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'
+    }).formatToParts(new Date(value));
+    var values={};
+    parts.forEach(function(part){if(part.type!=='literal')values[part.type]=part.value;});
+    var zone=timeZone==='Asia/Singapore'?'SGT':values.timeZoneName;
+    return values.day+'-'+values.month+'-'+values.year+' · '+values.hour+':'+values.minute+(zone?' '+zone:'');
+  }
+
+  function formatCanonicalSessionDate(value){
+    var match=typeof value==='string'&&value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match?match[3]+'-'+match[2]+'-'+match[1]:'Unavailable';
+  }
+
+  function marketStatePresentation(value){
+    var state=String(value||'').trim().toUpperCase().replace(/-/g,'_');
+    var labels={CLOSED:'Market Closed',PRE:'Pre-Market',PRE_MARKET:'Pre-Market',
+      REGULAR:'Trading',TRADING:'Trading',POST:'After-Hours',POST_MARKET:'After-Hours'};
+    return labels[state]||'Session status unavailable';
+  }
+
+  function renderAnalysisContext(envelope){
+    var request=envelope.analysisRequest;
+    var pkg=envelope.marketPackages[0];
+    var state=String(pkg.marketContext.marketState||'').trim().toUpperCase().replace(/-/g,'_');
+    var inProgress=state==='PRE'||state==='PRE_MARKET'||state==='REGULAR'||state==='TRADING'
+      ||state==='POST'||state==='POST_MARKET';
+    return '<div class="analysis-context" style="font-size:0.95rem;line-height:1.7;color:var(--txt);margin-bottom:12px;">'
+      +'<div>Market: '+escapeHTML(request.selectedScope)+'</div>'
+      +'<div>Session: '+escapeHTML(marketStatePresentation(pkg.marketContext.marketState))+'</div>'
+      +'<div>Analysis state: '+(inProgress?'Live / in progress':'Completed session')+'</div>'
+      +'<div>Principal completed regular session: '+escapeHTML(formatCanonicalSessionDate(pkg.marketContext.primaryCompletedSessionDate))+'</div>'
+      +'<div>Generated: '+escapeHTML(formatReportGeneratedAt(request.generatedAt,request.userTimezone))+'</div>'
+      +'</div>';
+  }
+
   function formatBenchmarkNumber(value){
     return Number.isFinite(value)?value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
   }
@@ -304,7 +342,7 @@
       +'<span class="sumdate">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(result.status)+'</span>'
       +'<button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
       +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
-      +escapeHTML(context.header)+'</div>'+renderBenchmarkTable(envelope);
+      +escapeHTML(context.header)+'</div>'+renderAnalysisContext(envelope)+renderBenchmarkTable(envelope);
     result.sections.forEach(function(section,index){
       if(!hasExactKeys(section,['name','content','evidenceRefs','telemetryRefs','uncertainties'])
         ||section.name!==REPORT_SECTIONS[index].name
