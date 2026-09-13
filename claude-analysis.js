@@ -252,7 +252,7 @@
 
   function marketStatePresentation(value){
     var state=String(value||'').trim().toUpperCase().replace(/-/g,'_');
-    var labels={CLOSED:'Market Closed',PRE:'Pre-Market',PRE_MARKET:'Pre-Market',
+    var labels={CLOSED:'Market Closed',WEEKEND:'Weekend / Market Closed',PRE:'Pre-Market',PRE_MARKET:'Pre-Market',
       REGULAR:'Trading',TRADING:'Trading',POST:'After-Hours',POST_MARKET:'After-Hours'};
     return labels[state]||'Session status unavailable';
   }
@@ -263,13 +263,17 @@
     var state=String(pkg.marketContext.marketState||'').trim().toUpperCase().replace(/-/g,'_');
     var inProgress=state==='PRE'||state==='PRE_MARKET'||state==='REGULAR'||state==='TRADING'
       ||state==='POST'||state==='POST_MARKET';
-    return '<div class="analysis-context" style="font-size:0.95rem;line-height:1.7;color:var(--txt);margin-bottom:12px;">'
-      +'<div>Market: '+escapeHTML(request.selectedScope)+'</div>'
-      +'<div>Session: '+escapeHTML(marketStatePresentation(pkg.marketContext.marketState))+'</div>'
-      +'<div>Analysis state: '+(inProgress?'Live / in progress':'Completed session')+'</div>'
-      +'<div>Principal completed regular session: '+escapeHTML(formatCanonicalSessionDate(pkg.marketContext.primaryCompletedSessionDate))+'</div>'
-      +'<div>Generated: '+escapeHTML(formatReportGeneratedAt(request.generatedAt,request.userTimezone))+'</div>'
-      +'</div>';
+    var labelStyle='text-align:left;vertical-align:top;width:42%;padding:6px 10px;border-bottom:1px solid var(--bor);color:var(--mut);font-weight:500;';
+    var valueStyle='padding:6px 10px;border-bottom:1px solid var(--bor);overflow-wrap:anywhere;';
+    return '<div class="analysis-context" style="margin-bottom:12px;overflow-x:auto;">'
+      +'<table aria-label="Analysis context" style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:0.92rem;line-height:1.45;color:var(--txt);">'
+      +'<tbody>'
+      +'<tr><th scope="row" style="'+labelStyle+'">Market</th><td style="'+valueStyle+'">'+escapeHTML(request.selectedScope)+'</td></tr>'
+      +'<tr><th scope="row" style="'+labelStyle+'">Session</th><td style="'+valueStyle+'">'+escapeHTML(marketStatePresentation(pkg.marketContext.marketState))+'</td></tr>'
+      +'<tr><th scope="row" style="'+labelStyle+'">Analysis State</th><td style="'+valueStyle+'">'+(inProgress?'Live / in progress':'Completed session')+'</td></tr>'
+      +'<tr><th scope="row" style="'+labelStyle+'">Principal Completed Regular Session</th><td style="'+valueStyle+'">'+escapeHTML(formatCanonicalSessionDate(pkg.marketContext.primaryCompletedSessionDate))+'</td></tr>'
+      +'<tr><th scope="row" style="'+labelStyle+'border-bottom:0;">Generated</th><td style="'+valueStyle+'border-bottom:0;">'+escapeHTML(formatReportGeneratedAt(request.generatedAt,request.userTimezone))+'</td></tr>'
+      +'</tbody></table></div>';
   }
 
   function formatBenchmarkNumber(value){

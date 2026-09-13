@@ -358,11 +358,12 @@ test('renders canonical header and all eleven sections safely with package-owned
   const html = api.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
   assert.match(html, /REPORT HEADER \/ ANALYSIS CONTEXT/);
   assert.match(html, /US · NORMAL/);
-  assert.match(html, /Market: US/);
-  assert.match(html, /Session: Market Closed/);
-  assert.match(html, /Analysis state: Completed session/);
-  assert.match(html, /Principal completed regular session: 04-09-2026/);
-  assert.match(html, /Generated: 06-09-2026 · 18:00 SGT/);
+  assert.match(html, /<table aria-label="Analysis context"/);
+  assert.match(html, />Market<\/th><td[^>]*>US<\/td>/);
+  assert.match(html, />Session<\/th><td[^>]*>Market Closed<\/td>/);
+  assert.match(html, />Analysis State<\/th><td[^>]*>Completed session<\/td>/);
+  assert.match(html, />Principal Completed Regular Session<\/th><td[^>]*>04-09-2026<\/td>/);
+  assert.match(html, />Generated<\/th><td[^>]*>06-09-2026 · 18:00 SGT<\/td>/);
   assert.doesNotMatch(html, /AI · Claude/);
   assert.doesNotMatch(html, /2026-09-06T10:00:00\.000Z/);
   let previous = -1;
@@ -380,10 +381,14 @@ test('renders canonical header and all eleven sections safely with package-owned
 
 test('renders supported canonical US session states in clear report context', () => {
   const cases = [
+    ['WEEKEND', false, 'Weekend / Market Closed', 'Completed session'],
     ['CLOSED', false, 'Market Closed', 'Completed session'],
     ['PRE', true, 'Pre-Market', 'Live / in progress'],
+    ['PRE-MARKET', true, 'Pre-Market', 'Live / in progress'],
     ['REGULAR', true, 'Trading', 'Live / in progress'],
-    ['POST', true, 'After-Hours', 'Live / in progress']
+    ['TRADING', true, 'Trading', 'Live / in progress'],
+    ['POST', true, 'After-Hours', 'Live / in progress'],
+    ['POST-MARKET', true, 'After-Hours', 'Live / in progress']
   ];
   const api = load().window.MarketBrief.claudeAnalysis;
   cases.forEach(([state, overlay, label, progress]) => {
@@ -393,8 +398,9 @@ test('renders supported canonical US session states in clear report context', ()
     if(overlay)envelope.marketPackages[0].telemetry.benchmarkSnapshots[0].snapshot.currentOverlay =
       {lastPrice:99999,absoluteChange:999,percentChange:99};
     const html = api.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
-    assert.match(html, new RegExp(`Session: ${label}`));
-    assert.match(html, new RegExp(`Analysis state: ${progress.replace(/\//g, '\\/')}`));
+    assert.match(html, new RegExp(`>Session<\\/th><td[^>]*>${label.replace(/\//g, '\\/')}<\\/td>`));
+    assert.match(html, new RegExp(`>Analysis State<\\/th><td[^>]*>${progress.replace(/\//g, '\\/')}<\\/td>`));
+    if(state === 'WEEKEND')assert.doesNotMatch(html, /Session status unavailable/);
   });
 });
 
@@ -461,7 +467,7 @@ test('renders the structured generated time in the user timezone without a raw I
   const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(result, envelope);
   assert.match(html, /US · NORMAL/);
   assert.doesNotMatch(html, /2026-09-07T12:47:19\.351Z/);
-  assert.match(html, /Generated: 07-09-2026 · 08:47 (?:GMT-4|EDT)/);
+  assert.match(html, />Generated<\/th><td[^>]*>07-09-2026 · 08:47 (?:GMT-4|EDT)<\/td>/);
   assert.doesNotMatch(html, /AI · Claude/);
   assert.doesNotMatch(html, /SGT/);
 });
