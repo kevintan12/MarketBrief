@@ -361,9 +361,13 @@
         var readings=[];
         result.furtherReadings.forEach(function(reference){
           var item=maps.evidence[reference];
+          var publisher=item.provenance&&typeof item.provenance.publisher==='string'
+            &&item.provenance.publisher.trim()?item.provenance.publisher:'';
+          if(publisher==='Yahoo! Finance')publisher='Yahoo!';
+          var label=(publisher?escapeHTML(publisher)+' – ':'')+escapeHTML(item.title||reference);
           if(validEvidenceUrl(item.canonicalUrl))readings.push('<div style="margin-bottom:8px;"><a href="'
             +escapeHTML(item.canonicalUrl)+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:underline;">'
-            +escapeHTML(item.title||reference)+'</a></div>');
+            +label+'</a></div>');
         });
         html+=readings.length?readings.join(''):'<div style="color:var(--mut);">No validated Further Readings were supplied.</div>';
       }else if(section.content!==null){

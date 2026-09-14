@@ -88,11 +88,18 @@ function populatedUsEnvelope() {
   envelope.marketPackages[0].evidenceContext.evidence = [
     {reference: 'e1', item: {
       title: 'Trusted <Market> report',
-      canonicalUrl: 'https://finance.yahoo.com/markets/stocks/market-recap.html'
+      canonicalUrl: 'https://finance.yahoo.com/markets/stocks/market-recap.html',
+      provenance: {publisher: 'Yahoo! Finance'}
     }},
     {reference: 'e2', item: {
       title: 'CNBC closing-market recap',
-      canonicalUrl: 'https://www.cnbc.com/2026/09/04/stock-market-today.html'
+      canonicalUrl: 'https://www.cnbc.com/2026/09/04/stock-market-today.html',
+      provenance: {publisher: 'CNBC'}
+    }},
+    {reference: 'e3', item: {
+      title: 'Global markets recap',
+      canonicalUrl: 'https://www.reuters.com/markets/global-markets-recap/',
+      provenance: {publisher: 'Reuters'}
     }}
   ];
   return envelope;
@@ -490,18 +497,36 @@ test('renders validated Further Readings in supplied order and handles partial o
     const html = api.renderMarketBriefAnalysis(result, envelope);
     return html.slice(html.indexOf('11. FURTHER READINGS'));
   }
-  const both = renderWith(['e1', 'e2']);
-  const yahoo = both.indexOf('Trusted &lt;Market&gt; report');
-  const cnbc = both.indexOf('CNBC closing-market recap');
-  assert.ok(yahoo !== -1 && cnbc > yahoo);
-  assert.match(both, /href="https:\/\/finance\.yahoo\.com\/markets\/stocks\/market-recap\.html"/);
-  assert.match(both, /href="https:\/\/www\.cnbc\.com\/2026\/09\/04\/stock-market-today\.html"/);
-  assert.doesNotMatch(both, />https?:\/\//);
-  assert.match(renderWith(['e1']), /Trusted &lt;Market&gt; report/);
+  const all = renderWith(['e1', 'e2', 'e3']);
+  const yahoo = all.indexOf('Yahoo! – Trusted &lt;Market&gt; report');
+  const cnbc = all.indexOf('CNBC – CNBC closing-market recap');
+  const reuters = all.indexOf('Reuters – Global markets recap');
+  assert.ok(yahoo !== -1 && cnbc > yahoo && reuters > cnbc);
+  assert.match(all, /href="https:\/\/finance\.yahoo\.com\/markets\/stocks\/market-recap\.html"[^>]*>Yahoo! – Trusted &lt;Market&gt; report<\/a>/);
+  assert.match(all, /href="https:\/\/www\.cnbc\.com\/2026\/09\/04\/stock-market-today\.html"[^>]*>CNBC – CNBC closing-market recap<\/a>/);
+  assert.match(all, /href="https:\/\/www\.reuters\.com\/markets\/global-markets-recap\/"[^>]*>Reuters – Global markets recap<\/a>/);
+  assert.doesNotMatch(all, />https?:\/\//);
+  assert.match(renderWith(['e1']), /Yahoo! – Trusted &lt;Market&gt; report/);
   assert.doesNotMatch(renderWith(['e1']), /CNBC closing-market recap/);
-  assert.match(renderWith(['e2']), /CNBC closing-market recap/);
+  assert.match(renderWith(['e2']), /CNBC – CNBC closing-market recap/);
   assert.doesNotMatch(renderWith(['e2']), /Trusted &lt;Market&gt; report/);
   assert.match(renderWith([]), /No validated Further Readings were supplied/);
+
+  const missingPublisherEnvelope = populatedUsEnvelope();
+  delete missingPublisherEnvelope.marketPackages[0].evidenceContext.evidence[0].item.provenance;
+  const missingPublisherResult = structuredResult(missingPublisherEnvelope);
+  missingPublisherResult.furtherReadings = ['e1'];
+  const missingPublisher = api.renderMarketBriefAnalysis(missingPublisherResult, missingPublisherEnvelope);
+  assert.match(missingPublisher, />Trusted &lt;Market&gt; report<\/a>/);
+  assert.doesNotMatch(missingPublisher, /Yahoo!/);
+
+  const escapedEnvelope = populatedUsEnvelope();
+  escapedEnvelope.marketPackages[0].evidenceContext.evidence[2].item.provenance.publisher = 'Reuters & <Partners>';
+  escapedEnvelope.marketPackages[0].evidenceContext.evidence[2].item.title = 'Markets <rise> & rotate';
+  const escapedResult = structuredResult(escapedEnvelope);
+  escapedResult.furtherReadings = ['e3'];
+  const escaped = api.renderMarketBriefAnalysis(escapedResult, escapedEnvelope);
+  assert.match(escaped, /Reuters &amp; &lt;Partners&gt; – Markets &lt;rise&gt; &amp; rotate/);
 });
 
 test('renders rich, degraded and portfolio-overlap fixtures without frontend filler', () => {
