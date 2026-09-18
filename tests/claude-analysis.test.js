@@ -635,10 +635,12 @@ test('preserves backend failure types and handles malformed and network failures
   await assert.rejects(api.requestMarketBriefAnalysis(base), error => error.type === 'NETWORK_FAILURE');
 });
 
-test('loads after Dashboard UI and before app.js', () => {
+test('loads current cache-busted asset after Dashboard UI and before app.js', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'marketbrief.html'), 'utf8');
   const dashboard = html.indexOf('src="dashboard-ui.js');
   const helper = html.indexOf('src="claude-analysis.js');
   const app = html.indexOf('src="app.js');
   assert.ok(dashboard !== -1 && helper > dashboard && app > helper);
+  assert.match(html, /src="claude-analysis\.js\?rev=b4a480d"/);
+  assert.doesNotMatch(html, /src="claude-analysis\.js\?rev=c70ea1d"/);
 });
