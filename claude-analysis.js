@@ -99,7 +99,9 @@
   function hasExactKeys(value,keys){
     if(!value||typeof value!=='object'||Array.isArray(value))return false;
     var actual=Object.keys(value);
-    return actual.length===keys.length&&actual.every(function(key,index){return key===keys[index];});
+    return actual.length===keys.length&&keys.every(function(key){
+      return Object.prototype.hasOwnProperty.call(value,key);
+    });
   }
 
   function isCanonicalMarketPackage(pkg){

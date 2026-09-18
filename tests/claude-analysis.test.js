@@ -269,6 +269,39 @@ test('posts package request once and passes canonical envelope through directly 
     [5, 5, 5, 5]);
 });
 
+test('accepts canonical package keys in arbitrary top-level and nested order without transforming the response', async () => {
+  const source = populatedUsEnvelope();
+  const marketPackage = source.marketPackages[0];
+  const reordered = {
+    outputRequirements: source.outputRequirements,
+    portfolioContext: {watchlist: source.portfolioContext.watchlist, myStocks: source.portfolioContext.myStocks},
+    marketPackages: [{
+      evidenceContext: marketPackage.evidenceContext,
+      telemetry: {stockSnapshots: marketPackage.telemetry.stockSnapshots, benchmarkSnapshots: marketPackage.telemetry.benchmarkSnapshots},
+      marketContext: {
+        calendarContext: marketPackage.marketContext.calendarContext,
+        includesCurrentOverlay: marketPackage.marketContext.includesCurrentOverlay,
+        primaryCompletedSessionDate: marketPackage.marketContext.primaryCompletedSessionDate,
+        marketState: marketPackage.marketContext.marketState,
+        exchangeTimezone: marketPackage.marketContext.exchangeTimezone
+      },
+      market: marketPackage.market
+    }],
+    analysisRequest: {
+      reportType: source.analysisRequest.reportType,
+      userTimezone: source.analysisRequest.userTimezone,
+      generatedAt: source.analysisRequest.generatedAt,
+      initiatingList: source.analysisRequest.initiatingList,
+      selectedScope: source.analysisRequest.selectedScope
+    }
+  };
+  const result = await load().window.MarketBrief.claudeAnalysis.requestMarketBriefPackage({
+    initiatingList: 'myStocks',
+    fetchImpl: async () => ({ok: true, status: 200, async json() { return reordered; }})
+  });
+  assert.equal(result, reordered);
+});
+
 test('package transport preserves structured failures and handles malformed and network failures deterministically', async () => {
   const api = load().window.MarketBrief.claudeAnalysis;
   for (const status of [400, 502]) {
@@ -283,6 +316,11 @@ test('package transport preserves structured failures and handles malformed and 
   delete missingSessionAssociations.marketPackages[0].evidenceContext.sessionAssociations;
   await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
     ok: true, status: 200, async json() { return missingSessionAssociations; }
+  })}), error => error.type === 'MALFORMED_RESPONSE');
+  const extraTopLevelKey = canonicalUsEnvelope();
+  extraTopLevelKey.unexpected = true;
+  await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
+    ok: true, status: 200, async json() { return extraTopLevelKey; }
   })}), error => error.type === 'MALFORMED_RESPONSE');
   await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
     ok: true, status: 200, async json() { throw new Error('bad json'); }
