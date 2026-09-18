@@ -40,7 +40,7 @@ function packages() {
     evidenceContext: {
       evidence: [], materialEvents: [], authoritativeFacts: [], principalCatalysts: [],
       supportingEvidence: [], conflictingEvidence: [], subsequentDevelopments: [],
-      sessionAssociations: [], unresolvedGaps: [], furtherReadings: []
+      sessionAssociations: [], broadMarketFocus: [], unresolvedGaps: [], furtherReadings: []
     }
   }));
 }
@@ -265,6 +265,7 @@ test('posts package request once and passes canonical envelope through directly 
   assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)), ['benchmarkAnchors', 'selectedScope', 'initiatingList', 'userTimezone', 'myStocks', 'watchlist']);
   assert.equal(JSON.parse(calls[0].options.body).initiatingList, 'myStocks');
   assert.equal(result, expected);
+  assert.deepEqual(result.marketPackages[0].evidenceContext.broadMarketFocus, []);
   assert.deepEqual(result.marketPackages[0].telemetry.benchmarkSnapshots.map(entry => entry.snapshot.completedSessions.length),
     [5, 5, 5, 5]);
 });
@@ -316,6 +317,16 @@ test('package transport preserves structured failures and handles malformed and 
   delete missingSessionAssociations.marketPackages[0].evidenceContext.sessionAssociations;
   await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
     ok: true, status: 200, async json() { return missingSessionAssociations; }
+  })}), error => error.type === 'MALFORMED_RESPONSE');
+  const missingBroadMarketFocus = canonicalUsEnvelope();
+  delete missingBroadMarketFocus.marketPackages[0].evidenceContext.broadMarketFocus;
+  await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
+    ok: true, status: 200, async json() { return missingBroadMarketFocus; }
+  })}), error => error.type === 'MALFORMED_RESPONSE');
+  const extraEvidenceContextKey = canonicalUsEnvelope();
+  extraEvidenceContextKey.marketPackages[0].evidenceContext.unexpected = [];
+  await assert.rejects(api.requestMarketBriefPackage({initiatingList:'myStocks',fetchImpl: async () => ({
+    ok: true, status: 200, async json() { return extraEvidenceContextKey; }
   })}), error => error.type === 'MALFORMED_RESPONSE');
   const extraTopLevelKey = canonicalUsEnvelope();
   extraTopLevelKey.unexpected = true;
