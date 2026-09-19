@@ -488,6 +488,9 @@ test('renders four benchmarks from newest completed sessions before Section 1 wi
   assert.match(html, /NASDAQ[\s\S]*26,506\.99[\s\S]*↓ 77\.07 \(0\.29%\)/);
   assert.match(html, /S&amp;P 500[\s\S]*7,718\.60[\s\S]*↓ 29\.11 \(0\.38%\)/);
   assert.match(html, /Russell 2000[\s\S]*2,975\.65[\s\S]*↑ 7\.38 \(0\.25%\)/);
+  assert.match(html, /Dow Jones[\s\S]*?<td[^>]*>53,414\.25<\/td><td class="dn"[^>]*>↓ 271\.86 \(0\.51%\)<\/td>/);
+  assert.match(html, /Russell 2000[\s\S]*?<td[^>]*>2,975\.65<\/td><td class="up"[^>]*>↑ 7\.38 \(0\.25%\)<\/td>/);
+  assert.doesNotMatch(html, /<td class="(?:up|dn)"[^>]*>\s*(?:53,414\.25|2,975\.65)<\/td>/);
   assert.doesNotMatch(html, /99,999\.00|999\.00 \(99\.00%\)/);
 });
 
@@ -509,7 +512,8 @@ test('renders an exactly unchanged completed benchmark session neutrally', () =>
   ];
   const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
   const row = html.match(/<tr><td[^>]*>Russell 2000<\/td>[\s\S]*?<\/tr>/)[0];
-  assert.match(row, /2,975\.65[\s\S]*— 0\.00 \(0\.00%\)/);
+  assert.match(row, /<td[^>]*>2,975\.65<\/td><td class="neu"[^>]*>— 0\.00 \(0\.00%\)<\/td>/);
+  assert.doesNotMatch(row, /class="(?:up|dn)"/);
 });
 
 test('renders DEGRADED and FAILED results without fabricating unavailable content', () => {
