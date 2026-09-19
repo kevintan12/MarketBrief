@@ -381,6 +381,14 @@
     return html+'</div>';
   }
 
+  function structuredRequestUrl(route,generationId){
+    var url=S.proxyUrl+'/api/quote?'+route+'=1';
+    if(typeof generationId==='string'&&
+       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(generationId))
+      url+='&generationId='+encodeURIComponent(generationId);
+    return url;
+  }
+
   async function requestMarketBriefPackage(options){
     options=options||{};
     var request=createMarketBriefPackageRequest(options);
@@ -388,7 +396,7 @@
     if(!fetchImpl)throw analysisError('NETWORK_FAILURE','Market Brief package transport unavailable');
     var response;
     try{
-      response=await fetchImpl(S.proxyUrl+'/api/quote?analysisPackage=1',{
+      response=await fetchImpl(structuredRequestUrl('analysisPackage',options.generationId),{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(request)
@@ -422,7 +430,7 @@
     if(!fetchImpl)throw analysisError('NETWORK_FAILURE','Structured Claude analysis transport unavailable');
     var response;
     try{
-      response=await fetchImpl(S.proxyUrl+'/api/quote?claudeAnalysis=1',{
+      response=await fetchImpl(structuredRequestUrl('claudeAnalysis',options.generationId),{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(request)

@@ -137,6 +137,7 @@ test('failed US regeneration preserves the previous keyed report', async () => {
 
 test('structured loader maps ownership, hands off the envelope and stores only the initiating key', async () => {
   const calls = [];
+  const ids = ['123e4567-e89b-42d3-a456-426614174000', '123e4567-e89b-42d3-a456-426614174001'];
   const envelope = {analysisRequest: {initiatingList: 'myStocks'}};
   const result = {status: 'NORMAL'};
   const saved = {myStocks: 'old mine', customTickers: 'old watch'};
@@ -155,6 +156,7 @@ test('structured loader maps ownership, hands off the envelope and stores only t
     setSumHTML(html, key) { visible.push([key, html]); },
     saveBriefHTML(key, html) { saved[key] = html; visible.push([key, html]); },
     _structuredSummaryProgress: {}, Date: {now() { return 87000; }}, Error,
+    crypto: {randomUUID() { return ids.shift(); }},
     setInterval(callback, delay) { timerDelays.push(delay); return 17; }, clearInterval(id) { clearedTimers.push(id); }
   };
   vm.createContext(context);
@@ -163,8 +165,10 @@ test('structured loader maps ownership, hands off the envelope and stores only t
   assert.equal(calls[0][0], 'package');
   assert.equal(calls[0][1].filter, 'US');
   assert.equal(calls[0][1].initiatingList, 'myStocks');
+  assert.equal(calls[0][1].generationId, '123e4567-e89b-42d3-a456-426614174000');
   assert.equal(calls[1][0], 'analysis');
   assert.equal(calls[1][1].envelope, envelope);
+  assert.equal(calls[1][1].generationId, calls[0][1].generationId);
   assert.deepEqual(calls[2], ['render', result, envelope]);
   assert.match(saved.myStocks, /^<div class="sumdate"[^>]*>Worked for 0 secs<\/div><div>Structured My Stocks<\/div>$/);
   assert.equal(saved.customTickers, 'old watch');
@@ -181,9 +185,36 @@ test('structured loader maps ownership, hands off the envelope and stores only t
   assert.equal(calls[3][0], 'package');
   assert.equal(calls[3][1].filter, 'US');
   assert.equal(calls[3][1].initiatingList, 'watchlist');
+  assert.equal(calls[3][1].generationId, '123e4567-e89b-42d3-a456-426614174001');
+  assert.equal(calls[4][1].generationId, calls[3][1].generationId);
+  assert.notEqual(calls[3][1].generationId, calls[0][1].generationId);
   assert.match(saved.customTickers, /Worked for 0 secs/);
   assert.deepEqual(clearedTimers, [17, 17]);
   assert.deepEqual(timerDelays, [1000, 1000]);
+});
+
+test('structured loader omits correlation when UUID generation is unavailable or invalid', async () => {
+  for (const cryptoValue of [undefined, {randomUUID() { return 'invalid'; }}, {randomUUID() { throw new Error('unavailable'); }}]) {
+    const calls = [];
+    const envelope = {analysisRequest: {initiatingList: 'myStocks'}};
+    const context = {
+      crypto: cryptoValue, Date: {now() { return 0; }}, Error,
+      _structuredSummaryProgress: {}, setInterval() { return 1; }, clearInterval() {},
+      setSumHTML() {}, saveBriefHTML() {},
+      MarketBrief: {claudeAnalysis: {
+        async requestMarketBriefPackage(options) { calls.push(options); return envelope; },
+        async requestMarketBriefAnalysis(options) { calls.push(options); return {status: 'NORMAL'}; },
+        renderMarketBriefAnalysis() { return '<div>Report</div>'; }
+      }}
+    };
+    vm.createContext(context);
+    vm.runInContext(sourceBetween('function formatStructuredElapsed', 'async function loadSummary'), context);
+    await context.loadStructuredSummary('myStocks', 'old');
+    assert.equal(calls.length, 2);
+    assert.equal(Object.hasOwn(calls[0], 'generationId'), false);
+    assert.equal(Object.hasOwn(calls[1], 'generationId'), false);
+    assert.equal(calls[1].envelope, envelope);
+  }
 });
 
 test('structured elapsed timer formats seconds and minutes and is cleaned up on failure', async () => {

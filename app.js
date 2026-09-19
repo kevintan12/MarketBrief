@@ -625,6 +625,12 @@ async function loadStructuredSummary(briefKey,previousBrief){
   if(!analysis)throw new Error('Structured Market Brief helper unavailable');
   var initiatingList=briefKey==='myStocks'?'myStocks':briefKey==='customTickers'?'watchlist':null;
   if(!initiatingList)throw new Error('Invalid Market Brief owner');
+  var generationId=null;
+  try{
+    if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')generationId=crypto.randomUUID();
+  }catch(e){generationId=null;}
+  if(typeof generationId!=='string'||
+     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(generationId))generationId=null;
   var startedAt=Date.now(),stage='Preparing market package…',timer=null,finalElapsedText=null;
   function showProgress(){
     var elapsed=Math.floor((Date.now()-startedAt)/1000);
@@ -642,12 +648,16 @@ async function loadStructuredSummary(briefKey,previousBrief){
     return finalElapsedText;
   }
   try{
-    var envelope=await analysis.requestMarketBriefPackage({filter:'US',initiatingList:initiatingList});
+    var packageOptions={filter:'US',initiatingList:initiatingList};
+    if(generationId)packageOptions.generationId=generationId;
+    var envelope=await analysis.requestMarketBriefPackage(packageOptions);
     if(!envelope||!envelope.analysisRequest||envelope.analysisRequest.initiatingList!==initiatingList)
       throw new Error('Market Brief package owner mismatch');
     stage='Generating structured analysis…';
     showProgress();
-    var result=await analysis.requestMarketBriefAnalysis({envelope:envelope});
+    var analysisOptions={envelope:envelope};
+    if(generationId)analysisOptions.generationId=generationId;
+    var result=await analysis.requestMarketBriefAnalysis(analysisOptions);
     var rendered=analysis.renderMarketBriefAnalysis(result,envelope);
     var elapsedText=stopTimer();
     saveBriefHTML(briefKey,'<div class="sumdate" style="margin-bottom:8px;">'+elapsedText+'</div>'+rendered);

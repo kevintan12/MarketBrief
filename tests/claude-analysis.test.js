@@ -269,6 +269,44 @@ test('posts package request once and passes canonical envelope through directly 
     [5, 5, 5, 5]);
 });
 
+test('structured POSTs share a bounded generation ID only in URLs and preserve bodies and returns', async () => {
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const envelope = populatedUsEnvelope();
+  const analysisResult = {status: 'NORMAL'};
+  const calls = [];
+  const generationId = '123e4567-e89b-42d3-a456-426614174000';
+  const fetchImpl = async (url, options) => {
+    calls.push({url, options});
+    return {ok: true, status: 200, async json() { return calls.length === 1 ? envelope : {result: analysisResult}; }};
+  };
+  const actualEnvelope = await api.requestMarketBriefPackage({initiatingList: 'myStocks', generationId, fetchImpl});
+  const actualResult = await api.requestMarketBriefAnalysis({envelope: actualEnvelope, generationId, fetchImpl});
+  assert.equal(calls[0].url, 'https://proxy.example/api/quote?analysisPackage=1&generationId='+generationId);
+  assert.equal(calls[1].url, 'https://proxy.example/api/quote?claudeAnalysis=1&generationId='+generationId);
+  assert.equal(Object.hasOwn(JSON.parse(calls[0].options.body), 'generationId'), false);
+  assert.equal(calls[1].options.body, JSON.stringify(envelope));
+  assert.equal(actualEnvelope, envelope);
+  assert.equal(actualResult, analysisResult);
+});
+
+test('missing or malformed generation IDs leave structured POST URLs unchanged', async () => {
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const envelope = populatedUsEnvelope();
+  for (const generationId of [undefined, '', 'invalid', '123e4567-e89b-42d3-a456-426614174000&x=1', 'x'.repeat(1000)]) {
+    const urls = [];
+    const fetchImpl = async url => {
+      urls.push(url);
+      return {ok: true, status: 200, async json() { return urls.length === 1 ? envelope : {result: {status: 'NORMAL'}}; }};
+    };
+    await api.requestMarketBriefPackage({initiatingList: 'myStocks', generationId, fetchImpl});
+    await api.requestMarketBriefAnalysis({envelope, generationId, fetchImpl});
+    assert.deepEqual(urls, [
+      'https://proxy.example/api/quote?analysisPackage=1',
+      'https://proxy.example/api/quote?claudeAnalysis=1'
+    ]);
+  }
+});
+
 test('accepts canonical package keys in arbitrary top-level and nested order without transforming the response', async () => {
   const source = populatedUsEnvelope();
   const marketPackage = source.marketPackages[0];
