@@ -66,7 +66,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v2.315.22';
+  var CURRENT='v2.20260919.23.FP';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -124,8 +124,8 @@ window.onload=function(){
     fetch(location.href,{cache:'no-store'})
       .then(function(r){return r.text();})
       .then(function(html){
-        var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v2.315.22'){
+        var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+(?:\.(?:F|P|FP))?)<\/span>/);
+        if(m&&m[1]&&m[1]!=='v2.20260919.23.FP'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
