@@ -107,21 +107,20 @@ function populatedUsEnvelope() {
 
 function structuredResult(envelope, status = 'NORMAL') {
   const sections = [
-    'EXECUTIVE MARKET SUMMARY', 'KEY MARKET DRIVERS', 'WHAT DROVE / IS DRIVING THE MARKET',
-    'STOCKS & SECTORS IN FOCUS', 'MY STOCKS & WATCHLIST - MATERIAL MOVEMENTS',
-    'MARKET INTERPRETATION', 'KEY RISKS', 'OPPORTUNITIES', 'WHAT TO WATCH FOR NEXT',
-    'MARKETBRIEF TAKEAWAY', 'FURTHER READINGS'
+    'EXECUTIVE MARKET SUMMARY', 'KEY MARKET DRIVERS', 'STOCKS & SECTORS IN FOCUS',
+    'MY STOCKS & WATCHLIST - MATERIAL MOVEMENTS', 'MARKET INTERPRETATION',
+    'KEY RISKS & OPPORTUNITIES', 'WHAT TO WATCH FOR NEXT', 'FURTHER READINGS'
   ].map((name, index) => ({
     name,
-    content: index === 10 || status === 'FAILED' ? null : index === 0 ? 'Safe <script>alert(1)</script> analysis.' : 'Supported analysis.',
-    evidenceRefs: index === 10 || status === 'FAILED' ? [] : ['e1'],
-    telemetryRefs: index === 10 || status === 'FAILED' ? [] : ['t1'],
-    uncertainties: status === 'DEGRADED' && index === 7 ? ['Evidence remains incomplete.'] : []
+    content: index === 7 || status === 'FAILED' ? null : index === 0 ? 'Safe <script>alert(1)</script> analysis.' : 'Supported analysis.',
+    evidenceRefs: index === 7 || status === 'FAILED' ? [] : ['e1'],
+    telemetryRefs: index === 7 || status === 'FAILED' ? [] : ['t1'],
+    uncertainties: status === 'DEGRADED' && index === 5 ? ['Evidence remains incomplete.'] : []
   }));
   if(status === 'DEGRADED'){
-    sections[7].content = null;
-    sections[7].evidenceRefs = [];
-    sections[7].telemetryRefs = [];
+    sections[5].content = null;
+    sections[5].evidenceRefs = [];
+    sections[5].telemetryRefs = [];
   }
   return {
     status,
@@ -163,7 +162,7 @@ test('builds MARKET_BRIEF request with UTC time, S.tz and canonical package orde
   assert.equal(Object.hasOwn(request.marketPackages[0], 'evidenceCollection'), false);
   assert.ok(request.marketPackages[0].evidenceContext);
   assert.equal(request.outputRequirements.header, 'REPORT HEADER / ANALYSIS CONTEXT');
-  assert.equal(request.outputRequirements.sections.length, 11);
+  assert.equal(request.outputRequirements.sections.length, 8);
   assert.equal(request.outputRequirements.maximumWords, 2500);
 });
 
@@ -408,10 +407,11 @@ test('posts an acquired canonical envelope to structured analysis unchanged', as
   assert.equal(result, expected);
 });
 
-test('renders canonical header and all eleven sections safely with package-owned references', () => {
+test('renders the canonical eight sections in order without removed or duplicate headings', () => {
   const envelope = populatedUsEnvelope();
   const api = load().window.MarketBrief.claudeAnalysis;
-  const html = api.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+  const result = structuredResult(envelope);
+  const html = api.renderMarketBriefAnalysis(result, envelope);
   assert.match(html, /REPORT HEADER \/ ANALYSIS CONTEXT/);
   assert.match(html, /US · NORMAL/);
   assert.match(html, /<table aria-label="Analysis context"/);
@@ -423,11 +423,15 @@ test('renders canonical header and all eleven sections safely with package-owned
   assert.doesNotMatch(html, /AI · Claude/);
   assert.doesNotMatch(html, /2026-09-06T10:00:00\.000Z/);
   let previous = -1;
-  structuredResult(envelope).sections.forEach((section, index) => {
+  assert.equal(result.sections.length, 8);
+  result.sections.forEach((section, index) => {
     const position = html.indexOf(`${index + 1}. ${section.name.replace(/&/g, '&amp;')}`);
     assert.ok(position > previous, `${section.name} must render in frozen order`);
     previous = position;
   });
+  assert.equal((html.match(/KEY RISKS &amp; OPPORTUNITIES/g) || []).length, 1);
+  assert.doesNotMatch(html, /WHAT DROVE \/ IS DRIVING THE MARKET|MARKETBRIEF TAKEAWAY/);
+  assert.ok(html.indexOf('8. FURTHER READINGS') > html.indexOf('7. WHAT TO WATCH FOR NEXT'));
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /Safe &lt;script&gt;alert\(1\)&lt;\/script&gt; analysis/);
   assert.match(html, /Trusted &lt;Market&gt; report/);
@@ -458,6 +462,16 @@ test('renders supported canonical US session states in clear report context', ()
     assert.match(html, new RegExp(`>Analysis State<\\/th><td[^>]*>${progress.replace(/\//g, '\\/')}<\\/td>`));
     if(state === 'WEEKEND')assert.doesNotMatch(html, /Session status unavailable/);
   });
+});
+
+test('rejects the retired eleven-section structured output contract', () => {
+  const envelope = populatedUsEnvelope();
+  const result = structuredResult(envelope);
+  while(result.sections.length < 11)result.sections.splice(result.sections.length-1,0,{
+    name:'RETIRED SECTION',content:'Retired content.',evidenceRefs:[],telemetryRefs:[],uncertainties:[]
+  });
+  assert.throws(() => load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(result,envelope),
+    /Invalid structured Market Brief sections/);
 });
 
 test('renders four benchmarks from newest completed sessions before Section 1 without using overlays', () => {
@@ -544,7 +558,7 @@ test('renders validated Further Readings in supplied order and handles partial o
     const result = structuredResult(envelope);
     result.furtherReadings = readings;
     const html = api.renderMarketBriefAnalysis(result, envelope);
-    return html.slice(html.indexOf('11. FURTHER READINGS'));
+    return html.slice(html.indexOf('8. FURTHER READINGS'));
   }
   const all = renderWith(['e1', 'e2', 'e3']);
   const yahoo = all.indexOf('Yahoo! – Trusted &lt;Market&gt; report');
@@ -583,14 +597,14 @@ test('renders rich, degraded and portfolio-overlap fixtures without frontend fil
   envelope.portfolioContext.myStocks = [{market:'US', symbol:'MSFT', telemetryRefs:[], evidenceRefs:[], upcomingEvents:[]}];
   const api = load().window.MarketBrief.claudeAnalysis;
   const rich = structuredResult(envelope);
-  rich.sections[3].content = 'Microsoft led the broad market because of a supported catalyst.';
-  rich.sections[4].content = 'Microsoft was also material to the initiating My Stocks list. An ordinary holding was not material.';
+  rich.sections[2].content = 'Microsoft led the broad market because of a supported catalyst.';
+  rich.sections[3].content = 'Microsoft was also material to the initiating My Stocks list. An ordinary holding was not material.';
   const richHtml = api.renderMarketBriefAnalysis(rich, envelope);
   assert.match(richHtml, /Microsoft led the broad market/);
   assert.match(richHtml, /Microsoft was also material to the initiating My Stocks list/);
   const thin = structuredResult(envelope, 'DEGRADED');
   const thinHtml = api.renderMarketBriefAnalysis(thin, envelope);
-  assert.match(thinHtml, /8\. OPPORTUNITIES[\s\S]*No supported analysis is available from the supplied package/);
+  assert.match(thinHtml, /6\. KEY RISKS &amp; OPPORTUNITIES[\s\S]*No supported analysis is available from the supplied package/);
   assert.doesNotMatch(thinHtml, /buying opportunity|rebound may/i);
 });
 

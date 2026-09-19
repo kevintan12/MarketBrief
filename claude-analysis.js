@@ -4,14 +4,11 @@
   var REPORT_SECTIONS=[
     {name:'EXECUTIVE MARKET SUMMARY',purpose:'Summarize the applicable market outcome or in-progress state and the most important supported conclusions.'},
     {name:'KEY MARKET DRIVERS',purpose:'Identify the material macroeconomic, policy, earnings, geopolitical, sector, and market-specific drivers supported by the package.'},
-    {name:'WHAT DROVE / IS DRIVING THE MARKET',purpose:'Explain the supported causal relationship between the material drivers and completed or current market movements, distinguishing current from finalized results.'},
     {name:'STOCKS & SECTORS IN FOCUS',purpose:'Cover materially significant broad-market stocks and sectors independently of My Stocks and Watchlist, grouping shared catalysts while preserving distinct company events.'},
     {name:'MY STOCKS & WATCHLIST - MATERIAL MOVEMENTS',purpose:'Cover material movements and relevant known upcoming events within 14 days for both My Stocks and Watchlist without allowing one unsupported security to collapse the section.'},
     {name:'MARKET INTERPRETATION',purpose:'Provide supported interpretation, significance assessment, qualified inference, and shared-catalyst synthesis without inventing facts.'},
-    {name:'KEY RISKS',purpose:'Identify material supported risks and clearly qualify unresolved risk explanations.'},
-    {name:'OPPORTUNITIES',purpose:'Identify evidence-supported opportunities without converting incomplete evidence into certainty.'},
+    {name:'KEY RISKS & OPPORTUNITIES',purpose:'Identify material supported risks and evidence-supported opportunities, clearly qualifying unresolved explanations and incomplete evidence.'},
     {name:'WHAT TO WATCH FOR NEXT',purpose:'Identify the next material supported catalysts, scheduled events, and unresolved developments to monitor.'},
-    {name:'MARKETBRIEF TAKEAWAY',purpose:'State the concise evidence-supported MarketBrief conclusion without padding.'},
     {name:'FURTHER READINGS',purpose:'Use only the validated Further Readings references supplied by MarketBrief; do not create or alter URLs.'}
   ];
   var REPORT_HEADER='REPORT HEADER / ANALYSIS CONTEXT';
