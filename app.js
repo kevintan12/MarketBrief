@@ -66,7 +66,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v2.20260921.24.F';
+  var CURRENT='v2.20260921.25.F';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -125,7 +125,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+(?:\.(?:F|P|FP))?)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v2.20260921.24.F'){
+        if(m&&m[1]&&m[1]!=='v2.20260921.25.F'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
@@ -1498,8 +1498,8 @@ function renderSettingsPanelTo(pid){
       +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'
       +'<div class="snote" style="margin:0">Market data via Yahoo Finance may be delayed by approximately 10 minutes. For informational purposes only — not financial advice.</div>'
     +'</div>'
-    +'<button class="savebtn" onclick="saveSettings(\''+pid+'\')">Save Settings</button>'
-    +'<div id="saveMsg_'+pid+'"></div>';
+    +'<div id="saveMsg_'+pid+'"></div>'
+    +'<button class="savebtn" onclick="saveSettings(\''+pid+'\')">Save Settings</button>';
 
   // Attach autocomplete to each market add input
   ['customTickers','myStocks'].forEach(function(listKey){

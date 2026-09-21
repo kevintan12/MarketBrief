@@ -719,17 +719,17 @@ test('loads current cache-busted asset after Dashboard UI and before app.js', ()
   assert.match(html, /src="search\.js\?rev=1d7111f"/);
   assert.match(html, /src="investment\.js\?rev=1d7111f"/);
   assert.match(html, /src="claude-analysis\.js\?rev=1d7111f"/);
-  assert.match(html, /src="app\.js\?rev=1d7111f"/);
+  assert.match(html, /src="app\.js\?rev=b9099a5"/);
   assert.doesNotMatch(html, /src="claude-analysis\.js\?rev=7d95563"/);
 });
 
 test('keeps visible and cache-check release versions synchronized', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'marketbrief.html'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-  assert.equal((html.match(/v2\.20260921\.24\.F/g) || []).length, 3);
-  assert.equal((app.match(/v2\.20260921\.24\.F/g) || []).length, 2);
-  assert.doesNotMatch(html + app, /v2\.20260919\.23\.FP/);
+  assert.equal((html.match(/v2\.20260921\.25\.F/g) || []).length, 3);
+  assert.equal((app.match(/v2\.20260921\.25\.F/g) || []).length, 2);
+  assert.doesNotMatch(html + app, /v2\.20260921\.24\.F|v2\.20260919\.23\.FP/);
   const cacheCheckPattern = app.match(/var m=html\.match\((\/class=.*?\/)\);/);
   assert.ok(cacheCheckPattern);
-  assert.equal(html.match(vm.runInNewContext(cacheCheckPattern[1]))[1], 'v2.20260921.24.F');
+  assert.equal(html.match(vm.runInNewContext(cacheCheckPattern[1]))[1], 'v2.20260921.25.F');
 });

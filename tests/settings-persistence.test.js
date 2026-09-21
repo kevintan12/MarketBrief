@@ -83,9 +83,12 @@ function ticker(sym, mkt) {
 test('Settings renders one Save Settings control after the Proxy URL section', () => {
   const source = settingsListSource;
   const saveMarkup = 'onclick="saveSettings(\\\'';
+  const saveMsgMarkup = "'<div id=\"saveMsg_";
   assert.equal(source.split(saveMarkup).length - 1, 1);
+  assert.equal(source.split(saveMsgMarkup).length - 1, 1);
   assert.ok(source.indexOf('★ Proxy URL') < source.indexOf(saveMarkup));
-  assert.ok(source.indexOf(saveMarkup) < source.indexOf("'<div id=\"saveMsg_"));
+  assert.ok(source.indexOf('★ Proxy URL') < source.indexOf(saveMsgMarkup));
+  assert.ok(source.indexOf(saveMsgMarkup) < source.indexOf(saveMarkup));
   assert.ok(source.indexOf('id="cfgProxy_') >= 0);
   assert.match(source, /onclick="doChangePIN/);
 });
