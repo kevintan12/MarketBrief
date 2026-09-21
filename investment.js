@@ -29,10 +29,7 @@ function renderInvestmentReportHeader(pid){
   if(!report){el.innerHTML='';return;}
   var marketLabel={US:'US',SG:'SG',HK:'HK'}[report.market]||report.market;
   var strategyLabel=report.strategy.charAt(0).toUpperCase()+report.strategy.slice(1);
-  var generated=new Date(report.generatedAt).toLocaleString('en-SG',{
-    timeZone:'Asia/Singapore',day:'numeric',month:'short',year:'numeric',
-    hour:'numeric',minute:'2-digit',hour12:true
-  });
+  var generated=formatUserDateTime(report.generatedAt);
   el.innerHTML='<div class="sumbox" style="margin-top:12px;margin-bottom:10px">'
     +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.05rem;color:var(--acc)">Investment Recommendation</div>'
     +'<div style="margin-top:7px;font-size:0.9rem;color:var(--mut)">Generated for:</div>'
