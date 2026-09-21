@@ -233,6 +233,7 @@ function renderDesktop(){
           +'<button class="chip" data-filter="HK" onclick="setFilterD(\'HK\',this)">🇭🇰 HKEX</button>'
         +'</div>'
         +'<div class="slabel notop">Market Indices <span id="liveIndD" style="font-size:0.85rem;margin-left:6px"></span></div>'
+        +'<div class="snote">Market data may be delayed by approximately 10 minutes.</div>'
         +'<div class="idx-scroll" id="idxGridD"><div class="msg">Loading… <span class="spin"></span></div></div>'
       +'</div>'
       +'<div class="col-right">'
@@ -1468,7 +1469,7 @@ function renderSettingsPanelTo(pid){
     +'</div>'
     +'<div class="srow" style="border-color:rgba(239,68,68,0.2)">'
       +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'
-      +'<div class="snote" style="margin:0">Data via Yahoo Finance (15–20 min delay). For informational purposes only — not financial advice.</div>'
+      +'<div class="snote" style="margin:0">Market data via Yahoo Finance may be delayed by approximately 10 minutes. For informational purposes only — not financial advice.</div>'
     +'</div>';
 
   // Attach autocomplete to each market add input
