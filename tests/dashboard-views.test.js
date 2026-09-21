@@ -8,6 +8,7 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'marketbrief.html'), 'utf8');
 const appSource = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const dashboardSource = fs.readFileSync(path.join(root, 'dashboard-ui.js'), 'utf8');
+const searchSource = fs.readFileSync(path.join(root, 'search.js'), 'utf8');
 
 function sourceBetween(startText, endText) {
   const start = appSource.indexOf(startText);
@@ -118,8 +119,23 @@ test('shared card renderer keeps indices first and uses the active list label', 
 test('Market Brief controls are available in both Dashboard-style views', () => {
   assert.match(html, /id="dashboardAIM"/);
   assert.match(html, /Generate Market Brief/);
+  assert.match(html, /Market data may be delayed by approximately 10 minutes\./);
+  assert.match(html, /id="aiBtnM"[^>]*onclick="triggerSummary\(\)"/);
+  assert.ok(html.indexOf('Generation may take a little while and uses AI resources.') < html.indexOf('id="sumArea"'));
   assert.doesNotMatch(html, /Generate AI Summary/);
   const desktopSource = sourceBetween('function renderDesktop', 'MarketBrief.searchAI=');
   assert.match(desktopSource, /Generate Market Brief/);
+  assert.match(desktopSource, /Market data may be delayed by approximately 10 minutes\./);
+  assert.match(desktopSource, /id="aiBtnD"[^>]*onclick="triggerSummary\(\)"/);
+  assert.ok(desktopSource.indexOf('Generation may take a little while and uses AI resources.') < desktopSource.indexOf('id="sumAreaD"'));
+  assert.doesNotMatch(html+desktopSource, /Reuters|POEMS|source-selection|sourceSelection/i);
   assert.doesNotMatch(desktopSource, /showAI/);
+  assert.match(appSource, /Market data via Yahoo Finance may be delayed by approximately 10 minutes\./);
+  assert.doesNotMatch(appSource, /15[–-]20 min delay/);
+});
+
+test('search quote presentation carries the delayed-data disclosure without changing session badges', () => {
+  assert.match(searchSource, /Market data may be delayed by approximately 10 minutes\./);
+  assert.match(searchSource, /tradeBadge_/);
+  assert.match(searchSource, /Pre-Market|Trading|After-Hours|Market Closed/);
 });

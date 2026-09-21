@@ -58,9 +58,11 @@
         <button class="chip" data-filter="HK" onclick="setFilter('HK',this)">🇭🇰 HKEX</button>
       </div>
       <div class="slabel notop">Market Indices <span id="liveIndM" style="font-size:0.85rem;margin-left:6px"></span></div>
+      <div class="snote">Market data may be delayed by approximately 10 minutes.</div>
       <div class="idx-scroll" id="idxGrid"><div class="msg">Loading… <span class="spin"></span></div></div>
       <div id="dashboardAIM">
         <button class="ai-btn" id="aiBtnM" onclick="triggerSummary()">✦ Generate Market Brief</button>
+        <div class="snote">Generation may take a little while and uses AI resources.</div>
         <div class="slabel"><span class="dot"></span>AI Summary</div>
         <div id="sumArea"></div>
       </div>
