@@ -64,7 +64,7 @@ test('triggerSummary captures owner, filter and data snapshot and permits one re
   assert.equal(calls[0][0], 'myStocks');
   assert.equal(calls[0][1], 'SG');
   assert.equal(calls[0][2][1].sym, 'D05.SI');
-  assert.equal(context.savedBriefHTML.myStocks, '');
+  assert.equal(context.savedBriefHTML.myStocks, 'old mine');
   assert.equal(context.savedBriefHTML.customTickers, 'old watch');
   assert.equal(context._summaryOwner, 'myStocks');
 });
@@ -96,7 +96,7 @@ test('US routes to one structured generation while SG, HK and ALL retain legacy 
       assert.equal(context.savedBriefHTML.customTickers, 'watch');
     } else {
       assert.equal(calls[0][2], filter);
-      assert.equal(context.savedBriefHTML.customTickers, '');
+      assert.equal(context.savedBriefHTML.customTickers, 'watch');
     }
     finish();
     await pending;
@@ -112,6 +112,7 @@ test('failed US regeneration preserves the previous keyed report', async () => {
     savedBriefHTML: {myStocks: '<div>Previous valid report</div>', customTickers: '<div>Watch</div>'},
     _summaryInFlight: false, _summaryOwner: null, Object,
     setSumHTML(html, key) { visible.push([key, html]); }, setAIBtnVisible() {},
+    presentSavedBrief(key, html) { return html; },
     esc(value) { return String(value); },
     loadStructuredSummary() {
       const error = new Error('package unavailable');
@@ -155,6 +156,8 @@ test('structured loader maps ownership, hands off the envelope and stores only t
     }},
     setSumHTML(html, key) { visible.push([key, html]); },
     saveBriefHTML(key, html) { saved[key] = html; visible.push([key, html]); },
+    getBriefListFingerprint(key) { return 'fingerprint:'+key; },
+    saveGeneratedBrief(key, html) { saved[key] = html; visible.push([key, html]); },
     _structuredSummaryProgress: {}, Date: {now() { return 87000; }}, Error,
     crypto: {randomUUID() { return ids.shift(); }},
     setInterval(callback, delay) { timerDelays.push(delay); return 17; }, clearInterval(id) { clearedTimers.push(id); }
@@ -193,6 +196,58 @@ test('structured loader maps ownership, hands off the envelope and stores only t
   assert.deepEqual(timerDelays, [1000, 1000]);
 });
 
+test('saved reports independently disclose membership or order changes without mutating report HTML', () => {
+  const elements = {sumArea: element(), sumAreaD: element(), aiBtnM: element(), aiBtnD: element()};
+  const context = {
+    activeTickerList: 'myStocks', currentView: 'MyStocks', _summaryInFlight: false, _summaryOwner: null,
+    S: {
+      myStocks: {US: [{sym: 'AAPL', name: 'Apple'}], SG: [{sym: 'D05.SI', name: 'DBS'}], HK: []},
+      customTickers: {US: [{sym: 'MSFT', name: 'Microsoft'}], SG: [], HK: []}
+    },
+    document: {getElementById(id) { return elements[id] || null; }},
+    isDashboardView(name) { return name === 'MyStocks' || name === 'Watchlist'; },
+    setAIBtnVisible() {}
+  };
+  vm.createContext(context);
+  vm.runInContext(sourceBetween('function setSumHTML', 'function isAnyMarketOpen'), context);
+
+  context.saveGeneratedBrief('myStocks', '<div>My report</div>', context.getBriefListFingerprint('myStocks'));
+  context.saveGeneratedBrief('customTickers', '<div>Watch report</div>', context.getBriefListFingerprint('customTickers'));
+  context.restoreCurrentBrief();
+  assert.doesNotMatch(elements.sumArea.innerHTML, /List changed since/);
+
+  context.S.myStocks.US[0].name = 'Apple Inc.';
+  context.restoreCurrentBrief();
+  assert.doesNotMatch(elements.sumArea.innerHTML, /List changed since/);
+
+  context.S.myStocks.US.push({sym: 'NVDA', name: 'NVIDIA'});
+  context.restoreCurrentBrief();
+  assert.match(elements.sumArea.innerHTML, /List changed since this Market Brief was generated\. Regenerate for an updated analysis\./);
+  assert.match(elements.sumArea.innerHTML, /My report/);
+  assert.equal((elements.sumArea.innerHTML.match(/List changed since/g) || []).length, 1);
+  context.restoreCurrentBrief();
+  assert.equal((elements.sumArea.innerHTML.match(/List changed since/g) || []).length, 1);
+  assert.equal(context.savedBriefHTML.myStocks, '<div>My report</div>');
+
+  context.activeTickerList = 'customTickers';
+  context.currentView = 'Watchlist';
+  context.restoreCurrentBrief();
+  assert.doesNotMatch(elements.sumArea.innerHTML, /List changed since/);
+  context.S.customTickers.US.push({sym: 'GOOG', name: 'Alphabet'});
+  context.restoreCurrentBrief();
+  assert.match(elements.sumArea.innerHTML, /List changed since/);
+  assert.match(elements.sumArea.innerHTML, /Watch report/);
+
+  context.saveGeneratedBrief('customTickers', '<div>Updated watch report</div>', context.getBriefListFingerprint('customTickers'));
+  context.S.customTickers.US.reverse();
+  context.restoreCurrentBrief();
+  assert.match(elements.sumArea.innerHTML, /List changed since/);
+  context.saveGeneratedBrief('customTickers', '<div>Updated watch report</div>', context.getBriefListFingerprint('customTickers'));
+  context.restoreCurrentBrief();
+  assert.doesNotMatch(elements.sumArea.innerHTML, /List changed since/);
+  assert.match(elements.sumArea.innerHTML, /Updated watch report/);
+});
+
 test('structured loader omits correlation when UUID generation is unavailable or invalid', async () => {
   for (const cryptoValue of [undefined, {randomUUID() { return 'invalid'; }}, {randomUUID() { throw new Error('unavailable'); }}]) {
     const calls = [];
@@ -201,6 +256,7 @@ test('structured loader omits correlation when UUID generation is unavailable or
       crypto: cryptoValue, Date: {now() { return 0; }}, Error,
       _structuredSummaryProgress: {}, setInterval() { return 1; }, clearInterval() {},
       setSumHTML() {}, saveBriefHTML() {},
+      getBriefListFingerprint() { return 'fingerprint'; }, saveGeneratedBrief() {},
       MarketBrief: {claudeAnalysis: {
         async requestMarketBriefPackage(options) { calls.push(options); return envelope; },
         async requestMarketBriefAnalysis(options) { calls.push(options); return {status: 'NORMAL'}; },
@@ -228,6 +284,7 @@ test('structured elapsed timer formats seconds and minutes and is cleaned up on 
     _structuredSummaryProgress: {}, Date, Error,
     setSumHTML(html, key) { visible.push([key, html]); },
     saveBriefHTML() { throw new Error('failed generation must not save'); },
+    getBriefListFingerprint() { return 'fingerprint'; },
     setInterval(callback, delay) { timerDelays.push(delay); return 23; }, clearInterval(id) { clearedTimers.push(id); }
   };
   vm.createContext(context);
@@ -302,6 +359,7 @@ async function capturePrompt(briefKey, filter, summaryData) {
     window: {}, document: {getElementById() { return null; }},
     isDashboardView(name) { return name === 'MyStocks' || name === 'Watchlist'; },
     setSumHTML() {}, saveBriefHTML() {}, setAIBtnVisible() {},
+    getBriefListFingerprint() { return 'fingerprint'; }, saveGeneratedBrief() {},
     fmt(value) { return String(value); }, fmtP(value) { return String(value); }, fmtD(value) { return String(value); },
     esc(value) { return String(value); }, cleanAIText(value) { return value; }, formatSummary(value) { return value; },
     fetchQuote() { return Promise.resolve({price: 1, pct: 0, chg: 0}); },
@@ -345,8 +403,8 @@ test('streaming ownership and PDF selection remain tied to the initiating/curren
   const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
   const pdfSource = sourceBetween('function exportToPDF', '// ── Settings');
   assert.match(summarySource, /_summaryOwner!==briefKey/);
-  assert.match(summarySource, /savedBriefHTML\[briefKey\]=briefPrefix\+rendered\+briefSuffix/);
-  assert.match(summarySource, /savedBriefHTML\[briefKey\]=briefPrefix\+finalRendered\+briefSuffix/);
+  assert.doesNotMatch(summarySource, /savedBriefHTML\[briefKey\]=briefPrefix\+rendered\+briefSuffix/);
+  assert.match(summarySource, /saveGeneratedBrief\(briefKey,briefPrefix\+finalRendered\+briefSuffix,generationFingerprint\)/);
   assert.match(pdfSource, /contentEl=\(b&&b\.offsetParent!==null\)\?b:a/);
 });
 

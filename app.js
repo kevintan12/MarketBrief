@@ -351,19 +351,17 @@ function triggerSummary(){
       setAIBtnVisible(true);
     }).catch(function(e){
       var elapsed=e.structuredElapsedText?'<div class="sumdate" style="margin-bottom:8px;">'+esc(e.structuredElapsedText)+'</div>':'';
-      setSumHTML(elapsed+'<div class="msg err">Market Brief error: '+esc(e.message)+'</div>'+previousBrief,briefKey);
+      setSumHTML(elapsed+'<div class="msg err">Market Brief error: '+esc(e.message)+'</div>'+presentSavedBrief(briefKey,previousBrief),briefKey);
       _summaryInFlight=false;_summaryOwner=null;
       setAIBtnVisible(true);
     });
     return;
   }
-  savedBriefHTML[briefKey]='';
-  setSumHTML('',briefKey);
   _summaryInFlight=true;
   _summaryOwner=briefKey;
   setAIBtnVisible(false);
-  loadSummary(briefKey,summaryFilter,summaryData).catch(function(e){
-    saveBriefHTML(briefKey,'<div class="msg err">Summary error: '+esc(e.message)+'</div>');
+  loadSummary(briefKey,summaryFilter,summaryData,previousBrief).catch(function(e){
+    setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>'+presentSavedBrief(briefKey,previousBrief),briefKey);
     _summaryInFlight=false;_summaryOwner=null;
     setAIBtnVisible(true);
   });
@@ -448,10 +446,31 @@ function setSumHTML(h,briefKey){
   if(a)a.innerHTML=h;if(b)b.innerHTML=h;
 }
 function saveBriefHTML(briefKey,h){savedBriefHTML[briefKey]=h;setSumHTML(h,briefKey);}
+function getBriefListFingerprint(briefKey){
+  var list=typeof S==='object'&&S&&S[briefKey]||{};
+  return ['US','SG','HK'].map(function(market){
+    return (Array.isArray(list[market])?list[market]:[]).map(function(item){
+      return market+':'+String(item&&item.sym||'').trim().toUpperCase();
+    }).join(',');
+  }).join('|');
+}
+function isSavedBriefStale(briefKey){
+  return !!(savedBriefHTML[briefKey]&&savedBriefState[briefKey]&&
+    savedBriefState[briefKey].fingerprint!==getBriefListFingerprint(briefKey));
+}
+function presentSavedBrief(briefKey,html){
+  return isSavedBriefStale(briefKey)
+    ?'<div class="snote">List changed since this Market Brief was generated. Regenerate for an updated analysis.</div>'+html
+    :html;
+}
+function saveGeneratedBrief(briefKey,html,fingerprint){
+  savedBriefState[briefKey]={fingerprint:fingerprint};
+  saveBriefHTML(briefKey,html);
+}
 function restoreCurrentBrief(){
   if(!isDashboardView(currentView))return;
   var progress=_summaryInFlight&&_summaryOwner===activeTickerList?_structuredSummaryProgress[activeTickerList]:'';
-  setSumHTML(progress||savedBriefHTML[activeTickerList]||'',activeTickerList);
+  setSumHTML(progress||presentSavedBrief(activeTickerList,savedBriefHTML[activeTickerList]||''),activeTickerList);
   setAIBtnVisible(!_summaryInFlight);
 }
 
@@ -459,6 +478,7 @@ function restoreCurrentBrief(){
 var autoRefreshTimer=null;
 var lastSearchSym=null;
 var savedBriefHTML={myStocks:'',customTickers:''};
+var savedBriefState={myStocks:null,customTickers:null};
 var _summaryInFlight=false, _summaryOwner=null;
 var _structuredSummaryProgress={};
 var savedSearchHTML='';
@@ -627,6 +647,7 @@ async function loadStructuredSummary(briefKey,previousBrief){
   if(!analysis)throw new Error('Structured Market Brief helper unavailable');
   var initiatingList=briefKey==='myStocks'?'myStocks':briefKey==='customTickers'?'watchlist':null;
   if(!initiatingList)throw new Error('Invalid Market Brief owner');
+  var generationFingerprint=getBriefListFingerprint(briefKey);
   var generationId=null;
   try{
     if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')generationId=crypto.randomUUID();
@@ -662,7 +683,7 @@ async function loadStructuredSummary(briefKey,previousBrief){
     var result=await analysis.requestMarketBriefAnalysis(analysisOptions);
     var rendered=analysis.renderMarketBriefAnalysis(result,envelope);
     var elapsedText=stopTimer();
-    saveBriefHTML(briefKey,'<div class="sumdate" style="margin-bottom:8px;">'+elapsedText+'</div>'+rendered);
+    saveGeneratedBrief(briefKey,'<div class="sumdate" style="margin-bottom:8px;">'+elapsedText+'</div>'+rendered,generationFingerprint);
   }catch(e){
     e.structuredElapsedText=stopTimer();
     throw e;
@@ -671,10 +692,11 @@ async function loadStructuredSummary(briefKey,previousBrief){
   }
 }
 
-async function loadSummary(briefKey,summaryFilter,summaryData){
+async function loadSummary(briefKey,summaryFilter,summaryData,previousBrief){
   console.log('MB: loadSummary started');
   setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>',briefKey);
   var summaryNow=new Date();
+  var generationFingerprint=getBriefListFingerprint(briefKey);
   var mktsToShow=summaryFilter==='all'?['US','SG','HK']:[summaryFilter];
   var listLabel=briefKey==='myStocks'?'My Stocks':'My Watchlist';
   var styleInstr={
@@ -801,7 +823,7 @@ async function loadSummary(briefKey,summaryFilter,summaryData){
     +'<div class="sumbody"><div id="sumStream">';
   var briefSuffix='</div></div></div>';
   var hdrHTML=briefPrefix+'<div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div>'+briefSuffix;
-  saveBriefHTML(briefKey,hdrHTML);
+  setSumHTML(hdrHTML,briefKey);
   // Find the VISIBLE sumStream — on desktop sumAreaD is shown, on mobile sumArea
   function getStreamEl(){
     if(_summaryOwner!==briefKey||!isDashboardView(currentView)||activeTickerList!==briefKey)return null;
@@ -850,7 +872,6 @@ async function loadSummary(briefKey,summaryFilter,summaryData){
             var sel=getStreamEl();
             if(!_cdFirstToken){_cdFirstToken=true;clearInterval(window._sumCdTimer);}
             var rendered=formatSummary(cleanAIText(accumulated));
-            savedBriefHTML[briefKey]=briefPrefix+rendered+briefSuffix;
             if(sel)sel.innerHTML=rendered;
           }
         }catch(_){}
@@ -860,13 +881,12 @@ async function loadSummary(briefKey,summaryFilter,summaryData){
     var sel=getStreamEl();
     clearInterval(window._sumCdTimer);
     var finalRendered=formatSummary(cleanAIText(accumulated));
-    savedBriefHTML[briefKey]=briefPrefix+finalRendered+briefSuffix;
-    if(sel)sel.innerHTML=finalRendered;
+    saveGeneratedBrief(briefKey,briefPrefix+finalRendered+briefSuffix,generationFingerprint);
     _sumInFlight=false;
     _summaryInFlight=false;_summaryOwner=null;
     setAIBtnVisible(true);
   }catch(e){
-    saveBriefHTML(briefKey,'<div class="msg err">Summary error: '+esc(e.message)+'</div>');
+    setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>'+presentSavedBrief(briefKey,previousBrief||''),briefKey);
     _sumInFlight=false;
     _summaryInFlight=false;_summaryOwner=null;
     setAIBtnVisible(true);
