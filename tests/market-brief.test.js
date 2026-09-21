@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const investmentSource = fs.readFileSync(path.join(__dirname, '..', 'investment.js'), 'utf8');
 
 function sourceBetween(startText, endText) {
   const start = appSource.indexOf(startText);
@@ -248,6 +249,30 @@ test('saved reports independently disclose membership or order changes without m
   assert.match(elements.sumArea.innerHTML, /Updated watch report/);
 });
 
+test('user-facing timestamps follow S.tz without changing exchange session logic', () => {
+  const context = {S: {tz: 'Asia/Singapore'}, Intl, Date};
+  vm.createContext(context);
+  vm.runInContext(sourceBetween('function getUserTimeZone', '// ── Navigation'), context);
+  const instant = '2026-09-21T14:30:00.000Z';
+  const singapore = context.formatUserDateTime(instant);
+  context.S.tz = 'America/New_York';
+  const newYork = context.formatUserDateTime(instant);
+  assert.notEqual(newYork, singapore);
+  assert.match(singapore, /2026/);
+  assert.match(newYork, /2026/);
+
+  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
+  const tickerSource = sourceBetween('async function genTickerAI', '// ── About AI');
+  const pdfSource = sourceBetween('function exportToPDF', '// ── Settings');
+  assert.match(summarySource, /formatUserTime\(summaryNow\)/);
+  assert.match(summarySource, /formatUserTime\(new Date\(\)\)/);
+  assert.match(tickerSource, /formatUserDateTime\(now\)/);
+  assert.match(pdfSource, /formatUserDateTime\(now\)/);
+  assert.match(investmentSource, /formatUserDateTime\(report\.generatedAt\)/);
+  assert.match(tickerSource, /mktTz=.*Asia\/Singapore.*Asia\/Hong_Kong.*America\/New_York/);
+  assert.match(appSource, /function getPrevDay\(sym\)[\s\S]*?timeZone:tz/);
+});
+
 test('structured loader omits correlation when UUID generation is unavailable or invalid', async () => {
   for (const cryptoValue of [undefined, {randomUUID() { return 'invalid'; }}, {randomUUID() { throw new Error('unavailable'); }}]) {
     const calls = [];
@@ -360,6 +385,7 @@ async function capturePrompt(briefKey, filter, summaryData) {
     isDashboardView(name) { return name === 'MyStocks' || name === 'Watchlist'; },
     setSumHTML() {}, saveBriefHTML() {}, setAIBtnVisible() {},
     getBriefListFingerprint() { return 'fingerprint'; }, saveGeneratedBrief() {},
+    formatUserTime() { return '12:00 GMT+8'; },
     fmt(value) { return String(value); }, fmtP(value) { return String(value); }, fmtD(value) { return String(value); },
     esc(value) { return String(value); }, cleanAIText(value) { return value; }, formatSummary(value) { return value; },
     fetchQuote() { return Promise.resolve({price: 1, pct: 0, chg: 0}); },

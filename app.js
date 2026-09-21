@@ -162,6 +162,18 @@ function tickClock(){
     now.toLocaleDateString('en-SG',{timeZone:tz,month:'short',day:'numeric'})
     +' &middot; '+now.toLocaleTimeString('en-SG',{timeZone:tz,hour:'2-digit',minute:'2-digit'})+' '+lbl;
 }
+function getUserTimeZone(){return S.tz||'Asia/Singapore';}
+function formatUserTime(value){
+  return new Intl.DateTimeFormat('en-SG',{
+    timeZone:getUserTimeZone(),hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'
+  }).format(new Date(value));
+}
+function formatUserDateTime(value){
+  return new Intl.DateTimeFormat('en-SG',{
+    timeZone:getUserTimeZone(),weekday:'long',year:'numeric',month:'long',day:'numeric',
+    hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'
+  }).format(new Date(value));
+}
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function isDashboardView(name){return name==='MyStocks'||name==='Watchlist';}
@@ -754,10 +766,10 @@ async function loadSummary(briefKey,summaryFilter,summaryData,previousBrief){
     if(!d.length)return;
     var state=marketStates[mkt];
     var isLive=state.regularOpen;
-    var sgTime=summaryNow.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
+    var userTime=formatUserTime(summaryNow);
     var dateStr;
     if(isLive){
-      dateStr='LIVE as of '+sgTime+' SGT';
+      dateStr='LIVE as of '+userTime;
     } else {
       var completedDate=MarketBrief.marketData.getLatestCompletedRegularSessionDate(mkt,summaryNow);
       dateStr=new Intl.DateTimeFormat('en-SG',{timeZone:'UTC',weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(new Date(completedDate+'T00:00:00Z'));
@@ -819,7 +831,7 @@ async function loadSummary(briefKey,summaryFilter,summaryData,previousBrief){
     +(S.style==='bullets'?'For the 🌏 Regional Markets section: write 3-4 bullet points starting with - summarising the KOSPI, Bursa Malaysia, TAIEX, and Nikkei using ONLY the regional data provided above — do not search for these figures.\\n':'For the 🌏 Regional Markets section: write one paragraph (3-4 sentences) summarising the KOSPI, Bursa Malaysia, TAIEX, and Nikkei using ONLY the regional data provided above — do not search for these figures.\\n')
 
   var briefPrefix='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span>'
-    +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div><button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
+    +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+formatUserTime(new Date())+'</span></div><button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
     +'<div class="sumbody"><div id="sumStream">';
   var briefSuffix='</div></div></div>';
   var hdrHTML=briefPrefix+'<div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div>'+briefSuffix;
@@ -983,9 +995,7 @@ async function genTickerAI(sym,d,resId){
   var liveData=d;
   try{ liveData=await fetchQuote(sym); }catch(e){}
   var now=new Date();
-  // Always use SGT for display date — this is a Singapore investor tool
-  var dateStr=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var dayOfWeek=now.toLocaleDateString('en-US',{timeZone:'Asia/Singapore',weekday:'long'});
+  var dateStr=formatUserDateTime(now);
   // Determine prevDay label based on ticker's market
   function getPrevDay(sym){
     var tz='America/New_York';
@@ -1208,8 +1218,7 @@ function exportToPDF(type){
   }
 
   var now=new Date();
-  var ds=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',year:'numeric',month:'short',day:'numeric'});
-  var ts=now.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
+  var userTimestamp=formatUserDateTime(now);
 
   var html=contentEl.innerHTML
     .replace(/color:var\(--acc\)/g,'color:#005b8e')
@@ -1269,7 +1278,7 @@ function exportToPDF(type){
               return {
                 columns:[
                   {stack:[{text:[{text:'Market',bold:true,color:'#003366'},{text:'Brief',bold:true,color:'#005b8e'}],fontSize:13}],margin:[40,15,0,0]},
-                  {text:title+' · '+ds+' '+ts+' SGT',fontSize:8,color:'#444444',alignment:'right',margin:[0,18,40,0]}
+                  {text:title+' · '+userTimestamp,fontSize:8,color:'#444444',alignment:'right',margin:[0,18,40,0]}
                 ]
               };
             },
