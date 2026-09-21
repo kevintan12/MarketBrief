@@ -282,29 +282,41 @@
   function renderBenchmarkTable(envelope){
     var labels={'^DJI':'Dow Jones','^IXIC':'NASDAQ','^GSPC':'S&amp;P 500','^RUT':'Russell 2000'};
     var rows=[];
+    var liveStates={PRE:true,PRE_MARKET:true,REGULAR:true,TRADING:true,POST:true,POST_MARKET:true};
+    var hasLiveMarket=false;
     envelope.marketPackages.forEach(function(pkg){
+      var state=String(pkg.marketContext&&pkg.marketContext.marketState||'').trim().toUpperCase().replace(/-/g,'_');
+      var live=Boolean(liveStates[state]);
+      hasLiveMarket=hasLiveMarket||live;
       pkg.telemetry.benchmarkSnapshots.forEach(function(entry){
         var snapshot=entry.snapshot;
         var sessions=Array.isArray(snapshot.completedSessions)?snapshot.completedSessions:[];
         var completed=sessions.length?sessions[sessions.length-1]:null;
-        var close=completed&&Number.isFinite(completed.close)?formatBenchmarkNumber(completed.close):'—';
+        var overlay=snapshot.currentOverlay;
+        var usesOverlay=live&&overlay&&Number.isFinite(overlay.lastPrice)
+          &&Number.isFinite(overlay.absoluteChange)&&Number.isFinite(overlay.percentChange);
+        var values=usesOverlay?overlay:completed;
+        var close=values&&Number.isFinite(usesOverlay?values.lastPrice:values.close)
+          ?formatBenchmarkNumber(usesOverlay?values.lastPrice:values.close):'—';
         var movement='—';
         var movementClass='neu';
-        if(completed&&Number.isFinite(completed.absoluteChange)&&Number.isFinite(completed.percentChange)){
-          var direction=completed.absoluteChange>0?'↑':completed.absoluteChange<0?'↓':'—';
-          movementClass=completed.absoluteChange>0?'up':completed.absoluteChange<0?'dn':'neu';
-          movement=direction+' '+formatBenchmarkNumber(Math.abs(completed.absoluteChange))
-            +' ('+formatBenchmarkNumber(Math.abs(completed.percentChange))+'%)';
+        if(values&&Number.isFinite(values.absoluteChange)&&Number.isFinite(values.percentChange)){
+          var direction=values.absoluteChange>0?'↑':values.absoluteChange<0?'↓':'—';
+          movementClass=values.absoluteChange>0?'up':values.absoluteChange<0?'dn':'neu';
+          movement=direction+' '+formatBenchmarkNumber(Math.abs(values.absoluteChange))
+            +' ('+formatBenchmarkNumber(Math.abs(values.percentChange))+'%)';
         }
+        var fallbackLabel=live&&!usesOverlay
+          ?'<span style="color:var(--mut);font-size:0.8em;white-space:nowrap;"> Prior close</span>':'';
         var label=labels[snapshot.symbol]||escapeHTML(snapshot.instrumentName||snapshot.symbol||'Unavailable benchmark');
         rows.push('<tr><td style="padding:7px 10px;border-bottom:1px solid var(--bor);">'+label+'</td>'
-          +'<td style="padding:7px 10px;border-bottom:1px solid var(--bor);text-align:right;">'+close+'</td>'
+          +'<td style="padding:7px 10px;border-bottom:1px solid var(--bor);text-align:right;">'+close+fallbackLabel+'</td>'
           +'<td class="'+movementClass+'" style="padding:7px 10px;border-bottom:1px solid var(--bor);text-align:right;">'+movement+'</td></tr>');
       });
     });
     return '<div style="overflow-x:auto;margin:12px 0 4px;"><table class="benchmark-table" style="width:100%;border-collapse:collapse;font-size:0.95rem;">'
       +'<thead><tr><th style="padding:7px 10px;text-align:left;border-bottom:1px solid var(--bor);">Index</th>'
-      +'<th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--bor);">Close</th>'
+      +'<th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--bor);">'+(hasLiveMarket?'Last':'Close')+'</th>'
       +'<th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--bor);">Movement</th></tr></thead>'
       +'<tbody>'+rows.join('')+'</tbody></table></div>';
   }

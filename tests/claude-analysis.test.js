@@ -530,24 +530,60 @@ test('rejects the retired eleven-section structured output contract', () => {
     /Invalid structured Market Brief sections/);
 });
 
-test('renders four benchmarks from newest completed sessions before Section 1 without using overlays', () => {
+test('PRE, REGULAR and POST render valid benchmark overlays as live values before Section 1', () => {
+  for (const state of ['PRE', 'REGULAR', 'POST']) {
+    const envelope = populatedUsEnvelope();
+    envelope.marketPackages[0].marketContext.marketState = state;
+    envelope.marketPackages[0].marketContext.includesCurrentOverlay = true;
+    envelope.marketPackages[0].telemetry.benchmarkSnapshots.forEach((entry, index) => {
+      entry.snapshot.currentOverlay = {
+        lastPrice: 54000 + index,
+        absoluteChange: index % 2 ? -10 - index : 10 + index,
+        percentChange: index % 2 ? -0.2 - index / 100 : 0.2 + index / 100
+      };
+    });
+    const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+    const table = html.indexOf('class="benchmark-table"');
+    const sectionOne = html.indexOf('1. EXECUTIVE MARKET SUMMARY');
+    assert.ok(table !== -1 && table < sectionOne);
+    assert.match(html, />Last<\/th>/);
+    assert.match(html, /Dow Jones[\s\S]*54,000\.00[\s\S]*↑ 10\.00 \(0\.20%\)/);
+    assert.match(html, /NASDAQ[\s\S]*54,001\.00[\s\S]*↓ 11\.00 \(0\.21%\)/);
+    assert.doesNotMatch(html, /53,414\.25|26,506\.99|7,718\.60|2,975\.65/);
+  }
+});
+
+test('active benchmark rows fall back independently to visibly marked prior-close data', () => {
   const envelope = populatedUsEnvelope();
   envelope.marketPackages[0].marketContext.marketState = 'REGULAR';
   envelope.marketPackages[0].marketContext.includesCurrentOverlay = true;
-  envelope.marketPackages[0].telemetry.benchmarkSnapshots[0].snapshot.currentOverlay =
-    {lastPrice:99999,absoluteChange:999,percentChange:99};
+  const benchmarks = envelope.marketPackages[0].telemetry.benchmarkSnapshots;
+  benchmarks[0].snapshot.currentOverlay = {lastPrice: 54000, absoluteChange: 10, percentChange: 0.2};
+  benchmarks[1].snapshot.currentOverlay = null;
+  benchmarks[2].snapshot.currentOverlay = {lastPrice: Number.NaN, absoluteChange: 12, percentChange: 0.2};
+  benchmarks[3].snapshot.currentOverlay = {lastPrice: 3000, absoluteChange: -5, percentChange: -0.17};
   const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
-  const table = html.indexOf('class="benchmark-table"');
-  const sectionOne = html.indexOf('1. EXECUTIVE MARKET SUMMARY');
-  assert.ok(table !== -1 && table < sectionOne);
-  assert.match(html, /Dow Jones[\s\S]*53,414\.25[\s\S]*↓ 271\.86 \(0\.51%\)/);
-  assert.match(html, /NASDAQ[\s\S]*26,506\.99[\s\S]*↓ 77\.07 \(0\.29%\)/);
-  assert.match(html, /S&amp;P 500[\s\S]*7,718\.60[\s\S]*↓ 29\.11 \(0\.38%\)/);
-  assert.match(html, /Russell 2000[\s\S]*2,975\.65[\s\S]*↑ 7\.38 \(0\.25%\)/);
-  assert.match(html, /Dow Jones[\s\S]*?<td[^>]*>53,414\.25<\/td><td class="dn"[^>]*>↓ 271\.86 \(0\.51%\)<\/td>/);
-  assert.match(html, /Russell 2000[\s\S]*?<td[^>]*>2,975\.65<\/td><td class="up"[^>]*>↑ 7\.38 \(0\.25%\)<\/td>/);
-  assert.doesNotMatch(html, /<td class="(?:up|dn)"[^>]*>\s*(?:53,414\.25|2,975\.65)<\/td>/);
-  assert.doesNotMatch(html, /99,999\.00|999\.00 \(99\.00%\)/);
+  const nasdaq = html.match(/<tr><td[^>]*>NASDAQ<\/td>[\s\S]*?<\/tr>/)[0];
+  const sp = html.match(/<tr><td[^>]*>S&amp;P 500<\/td>[\s\S]*?<\/tr>/)[0];
+  assert.match(html, /Dow Jones[\s\S]*54,000\.00[\s\S]*↑ 10\.00 \(0\.20%\)/);
+  assert.match(html, /Russell 2000[\s\S]*3,000\.00[\s\S]*↓ 5\.00 \(0\.17%\)/);
+  assert.match(nasdaq, /26,506\.99[\s\S]*Prior close[\s\S]*↓ 77\.07 \(0\.29%\)/);
+  assert.match(sp, /7,718\.60[\s\S]*Prior close[\s\S]*↓ 29\.11 \(0\.38%\)/);
+  assert.doesNotMatch(nasdaq, /54,001\.00/);
+});
+
+test('CLOSED, WEEKEND and HOLIDAY retain completed benchmark closes despite overlay data', () => {
+  for (const state of ['CLOSED', 'WEEKEND', 'HOLIDAY']) {
+    const envelope = populatedUsEnvelope();
+    envelope.marketPackages[0].marketContext.marketState = state;
+    envelope.marketPackages[0].marketContext.includesCurrentOverlay = false;
+    envelope.marketPackages[0].telemetry.benchmarkSnapshots[0].snapshot.currentOverlay =
+      {lastPrice: 99999, absoluteChange: 999, percentChange: 99};
+    const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+    assert.match(html, />Close<\/th>/);
+    assert.match(html, /Dow Jones[\s\S]*53,414\.25[\s\S]*↓ 271\.86 \(0\.51%\)/);
+    assert.doesNotMatch(html, /99,999\.00|999\.00 \(99\.00%\)|Prior close/);
+  }
 });
 
 test('renders unavailable benchmark close data without substituting current overlay values', () => {
