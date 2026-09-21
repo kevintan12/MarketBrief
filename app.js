@@ -1472,8 +1472,6 @@ function renderSettingsPanelTo(pid){
         +'<option value="UTC"'+(S.tz==='UTC'?' selected':'')+'>UTC</option>'
       +'</select>'
     +'</div>'
-    +'<button class="savebtn" onclick="saveSettings(\''+pid+'\')">Save Settings</button>'
-    +'<div id="saveMsg_'+pid+'"></div>'
     +'<div class="srow" style="border-color:rgba(0,212,255,0.25)">'
       +'<div class="slbl" style="color:var(--acc)">⇅ Sync Settings</div>'
       +'<div class="snote">Export your settings as a code to copy to another device, or paste a code here to import.</div>'
@@ -1499,7 +1497,9 @@ function renderSettingsPanelTo(pid){
     +'<div class="srow" style="border-color:rgba(239,68,68,0.2)">'
       +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'
       +'<div class="snote" style="margin:0">Market data via Yahoo Finance may be delayed by approximately 10 minutes. For informational purposes only — not financial advice.</div>'
-    +'</div>';
+    +'</div>'
+    +'<button class="savebtn" onclick="saveSettings(\''+pid+'\')">Save Settings</button>'
+    +'<div id="saveMsg_'+pid+'"></div>';
 
   // Attach autocomplete to each market add input
   ['customTickers','myStocks'].forEach(function(listKey){
