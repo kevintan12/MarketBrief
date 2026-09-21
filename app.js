@@ -66,7 +66,7 @@ document.addEventListener('keydown',function(e){
 
 // ── Version cache-bust ────────────────────────────────────────────────────────
 (function(){
-  var CURRENT='v2.20260919.23.FP';
+  var CURRENT='v2.20260921.24.F';
   try{
     var last=sessionStorage.getItem('mb_ver');
     if(last&&last!==CURRENT){sessionStorage.setItem('mb_ver',CURRENT);}
@@ -125,7 +125,7 @@ window.onload=function(){
       .then(function(r){return r.text();})
       .then(function(html){
         var m=html.match(/class="logo-ver"[^>]*>(v[\d.]+(?:\.(?:F|P|FP))?)<\/span>/);
-        if(m&&m[1]&&m[1]!=='v2.20260919.23.FP'){
+        if(m&&m[1]&&m[1]!=='v2.20260921.24.F'){
           console.log('New version '+m[1]+' available, reloading…');
           location.reload(true);
         }
