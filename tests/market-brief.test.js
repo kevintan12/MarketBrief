@@ -5,7 +5,6 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-const investmentSource = fs.readFileSync(path.join(__dirname, '..', 'investment.js'), 'utf8');
 
 function sourceBetween(startText, endText) {
   const start = appSource.indexOf(startText);
@@ -65,7 +64,7 @@ test('triggerSummary captures owner, filter and data snapshot and permits one re
   assert.equal(calls[0][0], 'myStocks');
   assert.equal(calls[0][1], 'SG');
   assert.equal(calls[0][2][1].sym, 'D05.SI');
-  assert.equal(context.savedBriefHTML.myStocks, 'old mine');
+  assert.equal(context.savedBriefHTML.myStocks, '');
   assert.equal(context.savedBriefHTML.customTickers, 'old watch');
   assert.equal(context._summaryOwner, 'myStocks');
 });
@@ -97,7 +96,7 @@ test('US routes to one structured generation while SG, HK and ALL retain legacy 
       assert.equal(context.savedBriefHTML.customTickers, 'watch');
     } else {
       assert.equal(calls[0][2], filter);
-      assert.equal(context.savedBriefHTML.customTickers, 'watch');
+      assert.equal(context.savedBriefHTML.customTickers, '');
     }
     finish();
     await pending;
@@ -113,7 +112,6 @@ test('failed US regeneration preserves the previous keyed report', async () => {
     savedBriefHTML: {myStocks: '<div>Previous valid report</div>', customTickers: '<div>Watch</div>'},
     _summaryInFlight: false, _summaryOwner: null, Object,
     setSumHTML(html, key) { visible.push([key, html]); }, setAIBtnVisible() {},
-    presentSavedBrief(key, html) { return html; },
     esc(value) { return String(value); },
     loadStructuredSummary() {
       const error = new Error('package unavailable');
@@ -139,7 +137,6 @@ test('failed US regeneration preserves the previous keyed report', async () => {
 
 test('structured loader maps ownership, hands off the envelope and stores only the initiating key', async () => {
   const calls = [];
-  const ids = ['123e4567-e89b-42d3-a456-426614174000', '123e4567-e89b-42d3-a456-426614174001'];
   const envelope = {analysisRequest: {initiatingList: 'myStocks'}};
   const result = {status: 'NORMAL'};
   const saved = {myStocks: 'old mine', customTickers: 'old watch'};
@@ -157,10 +154,7 @@ test('structured loader maps ownership, hands off the envelope and stores only t
     }},
     setSumHTML(html, key) { visible.push([key, html]); },
     saveBriefHTML(key, html) { saved[key] = html; visible.push([key, html]); },
-    getBriefListFingerprint(key) { return 'fingerprint:'+key; },
-    saveGeneratedBrief(key, html) { saved[key] = html; visible.push([key, html]); },
     _structuredSummaryProgress: {}, Date: {now() { return 87000; }}, Error,
-    crypto: {randomUUID() { return ids.shift(); }},
     setInterval(callback, delay) { timerDelays.push(delay); return 17; }, clearInterval(id) { clearedTimers.push(id); }
   };
   vm.createContext(context);
@@ -169,10 +163,8 @@ test('structured loader maps ownership, hands off the envelope and stores only t
   assert.equal(calls[0][0], 'package');
   assert.equal(calls[0][1].filter, 'US');
   assert.equal(calls[0][1].initiatingList, 'myStocks');
-  assert.equal(calls[0][1].generationId, '123e4567-e89b-42d3-a456-426614174000');
   assert.equal(calls[1][0], 'analysis');
   assert.equal(calls[1][1].envelope, envelope);
-  assert.equal(calls[1][1].generationId, calls[0][1].generationId);
   assert.deepEqual(calls[2], ['render', result, envelope]);
   assert.match(saved.myStocks, /^<div class="sumdate"[^>]*>Worked for 0 secs<\/div><div>Structured My Stocks<\/div>$/);
   assert.equal(saved.customTickers, 'old watch');
@@ -189,113 +181,9 @@ test('structured loader maps ownership, hands off the envelope and stores only t
   assert.equal(calls[3][0], 'package');
   assert.equal(calls[3][1].filter, 'US');
   assert.equal(calls[3][1].initiatingList, 'watchlist');
-  assert.equal(calls[3][1].generationId, '123e4567-e89b-42d3-a456-426614174001');
-  assert.equal(calls[4][1].generationId, calls[3][1].generationId);
-  assert.notEqual(calls[3][1].generationId, calls[0][1].generationId);
   assert.match(saved.customTickers, /Worked for 0 secs/);
   assert.deepEqual(clearedTimers, [17, 17]);
   assert.deepEqual(timerDelays, [1000, 1000]);
-});
-
-test('saved reports independently disclose membership or order changes without mutating report HTML', () => {
-  const elements = {sumArea: element(), sumAreaD: element(), aiBtnM: element(), aiBtnD: element()};
-  const context = {
-    activeTickerList: 'myStocks', currentView: 'MyStocks', _summaryInFlight: false, _summaryOwner: null,
-    S: {
-      myStocks: {US: [{sym: 'AAPL', name: 'Apple'}], SG: [{sym: 'D05.SI', name: 'DBS'}], HK: []},
-      customTickers: {US: [{sym: 'MSFT', name: 'Microsoft'}], SG: [], HK: []}
-    },
-    document: {getElementById(id) { return elements[id] || null; }},
-    isDashboardView(name) { return name === 'MyStocks' || name === 'Watchlist'; },
-    setAIBtnVisible() {}
-  };
-  vm.createContext(context);
-  vm.runInContext(sourceBetween('function setSumHTML', 'function isAnyMarketOpen'), context);
-
-  context.saveGeneratedBrief('myStocks', '<div>My report</div>', context.getBriefListFingerprint('myStocks'));
-  context.saveGeneratedBrief('customTickers', '<div>Watch report</div>', context.getBriefListFingerprint('customTickers'));
-  context.restoreCurrentBrief();
-  assert.doesNotMatch(elements.sumArea.innerHTML, /List changed since/);
-
-  context.S.myStocks.US[0].name = 'Apple Inc.';
-  context.restoreCurrentBrief();
-  assert.doesNotMatch(elements.sumArea.innerHTML, /List changed since/);
-
-  context.S.myStocks.US.push({sym: 'NVDA', name: 'NVIDIA'});
-  context.restoreCurrentBrief();
-  assert.match(elements.sumArea.innerHTML, /List changed since this Market Brief was generated\. Regenerate for an updated analysis\./);
-  assert.match(elements.sumArea.innerHTML, /My report/);
-  assert.equal((elements.sumArea.innerHTML.match(/List changed since/g) || []).length, 1);
-  context.restoreCurrentBrief();
-  assert.equal((elements.sumArea.innerHTML.match(/List changed since/g) || []).length, 1);
-  assert.equal(context.savedBriefHTML.myStocks, '<div>My report</div>');
-
-  context.activeTickerList = 'customTickers';
-  context.currentView = 'Watchlist';
-  context.restoreCurrentBrief();
-  assert.doesNotMatch(elements.sumArea.innerHTML, /List changed since/);
-  context.S.customTickers.US.push({sym: 'GOOG', name: 'Alphabet'});
-  context.restoreCurrentBrief();
-  assert.match(elements.sumArea.innerHTML, /List changed since/);
-  assert.match(elements.sumArea.innerHTML, /Watch report/);
-
-  context.saveGeneratedBrief('customTickers', '<div>Updated watch report</div>', context.getBriefListFingerprint('customTickers'));
-  context.S.customTickers.US.reverse();
-  context.restoreCurrentBrief();
-  assert.match(elements.sumArea.innerHTML, /List changed since/);
-  context.saveGeneratedBrief('customTickers', '<div>Updated watch report</div>', context.getBriefListFingerprint('customTickers'));
-  context.restoreCurrentBrief();
-  assert.doesNotMatch(elements.sumArea.innerHTML, /List changed since/);
-  assert.match(elements.sumArea.innerHTML, /Updated watch report/);
-});
-
-test('user-facing timestamps follow S.tz without changing exchange session logic', () => {
-  const context = {S: {tz: 'Asia/Singapore'}, Intl, Date};
-  vm.createContext(context);
-  vm.runInContext(sourceBetween('function getUserTimeZone', '// ── Navigation'), context);
-  const instant = '2026-09-21T14:30:00.000Z';
-  const singapore = context.formatUserDateTime(instant);
-  context.S.tz = 'America/New_York';
-  const newYork = context.formatUserDateTime(instant);
-  assert.notEqual(newYork, singapore);
-  assert.match(singapore, /2026/);
-  assert.match(newYork, /2026/);
-
-  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
-  const tickerSource = sourceBetween('async function genTickerAI', '// ── About AI');
-  const pdfSource = sourceBetween('function exportToPDF', '// ── Settings');
-  assert.match(summarySource, /formatUserTime\(summaryNow\)/);
-  assert.match(summarySource, /formatUserTime\(new Date\(\)\)/);
-  assert.match(tickerSource, /formatUserDateTime\(now\)/);
-  assert.match(pdfSource, /formatUserDateTime\(now\)/);
-  assert.match(investmentSource, /formatUserDateTime\(report\.generatedAt\)/);
-  assert.match(tickerSource, /mktTz=.*Asia\/Singapore.*Asia\/Hong_Kong.*America\/New_York/);
-  assert.match(appSource, /function getPrevDay\(sym\)[\s\S]*?timeZone:tz/);
-});
-
-test('structured loader omits correlation when UUID generation is unavailable or invalid', async () => {
-  for (const cryptoValue of [undefined, {randomUUID() { return 'invalid'; }}, {randomUUID() { throw new Error('unavailable'); }}]) {
-    const calls = [];
-    const envelope = {analysisRequest: {initiatingList: 'myStocks'}};
-    const context = {
-      crypto: cryptoValue, Date: {now() { return 0; }}, Error,
-      _structuredSummaryProgress: {}, setInterval() { return 1; }, clearInterval() {},
-      setSumHTML() {}, saveBriefHTML() {},
-      getBriefListFingerprint() { return 'fingerprint'; }, saveGeneratedBrief() {},
-      MarketBrief: {claudeAnalysis: {
-        async requestMarketBriefPackage(options) { calls.push(options); return envelope; },
-        async requestMarketBriefAnalysis(options) { calls.push(options); return {status: 'NORMAL'}; },
-        renderMarketBriefAnalysis() { return '<div>Report</div>'; }
-      }}
-    };
-    vm.createContext(context);
-    vm.runInContext(sourceBetween('function formatStructuredElapsed', 'async function loadSummary'), context);
-    await context.loadStructuredSummary('myStocks', 'old');
-    assert.equal(calls.length, 2);
-    assert.equal(Object.hasOwn(calls[0], 'generationId'), false);
-    assert.equal(Object.hasOwn(calls[1], 'generationId'), false);
-    assert.equal(calls[1].envelope, envelope);
-  }
 });
 
 test('structured elapsed timer formats seconds and minutes and is cleaned up on failure', async () => {
@@ -309,7 +197,6 @@ test('structured elapsed timer formats seconds and minutes and is cleaned up on 
     _structuredSummaryProgress: {}, Date, Error,
     setSumHTML(html, key) { visible.push([key, html]); },
     saveBriefHTML() { throw new Error('failed generation must not save'); },
-    getBriefListFingerprint() { return 'fingerprint'; },
     setInterval(callback, delay) { timerDelays.push(delay); return 23; }, clearInterval(id) { clearedTimers.push(id); }
   };
   vm.createContext(context);
@@ -384,8 +271,6 @@ async function capturePrompt(briefKey, filter, summaryData) {
     window: {}, document: {getElementById() { return null; }},
     isDashboardView(name) { return name === 'MyStocks' || name === 'Watchlist'; },
     setSumHTML() {}, saveBriefHTML() {}, setAIBtnVisible() {},
-    getBriefListFingerprint() { return 'fingerprint'; }, saveGeneratedBrief() {},
-    formatUserTime() { return '12:00 GMT+8'; },
     fmt(value) { return String(value); }, fmtP(value) { return String(value); }, fmtD(value) { return String(value); },
     esc(value) { return String(value); }, cleanAIText(value) { return value; }, formatSummary(value) { return value; },
     fetchQuote() { return Promise.resolve({price: 1, pct: 0, chg: 0}); },
@@ -429,8 +314,8 @@ test('streaming ownership and PDF selection remain tied to the initiating/curren
   const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
   const pdfSource = sourceBetween('function exportToPDF', '// ── Settings');
   assert.match(summarySource, /_summaryOwner!==briefKey/);
-  assert.doesNotMatch(summarySource, /savedBriefHTML\[briefKey\]=briefPrefix\+rendered\+briefSuffix/);
-  assert.match(summarySource, /saveGeneratedBrief\(briefKey,briefPrefix\+finalRendered\+briefSuffix,generationFingerprint\)/);
+  assert.match(summarySource, /savedBriefHTML\[briefKey\]=briefPrefix\+rendered\+briefSuffix/);
+  assert.match(summarySource, /savedBriefHTML\[briefKey\]=briefPrefix\+finalRendered\+briefSuffix/);
   assert.match(pdfSource, /contentEl=\(b&&b\.offsetParent!==null\)\?b:a/);
 });
 
@@ -441,15 +326,4 @@ test('legacy Market Brief remains on the streaming claude route only', () => {
   assert.doesNotMatch(summarySource, /analysisPackage=1/);
   assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /claudeAnalysis/);
   assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /analysisPackage/);
-});
-
-test('legacy Market Brief puts sumStream inside the bounded report body', () => {
-  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
-  const prefixStart = summarySource.indexOf('var briefPrefix=');
-  const prefixEnd = summarySource.indexOf('var briefSuffix=', prefixStart);
-  assert.ok(prefixStart >= 0 && prefixEnd > prefixStart);
-  const markup = summarySource.slice(prefixStart, prefixEnd);
-  assert.ok(markup.indexOf('class="sumhdr"') < markup.indexOf('class="sumbody"'));
-  assert.ok(markup.indexOf('class="sumbody"') < markup.indexOf('id="sumStream"'));
-  assert.match(summarySource, /var briefSuffix='<\/div><\/div><\/div>'/);
 });

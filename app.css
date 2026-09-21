@@ -35,8 +35,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 .content{padding:16px 20px;}
 @media(min-width:769px){.desktop-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px;height:100%;box-sizing:border-box;}.col-left{display:flex;flex-direction:column;min-height:0;}.col-right{display:flex;flex-direction:column;min-height:0;}}
-#dashboardAIM,.col-right{min-height:0;}
-#sumAreaD,#sumArea{flex:1;min-height:0;display:flex;flex-direction:column;}
 
 .slabel{font-size:0.9rem;letter-spacing:0.12em;color:var(--mut);text-transform:uppercase;margin-bottom:10px;margin-top:22px;}
 .slabel.notop{margin-top:0;}
@@ -79,14 +77,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 @keyframes sp{to{transform:rotate(360deg)}}
 
 .sumbox{background:linear-gradient(135deg,rgba(0,212,255,0.06),rgba(124,58,237,0.06));
-  border:1px solid rgba(0,212,255,0.18);border-radius:13px;padding:18px;animation:fu 0.4s ease both;
-  flex:1;min-height:0;display:flex;flex-direction:column;}
+  border:1px solid rgba(0,212,255,0.18);border-radius:13px;padding:18px;animation:fu 0.4s ease both;}
 .sumhdr{display:flex;align-items:center;gap:8px;margin-bottom:13px;}
-.sumbox .sumhdr{flex-shrink:0;}
-.sumbox .sumbody{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bor) transparent;}
-.sumbox .sumbody::-webkit-scrollbar{width:4px;}
-.sumbox .sumbody::-webkit-scrollbar-track{background:transparent;}
-.sumbox .sumbody::-webkit-scrollbar-thumb{background:var(--bor);border-radius:4px;}
 .badge{font-size:0.9rem;letter-spacing:0.08em;background:var(--acc);color:var(--bg);padding:3px 9px;border-radius:20px;font-weight:500;}
 .sumdate{font-size:0.9rem;color:var(--mut);}
 
@@ -204,7 +196,6 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
   .header{padding:8px 10px;}
   .logo-ver{display:none;}
   .idx-scroll{margin-bottom:0;}
-  #dashboardAIM{display:flex;flex-direction:column;max-height:calc(100vh - 150px);}
   .ai-btn{position:fixed;bottom:70px;left:16px;right:16px;width:calc(100% - 32px);z-index:99;backdrop-filter:blur(10px);border-radius:24px;}
   .card{padding:10px 12px;flex-wrap:wrap;align-items:flex-start;}
   .flag{width:28px;height:28px;font-size:14px;flex-shrink:0;}

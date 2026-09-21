@@ -346,7 +346,7 @@
     var html='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;">'
       +'<span class="sumdate">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(result.status)+'</span>'
       +'<button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
-      +'<div class="sumbody"><div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
+      +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
       +escapeHTML(context.header)+'</div>'+renderAnalysisContext(envelope)+renderBenchmarkTable(envelope);
     result.sections.forEach(function(section,index){
       if(!hasExactKeys(section,['name','content','evidenceRefs','telemetryRefs','uncertainties'])
@@ -378,15 +378,7 @@
       }
       html+=renderSectionReferences(section,maps);
     });
-    return html+'</div></div>';
-  }
-
-  function structuredRequestUrl(route,generationId){
-    var url=S.proxyUrl+'/api/quote?'+route+'=1';
-    if(typeof generationId==='string'&&
-       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(generationId))
-      url+='&generationId='+encodeURIComponent(generationId);
-    return url;
+    return html+'</div>';
   }
 
   async function requestMarketBriefPackage(options){
@@ -396,7 +388,7 @@
     if(!fetchImpl)throw analysisError('NETWORK_FAILURE','Market Brief package transport unavailable');
     var response;
     try{
-      response=await fetchImpl(structuredRequestUrl('analysisPackage',options.generationId),{
+      response=await fetchImpl(S.proxyUrl+'/api/quote?analysisPackage=1',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(request)
@@ -430,7 +422,7 @@
     if(!fetchImpl)throw analysisError('NETWORK_FAILURE','Structured Claude analysis transport unavailable');
     var response;
     try{
-      response=await fetchImpl(structuredRequestUrl('claudeAnalysis',options.generationId),{
+      response=await fetchImpl(S.proxyUrl+'/api/quote?claudeAnalysis=1',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(request)

@@ -80,16 +80,6 @@ function ticker(sym, mkt) {
   return {sym, name: sym, sub: mkt, flag: mkt, mkt};
 }
 
-test('Settings renders one Save Settings control after the Proxy URL section', () => {
-  const source = settingsListSource;
-  const saveMarkup = 'onclick="saveSettings(\\\'';
-  assert.equal(source.split(saveMarkup).length - 1, 1);
-  assert.ok(source.indexOf('★ Proxy URL') < source.indexOf(saveMarkup));
-  assert.ok(source.indexOf(saveMarkup) < source.indexOf("'<div id=\"saveMsg_"));
-  assert.ok(source.indexOf('id="cfgProxy_') >= 0);
-  assert.match(source, /onclick="doChangePIN/);
-});
-
 test('old mb5 data without myStocks loads with empty market lists', () => {
   const oldData = {customTickers: {US: [ticker('AAPL', 'US')], SG: [], HK: []}};
   const {context} = createHarness({mb5: JSON.stringify(oldData)});

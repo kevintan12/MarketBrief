@@ -162,18 +162,6 @@ function tickClock(){
     now.toLocaleDateString('en-SG',{timeZone:tz,month:'short',day:'numeric'})
     +' &middot; '+now.toLocaleTimeString('en-SG',{timeZone:tz,hour:'2-digit',minute:'2-digit'})+' '+lbl;
 }
-function getUserTimeZone(){return S.tz||'Asia/Singapore';}
-function formatUserTime(value){
-  return new Intl.DateTimeFormat('en-SG',{
-    timeZone:getUserTimeZone(),hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'
-  }).format(new Date(value));
-}
-function formatUserDateTime(value){
-  return new Intl.DateTimeFormat('en-SG',{
-    timeZone:getUserTimeZone(),weekday:'long',year:'numeric',month:'long',day:'numeric',
-    hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'
-  }).format(new Date(value));
-}
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function isDashboardView(name){return name==='MyStocks'||name==='Watchlist';}
@@ -245,13 +233,11 @@ function renderDesktop(){
           +'<button class="chip" data-filter="HK" onclick="setFilterD(\'HK\',this)">🇭🇰 HKEX</button>'
         +'</div>'
         +'<div class="slabel notop">Market Indices <span id="liveIndD" style="font-size:0.85rem;margin-left:6px"></span></div>'
-        +'<div class="snote">Market data may be delayed by approximately 10 minutes.</div>'
         +'<div class="idx-scroll" id="idxGridD"><div class="msg">Loading… <span class="spin"></span></div></div>'
       +'</div>'
       +'<div class="col-right">'
         +'<div class="slabel notop"><span class="dot"></span>AI Summary</div>'
         +'<button class="ai-btn" id="aiBtnD" onclick="triggerSummary()">✦ Generate Market Brief</button>'
-        +'<div class="snote">Generation may take a little while and uses AI resources.</div>'
         +'<div id="sumAreaD"></div>'
       +'</div>'
       +'</div>';
@@ -363,17 +349,19 @@ function triggerSummary(){
       setAIBtnVisible(true);
     }).catch(function(e){
       var elapsed=e.structuredElapsedText?'<div class="sumdate" style="margin-bottom:8px;">'+esc(e.structuredElapsedText)+'</div>':'';
-      setSumHTML(elapsed+'<div class="msg err">Market Brief error: '+esc(e.message)+'</div>'+presentSavedBrief(briefKey,previousBrief),briefKey);
+      setSumHTML(elapsed+'<div class="msg err">Market Brief error: '+esc(e.message)+'</div>'+previousBrief,briefKey);
       _summaryInFlight=false;_summaryOwner=null;
       setAIBtnVisible(true);
     });
     return;
   }
+  savedBriefHTML[briefKey]='';
+  setSumHTML('',briefKey);
   _summaryInFlight=true;
   _summaryOwner=briefKey;
   setAIBtnVisible(false);
-  loadSummary(briefKey,summaryFilter,summaryData,previousBrief).catch(function(e){
-    setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>'+presentSavedBrief(briefKey,previousBrief),briefKey);
+  loadSummary(briefKey,summaryFilter,summaryData).catch(function(e){
+    saveBriefHTML(briefKey,'<div class="msg err">Summary error: '+esc(e.message)+'</div>');
     _summaryInFlight=false;_summaryOwner=null;
     setAIBtnVisible(true);
   });
@@ -458,31 +446,10 @@ function setSumHTML(h,briefKey){
   if(a)a.innerHTML=h;if(b)b.innerHTML=h;
 }
 function saveBriefHTML(briefKey,h){savedBriefHTML[briefKey]=h;setSumHTML(h,briefKey);}
-function getBriefListFingerprint(briefKey){
-  var list=typeof S==='object'&&S&&S[briefKey]||{};
-  return ['US','SG','HK'].map(function(market){
-    return (Array.isArray(list[market])?list[market]:[]).map(function(item){
-      return market+':'+String(item&&item.sym||'').trim().toUpperCase();
-    }).join(',');
-  }).join('|');
-}
-function isSavedBriefStale(briefKey){
-  return !!(savedBriefHTML[briefKey]&&savedBriefState[briefKey]&&
-    savedBriefState[briefKey].fingerprint!==getBriefListFingerprint(briefKey));
-}
-function presentSavedBrief(briefKey,html){
-  return isSavedBriefStale(briefKey)
-    ?'<div class="snote">List changed since this Market Brief was generated. Regenerate for an updated analysis.</div>'+html
-    :html;
-}
-function saveGeneratedBrief(briefKey,html,fingerprint){
-  savedBriefState[briefKey]={fingerprint:fingerprint};
-  saveBriefHTML(briefKey,html);
-}
 function restoreCurrentBrief(){
   if(!isDashboardView(currentView))return;
   var progress=_summaryInFlight&&_summaryOwner===activeTickerList?_structuredSummaryProgress[activeTickerList]:'';
-  setSumHTML(progress||presentSavedBrief(activeTickerList,savedBriefHTML[activeTickerList]||''),activeTickerList);
+  setSumHTML(progress||savedBriefHTML[activeTickerList]||'',activeTickerList);
   setAIBtnVisible(!_summaryInFlight);
 }
 
@@ -490,7 +457,6 @@ function restoreCurrentBrief(){
 var autoRefreshTimer=null;
 var lastSearchSym=null;
 var savedBriefHTML={myStocks:'',customTickers:''};
-var savedBriefState={myStocks:null,customTickers:null};
 var _summaryInFlight=false, _summaryOwner=null;
 var _structuredSummaryProgress={};
 var savedSearchHTML='';
@@ -659,13 +625,6 @@ async function loadStructuredSummary(briefKey,previousBrief){
   if(!analysis)throw new Error('Structured Market Brief helper unavailable');
   var initiatingList=briefKey==='myStocks'?'myStocks':briefKey==='customTickers'?'watchlist':null;
   if(!initiatingList)throw new Error('Invalid Market Brief owner');
-  var generationFingerprint=getBriefListFingerprint(briefKey);
-  var generationId=null;
-  try{
-    if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')generationId=crypto.randomUUID();
-  }catch(e){generationId=null;}
-  if(typeof generationId!=='string'||
-     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(generationId))generationId=null;
   var startedAt=Date.now(),stage='Preparing market package…',timer=null,finalElapsedText=null;
   function showProgress(){
     var elapsed=Math.floor((Date.now()-startedAt)/1000);
@@ -683,19 +642,15 @@ async function loadStructuredSummary(briefKey,previousBrief){
     return finalElapsedText;
   }
   try{
-    var packageOptions={filter:'US',initiatingList:initiatingList};
-    if(generationId)packageOptions.generationId=generationId;
-    var envelope=await analysis.requestMarketBriefPackage(packageOptions);
+    var envelope=await analysis.requestMarketBriefPackage({filter:'US',initiatingList:initiatingList});
     if(!envelope||!envelope.analysisRequest||envelope.analysisRequest.initiatingList!==initiatingList)
       throw new Error('Market Brief package owner mismatch');
     stage='Generating structured analysis…';
     showProgress();
-    var analysisOptions={envelope:envelope};
-    if(generationId)analysisOptions.generationId=generationId;
-    var result=await analysis.requestMarketBriefAnalysis(analysisOptions);
+    var result=await analysis.requestMarketBriefAnalysis({envelope:envelope});
     var rendered=analysis.renderMarketBriefAnalysis(result,envelope);
     var elapsedText=stopTimer();
-    saveGeneratedBrief(briefKey,'<div class="sumdate" style="margin-bottom:8px;">'+elapsedText+'</div>'+rendered,generationFingerprint);
+    saveBriefHTML(briefKey,'<div class="sumdate" style="margin-bottom:8px;">'+elapsedText+'</div>'+rendered);
   }catch(e){
     e.structuredElapsedText=stopTimer();
     throw e;
@@ -704,11 +659,10 @@ async function loadStructuredSummary(briefKey,previousBrief){
   }
 }
 
-async function loadSummary(briefKey,summaryFilter,summaryData,previousBrief){
+async function loadSummary(briefKey,summaryFilter,summaryData){
   console.log('MB: loadSummary started');
   setSumHTML('<div class="msg">Generating AI summary… <span class="spin"></span></div>',briefKey);
   var summaryNow=new Date();
-  var generationFingerprint=getBriefListFingerprint(briefKey);
   var mktsToShow=summaryFilter==='all'?['US','SG','HK']:[summaryFilter];
   var listLabel=briefKey==='myStocks'?'My Stocks':'My Watchlist';
   var styleInstr={
@@ -766,10 +720,10 @@ async function loadSummary(briefKey,summaryFilter,summaryData,previousBrief){
     if(!d.length)return;
     var state=marketStates[mkt];
     var isLive=state.regularOpen;
-    var userTime=formatUserTime(summaryNow);
+    var sgTime=summaryNow.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
     var dateStr;
     if(isLive){
-      dateStr='LIVE as of '+userTime;
+      dateStr='LIVE as of '+sgTime+' SGT';
     } else {
       var completedDate=MarketBrief.marketData.getLatestCompletedRegularSessionDate(mkt,summaryNow);
       dateStr=new Intl.DateTimeFormat('en-SG',{timeZone:'UTC',weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(new Date(completedDate+'T00:00:00Z'));
@@ -831,11 +785,11 @@ async function loadSummary(briefKey,summaryFilter,summaryData,previousBrief){
     +(S.style==='bullets'?'For the 🌏 Regional Markets section: write 3-4 bullet points starting with - summarising the KOSPI, Bursa Malaysia, TAIEX, and Nikkei using ONLY the regional data provided above — do not search for these figures.\\n':'For the 🌏 Regional Markets section: write one paragraph (3-4 sentences) summarising the KOSPI, Bursa Malaysia, TAIEX, and Nikkei using ONLY the regional data provided above — do not search for these figures.\\n')
 
   var briefPrefix='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span>'
-    +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+formatUserTime(new Date())+'</span></div><button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
-    +'<div class="sumbody"><div id="sumStream">';
-  var briefSuffix='</div></div></div>';
+    +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div><button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
+    +'<div id="sumStream">';
+  var briefSuffix='</div></div>';
   var hdrHTML=briefPrefix+'<div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div>'+briefSuffix;
-  setSumHTML(hdrHTML,briefKey);
+  saveBriefHTML(briefKey,hdrHTML);
   // Find the VISIBLE sumStream — on desktop sumAreaD is shown, on mobile sumArea
   function getStreamEl(){
     if(_summaryOwner!==briefKey||!isDashboardView(currentView)||activeTickerList!==briefKey)return null;
@@ -884,6 +838,7 @@ async function loadSummary(briefKey,summaryFilter,summaryData,previousBrief){
             var sel=getStreamEl();
             if(!_cdFirstToken){_cdFirstToken=true;clearInterval(window._sumCdTimer);}
             var rendered=formatSummary(cleanAIText(accumulated));
+            savedBriefHTML[briefKey]=briefPrefix+rendered+briefSuffix;
             if(sel)sel.innerHTML=rendered;
           }
         }catch(_){}
@@ -893,12 +848,13 @@ async function loadSummary(briefKey,summaryFilter,summaryData,previousBrief){
     var sel=getStreamEl();
     clearInterval(window._sumCdTimer);
     var finalRendered=formatSummary(cleanAIText(accumulated));
-    saveGeneratedBrief(briefKey,briefPrefix+finalRendered+briefSuffix,generationFingerprint);
+    savedBriefHTML[briefKey]=briefPrefix+finalRendered+briefSuffix;
+    if(sel)sel.innerHTML=finalRendered;
     _sumInFlight=false;
     _summaryInFlight=false;_summaryOwner=null;
     setAIBtnVisible(true);
   }catch(e){
-    setSumHTML('<div class="msg err">Summary error: '+esc(e.message)+'</div>'+presentSavedBrief(briefKey,previousBrief||''),briefKey);
+    saveBriefHTML(briefKey,'<div class="msg err">Summary error: '+esc(e.message)+'</div>');
     _sumInFlight=false;
     _summaryInFlight=false;_summaryOwner=null;
     setAIBtnVisible(true);
@@ -995,7 +951,9 @@ async function genTickerAI(sym,d,resId){
   var liveData=d;
   try{ liveData=await fetchQuote(sym); }catch(e){}
   var now=new Date();
-  var dateStr=formatUserDateTime(now);
+  // Always use SGT for display date — this is a Singapore investor tool
+  var dateStr=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var dayOfWeek=now.toLocaleDateString('en-US',{timeZone:'Asia/Singapore',weekday:'long'});
   // Determine prevDay label based on ticker's market
   function getPrevDay(sym){
     var tz='America/New_York';
@@ -1218,7 +1176,8 @@ function exportToPDF(type){
   }
 
   var now=new Date();
-  var userTimestamp=formatUserDateTime(now);
+  var ds=now.toLocaleDateString('en-SG',{timeZone:'Asia/Singapore',year:'numeric',month:'short',day:'numeric'});
+  var ts=now.toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'});
 
   var html=contentEl.innerHTML
     .replace(/color:var\(--acc\)/g,'color:#005b8e')
@@ -1278,7 +1237,7 @@ function exportToPDF(type){
               return {
                 columns:[
                   {stack:[{text:[{text:'Market',bold:true,color:'#003366'},{text:'Brief',bold:true,color:'#005b8e'}],fontSize:13}],margin:[40,15,0,0]},
-                  {text:title+' · '+userTimestamp,fontSize:8,color:'#444444',alignment:'right',margin:[0,18,40,0]}
+                  {text:title+' · '+ds+' '+ts+' SGT',fontSize:8,color:'#444444',alignment:'right',margin:[0,18,40,0]}
                 ]
               };
             },
@@ -1472,6 +1431,8 @@ function renderSettingsPanelTo(pid){
         +'<option value="UTC"'+(S.tz==='UTC'?' selected':'')+'>UTC</option>'
       +'</select>'
     +'</div>'
+    +'<button class="savebtn" onclick="saveSettings(\''+pid+'\')">Save Settings</button>'
+    +'<div id="saveMsg_'+pid+'"></div>'
     +'<div class="srow" style="border-color:rgba(0,212,255,0.25)">'
       +'<div class="slbl" style="color:var(--acc)">⇅ Sync Settings</div>'
       +'<div class="snote">Export your settings as a code to copy to another device, or paste a code here to import.</div>'
@@ -1496,10 +1457,8 @@ function renderSettingsPanelTo(pid){
     +'</div>'
     +'<div class="srow" style="border-color:rgba(239,68,68,0.2)">'
       +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'
-      +'<div class="snote" style="margin:0">Market data via Yahoo Finance may be delayed by approximately 10 minutes. For informational purposes only — not financial advice.</div>'
-    +'</div>'
-    +'<button class="savebtn" onclick="saveSettings(\''+pid+'\')">Save Settings</button>'
-    +'<div id="saveMsg_'+pid+'"></div>';
+      +'<div class="snote" style="margin:0">Data via Yahoo Finance (15–20 min delay). For informational purposes only — not financial advice.</div>'
+    +'</div>';
 
   // Attach autocomplete to each market add input
   ['customTickers','myStocks'].forEach(function(listKey){

@@ -269,44 +269,6 @@ test('posts package request once and passes canonical envelope through directly 
     [5, 5, 5, 5]);
 });
 
-test('structured POSTs share a bounded generation ID only in URLs and preserve bodies and returns', async () => {
-  const api = load().window.MarketBrief.claudeAnalysis;
-  const envelope = populatedUsEnvelope();
-  const analysisResult = {status: 'NORMAL'};
-  const calls = [];
-  const generationId = '123e4567-e89b-42d3-a456-426614174000';
-  const fetchImpl = async (url, options) => {
-    calls.push({url, options});
-    return {ok: true, status: 200, async json() { return calls.length === 1 ? envelope : {result: analysisResult}; }};
-  };
-  const actualEnvelope = await api.requestMarketBriefPackage({initiatingList: 'myStocks', generationId, fetchImpl});
-  const actualResult = await api.requestMarketBriefAnalysis({envelope: actualEnvelope, generationId, fetchImpl});
-  assert.equal(calls[0].url, 'https://proxy.example/api/quote?analysisPackage=1&generationId='+generationId);
-  assert.equal(calls[1].url, 'https://proxy.example/api/quote?claudeAnalysis=1&generationId='+generationId);
-  assert.equal(Object.hasOwn(JSON.parse(calls[0].options.body), 'generationId'), false);
-  assert.equal(calls[1].options.body, JSON.stringify(envelope));
-  assert.equal(actualEnvelope, envelope);
-  assert.equal(actualResult, analysisResult);
-});
-
-test('missing or malformed generation IDs leave structured POST URLs unchanged', async () => {
-  const api = load().window.MarketBrief.claudeAnalysis;
-  const envelope = populatedUsEnvelope();
-  for (const generationId of [undefined, '', 'invalid', '123e4567-e89b-42d3-a456-426614174000&x=1', 'x'.repeat(1000)]) {
-    const urls = [];
-    const fetchImpl = async url => {
-      urls.push(url);
-      return {ok: true, status: 200, async json() { return urls.length === 1 ? envelope : {result: {status: 'NORMAL'}}; }};
-    };
-    await api.requestMarketBriefPackage({initiatingList: 'myStocks', generationId, fetchImpl});
-    await api.requestMarketBriefAnalysis({envelope, generationId, fetchImpl});
-    assert.deepEqual(urls, [
-      'https://proxy.example/api/quote?analysisPackage=1',
-      'https://proxy.example/api/quote?claudeAnalysis=1'
-    ]);
-  }
-});
-
 test('accepts canonical package keys in arbitrary top-level and nested order without transforming the response', async () => {
   const source = populatedUsEnvelope();
   const marketPackage = source.marketPackages[0];
@@ -475,24 +437,6 @@ test('renders the canonical eight sections in order without removed or duplicate
   assert.match(html, /Trusted &lt;Market&gt; report/);
   assert.match(html, /Dow Jones Industrial Average/);
   assert.match(html, /href="https:\/\/finance\.yahoo\.com\/markets\/stocks\/market-recap\.html"/);
-});
-
-test('bounds the report body without moving the stable report header into the scroller', () => {
-  const envelope = populatedUsEnvelope();
-  const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
-  const headerEnd = html.indexOf('</div><div class="sumbody">');
-  const bodyStart = html.indexOf('<div class="sumbody">');
-  assert.ok(bodyStart > html.indexOf('class="sumhdr"'));
-  assert.ok(headerEnd >= 0);
-  assert.ok(html.indexOf('1. EXECUTIVE MARKET SUMMARY', bodyStart) > bodyStart);
-  assert.ok(html.lastIndexOf('</div></div>') >= html.lastIndexOf('8. FURTHER READINGS'));
-
-  const css = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
-  assert.match(css, /#sumAreaD,#sumArea\{flex:1;min-height:0;display:flex;flex-direction:column;\}/);
-  assert.match(css, /\.sumbox\{[\s\S]*?flex:1;min-height:0;display:flex;flex-direction:column;/);
-  assert.match(css, /\.sumbox \.sumhdr\{flex-shrink:0;\}/);
-  assert.match(css, /\.sumbox \.sumbody\{flex:1;min-height:0;overflow-y:auto;/);
-  assert.match(css, /#dashboardAIM\{display:flex;flex-direction:column;max-height:calc\(100vh - 150px\);\}/);
 });
 
 test('renders supported canonical US session states in clear report context', () => {
