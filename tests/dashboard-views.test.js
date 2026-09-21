@@ -118,8 +118,13 @@ test('shared card renderer keeps indices first and uses the active list label', 
 test('Market Brief controls are available in both Dashboard-style views', () => {
   assert.match(html, /id="dashboardAIM"/);
   assert.match(html, /Generate Market Brief/);
+  assert.match(html, /id="aiBtnM"[^>]*onclick="triggerSummary\(\)"/);
+  assert.ok(html.indexOf('Generation may take a little while and uses AI resources.') < html.indexOf('id="sumArea"'));
   assert.doesNotMatch(html, /Generate AI Summary/);
   const desktopSource = sourceBetween('function renderDesktop', 'MarketBrief.searchAI=');
   assert.match(desktopSource, /Generate Market Brief/);
+  assert.match(desktopSource, /id="aiBtnD"[^>]*onclick="triggerSummary\(\)"/);
+  assert.ok(desktopSource.indexOf('Generation may take a little while and uses AI resources.') < desktopSource.indexOf('id="sumAreaD"'));
+  assert.doesNotMatch(html+desktopSource, /Reuters|POEMS|source-selection|sourceSelection/i);
   assert.doesNotMatch(desktopSource, /showAI/);
 });

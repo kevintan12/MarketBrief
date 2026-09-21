@@ -238,6 +238,7 @@ function renderDesktop(){
       +'<div class="col-right">'
         +'<div class="slabel notop"><span class="dot"></span>AI Summary</div>'
         +'<button class="ai-btn" id="aiBtnD" onclick="triggerSummary()">✦ Generate Market Brief</button>'
+        +'<div class="snote">Generation may take a little while and uses AI resources.</div>'
         +'<div id="sumAreaD"></div>'
       +'</div>'
       +'</div>';
