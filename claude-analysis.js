@@ -346,7 +346,7 @@
     var html='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;">'
       +'<span class="sumdate">'+escapeHTML(context.selectedScope)+' · '+escapeHTML(result.status)+'</span>'
       +'<button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
-      +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
+      +'<div class="sumbody"><div style="font-family:Syne,sans-serif;font-weight:700;font-size:1.15rem;color:var(--orange);margin-top:12px;margin-bottom:8px;">'
       +escapeHTML(context.header)+'</div>'+renderAnalysisContext(envelope)+renderBenchmarkTable(envelope);
     result.sections.forEach(function(section,index){
       if(!hasExactKeys(section,['name','content','evidenceRefs','telemetryRefs','uncertainties'])
@@ -378,7 +378,7 @@
       }
       html+=renderSectionReferences(section,maps);
     });
-    return html+'</div>';
+    return html+'</div></div>';
   }
 
   function structuredRequestUrl(route,generationId){

@@ -477,6 +477,24 @@ test('renders the canonical eight sections in order without removed or duplicate
   assert.match(html, /href="https:\/\/finance\.yahoo\.com\/markets\/stocks\/market-recap\.html"/);
 });
 
+test('bounds the report body without moving the stable report header into the scroller', () => {
+  const envelope = populatedUsEnvelope();
+  const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+  const headerEnd = html.indexOf('</div><div class="sumbody">');
+  const bodyStart = html.indexOf('<div class="sumbody">');
+  assert.ok(bodyStart > html.indexOf('class="sumhdr"'));
+  assert.ok(headerEnd >= 0);
+  assert.ok(html.indexOf('1. EXECUTIVE MARKET SUMMARY', bodyStart) > bodyStart);
+  assert.ok(html.lastIndexOf('</div></div>') >= html.lastIndexOf('8. FURTHER READINGS'));
+
+  const css = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
+  assert.match(css, /#sumAreaD,#sumArea\{flex:1;min-height:0;display:flex;flex-direction:column;\}/);
+  assert.match(css, /\.sumbox\{[\s\S]*?flex:1;min-height:0;display:flex;flex-direction:column;/);
+  assert.match(css, /\.sumbox \.sumhdr\{flex-shrink:0;\}/);
+  assert.match(css, /\.sumbox \.sumbody\{flex:1;min-height:0;overflow-y:auto;/);
+  assert.match(css, /#dashboardAIM\{display:flex;flex-direction:column;max-height:calc\(100vh - 150px\);\}/);
+});
+
 test('renders supported canonical US session states in clear report context', () => {
   const cases = [
     ['WEEKEND', false, 'Weekend / Market Closed', 'Completed session'],
