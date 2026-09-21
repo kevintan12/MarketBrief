@@ -796,8 +796,8 @@ async function loadSummary(briefKey,summaryFilter,summaryData){
 
   var briefPrefix='<div class="sumbox"><div class="sumhdr" style="justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><span class="badge">AI · Claude</span>'
     +'<span class="sumdate" style="margin-left:4px">'+esc(mktsToShow.join(' + '))+' · '+new Date().toLocaleTimeString('en-SG',{timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit'})+'</span></div><button class="pdf-btn" data-export="sum" style="background:none;border:1px solid var(--bor);color:var(--mut);border-radius:6px;padding:3px 10px;font-size:0.85rem;cursor:pointer;font-family:DM Mono,monospace;">PDF</button></div>'
-    +'<div id="sumStream">';
-  var briefSuffix='</div></div>';
+    +'<div class="sumbody"><div id="sumStream">';
+  var briefSuffix='</div></div></div>';
   var hdrHTML=briefPrefix+'<div class="msg">Searching &amp; analysing… <span id="cdNum">~20s</span></div>'+briefSuffix;
   saveBriefHTML(briefKey,hdrHTML);
   // Find the VISIBLE sumStream — on desktop sumAreaD is shown, on mobile sumArea

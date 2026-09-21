@@ -358,3 +358,14 @@ test('legacy Market Brief remains on the streaming claude route only', () => {
   assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /claudeAnalysis/);
   assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /analysisPackage/);
 });
+
+test('legacy Market Brief puts sumStream inside the bounded report body', () => {
+  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
+  const prefixStart = summarySource.indexOf('var briefPrefix=');
+  const prefixEnd = summarySource.indexOf('var briefSuffix=', prefixStart);
+  assert.ok(prefixStart >= 0 && prefixEnd > prefixStart);
+  const markup = summarySource.slice(prefixStart, prefixEnd);
+  assert.ok(markup.indexOf('class="sumhdr"') < markup.indexOf('class="sumbody"'));
+  assert.ok(markup.indexOf('class="sumbody"') < markup.indexOf('id="sumStream"'));
+  assert.match(summarySource, /var briefSuffix='<\/div><\/div><\/div>'/);
+});
