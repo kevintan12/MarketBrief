@@ -752,10 +752,12 @@ test('loads current cache-busted asset after Dashboard UI and before app.js', ()
   const app = html.indexOf('src="app.js');
   assert.ok(dashboard !== -1 && helper > dashboard && app > helper);
   assert.match(html, /href="app\.css\?rev=1d7111f"/);
-  assert.match(html, /src="search\.js\?rev=1d7111f"/);
+  assert.match(html, /src="market-data\.js\?rev=active-quote-display"/);
+  assert.match(html, /src="search\.js\?rev=active-quote-display"/);
   assert.match(html, /src="investment\.js\?rev=1d7111f"/);
   assert.match(html, /src="claude-analysis\.js\?rev=1d7111f"/);
-  assert.match(html, /src="app\.js\?rev=b9099a5"/);
+  assert.match(html, /src="dashboard-ui\.js\?rev=active-quote-display"/);
+  assert.match(html, /src="app\.js\?rev=active-quote-display"/);
   assert.doesNotMatch(html, /src="claude-analysis\.js\?rev=7d95563"/);
 });
 

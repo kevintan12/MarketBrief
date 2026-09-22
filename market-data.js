@@ -368,8 +368,12 @@
     var regularMarketPrice=finiteNumber(provider.regularMarketPrice);
     var previousClose=finiteNumber(provider.regularMarketPreviousClose);
     var preMarketPrice=finiteNumber(provider.preMarketPrice);
+    var preMarketChange=finiteNumber(provider.preMarketChange);
+    var preMarketChangePercent=finiteNumber(provider.preMarketChangePercent);
     var preMarketTime=finiteNumber(provider.preMarketTime);
     var postMarketPrice=finiteNumber(provider.postMarketPrice);
+    var postMarketChange=finiteNumber(provider.postMarketChange);
+    var postMarketChangePercent=finiteNumber(provider.postMarketChangePercent);
     var latestDailyClose=finiteNumber(provider.latestDailyClose);
     var previousDailyClose=finiteNumber(provider.previousDailyClose);
     var immediatePreviousClose=finiteNumber(provider.immediatePreviousClose);
@@ -426,6 +430,8 @@
     var referencePrice=null;
     var providerTimestamp=null;
     var providerTimestampSource=null;
+    var suppliedSessionChange=null;
+    var suppliedSessionPercentChange=null;
     var status='invalid';
 
     if(providerMarketState==='REGULAR'&&regularMarketPrice!==null){
@@ -444,6 +450,8 @@
         previousClose=referencePrice;
         providerTimestamp=preMarketTime;
         providerTimestampSource=providerTimestamp===null?null:'preMarketTime';
+        suppliedSessionChange=preMarketChange;
+        suppliedSessionPercentChange=preMarketChangePercent;
         status='ok';
       } else if(regularMarketPrice!==null){
         displayPrice=regularMarketPrice;
@@ -460,6 +468,8 @@
         referencePrice=regularMarketPrice;
         providerTimestamp=finiteNumber(provider.postMarketTime);
         providerTimestampSource=providerTimestamp===null?null:'postMarketTime';
+        suppliedSessionChange=postMarketChange;
+        suppliedSessionPercentChange=postMarketChangePercent;
         status='ok';
       } else if(regularMarketPrice!==null){
         displayPrice=regularMarketPrice;
@@ -508,9 +518,32 @@
 
     var change=null;
     var percentChange=null;
-    if(displayPrice!==null&&referencePrice!==null){
+    if(displayPriceSession==='pre'||displayPriceSession==='post'){
+      // An extended-hours value and movement must come from the same provider
+      // session. Do not infer a move from a prior-close value when it is absent.
+      if(suppliedSessionChange!==null&&suppliedSessionPercentChange!==null){
+        change=suppliedSessionChange;
+        percentChange=suppliedSessionPercentChange;
+      }
+    } else if(displayPrice!==null&&referencePrice!==null){
       change=displayPrice-referencePrice;
       percentChange=referencePrice!==0?change/referencePrice*100:null;
+    }
+
+    var displayLabel=null;
+    var isActiveSessionDisplay=false;
+    var isActiveSessionFallback=false;
+    if(market==='US'&&providerMarketState==='PRE'){
+      isActiveSessionDisplay=displayPriceSession==='pre';
+      isActiveSessionFallback=!isActiveSessionDisplay&&displayPriceSession==='regularClose';
+      displayLabel=isActiveSessionDisplay?'PRE':(isActiveSessionFallback?'Prior close':null);
+    } else if(market==='US'&&providerMarketState==='REGULAR'){
+      isActiveSessionDisplay=displayPriceSession==='regular';
+      displayLabel=isActiveSessionDisplay?'Live':null;
+    } else if(market==='US'&&providerMarketState==='POST'){
+      isActiveSessionDisplay=displayPriceSession==='post';
+      isActiveSessionFallback=!isActiveSessionDisplay&&displayPriceSession==='regularClose';
+      displayLabel=isActiveSessionDisplay?'After-hours':(isActiveSessionFallback?'Regular close':null);
     }
 
     return {
@@ -524,6 +557,9 @@
       previousClose:previousClose,
       displayPrice:displayPrice,
       displayPriceSession:displayPriceSession,
+      displayLabel:displayLabel,
+      isActiveSessionDisplay:isActiveSessionDisplay,
+      isActiveSessionFallback:isActiveSessionFallback,
       referencePrice:referencePrice,
       change:change,
       percentChange:percentChange,

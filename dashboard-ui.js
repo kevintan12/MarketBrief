@@ -56,6 +56,7 @@ function renderIndices(){
           '<div style="min-width:0"><div class="cname">'+esc(d.name)+'</div>'+
           '<div class="csub">'+esc(d.sub)+'<span class="csym">'+esc(d.sym)+'</span></div></div></div>'+
           '<div class="cright"><div class="cprice '+cls+'" id="cp_'+gid+'_'+esc(d.sym)+'">'+fmt(d.price)+'</div>'+
+          '<div class="csub" id="csl_'+gid+'_'+esc(d.sym)+'" style="display:'+(d.displayLabel?'block':'none')+';text-align:right;font-size:0.72rem;'+(d.isActiveSessionFallback?'color:var(--mut);':'color:var(--grn);')+'">'+esc(d.displayLabel||'')+'</div>'+
           '<div class="cchg '+cls+'" id="cc_'+gid+'_'+esc(d.sym)+'">'+arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')</div></div>'+
           '</div>';
       });
@@ -68,7 +69,13 @@ function renderIndices(){
       var arr=cls==='neu'?'—':(d.pct>=0?'▲':'▼');
       var pr=document.getElementById('cp_'+gid+'_'+d.sym);
       var ch=document.getElementById('cc_'+gid+'_'+d.sym);
+      var sessionLabel=document.getElementById('csl_'+gid+'_'+d.sym);
       if(pr){pr.className='cprice '+cls;pr.textContent=fmt(d.price);}
+      if(sessionLabel){
+        sessionLabel.textContent=d.displayLabel||'';
+        sessionLabel.style.display=d.displayLabel?'block':'none';
+        sessionLabel.style.color=d.isActiveSessionFallback?'var(--mut)':'var(--grn)';
+      }
       if(ch){ch.className='cchg '+cls;ch.textContent=arr+' '+fmtD(d.chg)+' ('+fmtP(d.pct)+')';}
 
     });

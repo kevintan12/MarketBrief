@@ -338,6 +338,8 @@ test('US pre-market uses verified fallback when regular previous close is unavai
   const quote = normalizeQuote(rawQuote('AAPL', 'PRE', {
     regularMarketPreviousClose: null,
     preMarketPrice: 108,
+    preMarketChange: 8,
+    preMarketChangePercent: 8,
     preMarketTime: 1767790800,
     immediatePreviousClose: 100,
     immediatePreviousCloseTime: Date.parse('2026-01-06T21:00:00Z') / 1000,
@@ -349,6 +351,42 @@ test('US pre-market uses verified fallback when regular previous close is unavai
   assert.equal(quote.previousClose, 100);
   assert.equal(quote.referencePrice, 100);
   assert.equal(quote.change, 8);
+});
+
+test('US pre-market retains matching provider movement and labels the active quote', () => {
+  const quote = normalizeQuote(rawQuote('AAPL', 'PRE', {
+    preMarketPrice: 108,
+    preMarketChange: 7.5,
+    preMarketChangePercent: 7.5
+  }), 'AAPL');
+  assert.equal(quote.displayPrice, 108);
+  assert.equal(quote.change, 7.5);
+  assert.equal(quote.percentChange, 7.5);
+  assert.equal(quote.displayLabel, 'PRE');
+  assert.equal(quote.isActiveSessionDisplay, true);
+  assert.equal(quote.isActiveSessionFallback, false);
+});
+
+test('US pre-market price without matching movement leaves movement unavailable', () => {
+  const quote = normalizeQuote(rawQuote('AAPL', 'PRE', {
+    preMarketPrice: 108,
+    preMarketChange: null,
+    preMarketChangePercent: null
+  }), 'AAPL');
+  assert.equal(quote.displayPrice, 108);
+  assert.equal(quote.change, null);
+  assert.equal(quote.percentChange, null);
+  assert.equal(quote.displayLabel, 'PRE');
+});
+
+test('US pre-market without a quote labels its regular-price fallback', () => {
+  const quote = normalizeQuote(rawQuote('AAPL', 'PRE', {
+    preMarketPrice: null
+  }), 'AAPL');
+  assert.equal(quote.displayPriceSession, 'regularClose');
+  assert.equal(quote.displayLabel, 'Prior close');
+  assert.equal(quote.isActiveSessionDisplay, false);
+  assert.equal(quote.isActiveSessionFallback, true);
 });
 
 test('regular session uses verified fallback when regular previous close is unavailable', () => {
@@ -368,6 +406,8 @@ test('US post-market ignores verified immediate previous close', () => {
     regularMarketPrice: 110,
     regularMarketPreviousClose: null,
     postMarketPrice: 112,
+    postMarketChange: 2,
+    postMarketChangePercent: (2 / 110) * 100,
     postMarketTime: 1767823200,
     immediatePreviousClose: 100,
     immediatePreviousCloseTime: Date.parse('2026-01-06T21:00:00Z') / 1000,
@@ -378,6 +418,54 @@ test('US post-market ignores verified immediate previous close', () => {
   assert.equal(quote.displayPrice, 112);
   assert.equal(quote.referencePrice, 110);
   assert.equal(quote.change, 2);
+});
+
+test('US post-market price without matching movement leaves movement unavailable', () => {
+  const quote = normalizeQuote(rawQuote('AAPL', 'POST', {
+    postMarketPrice: 112,
+    postMarketChange: null,
+    postMarketChangePercent: null
+  }), 'AAPL');
+  assert.equal(quote.displayPrice, 112);
+  assert.equal(quote.change, null);
+  assert.equal(quote.percentChange, null);
+  assert.equal(quote.displayLabel, 'After-hours');
+});
+
+test('US post-market without a quote labels its regular-close fallback', () => {
+  const quote = normalizeQuote(rawQuote('AAPL', 'POST', {
+    postMarketPrice: null
+  }), 'AAPL');
+  assert.equal(quote.displayPriceSession, 'regularClose');
+  assert.equal(quote.displayLabel, 'Regular close');
+  assert.equal(quote.isActiveSessionFallback, true);
+});
+
+test('US regular and completed-session presentation stay on their existing bases', () => {
+  const regular = normalizeQuote(rawQuote('AAPL', 'REGULAR'), 'AAPL');
+  assert.equal(regular.displayPrice, 110);
+  assert.equal(regular.change, 10);
+  assert.equal(regular.displayLabel, 'Live');
+  ['CLOSED', 'WEEKEND', 'HOLIDAY'].forEach(state => {
+    const completed = normalizeQuote(rawQuote('AAPL', state), 'AAPL');
+    assert.equal(completed.displayPrice, 110, state);
+    assert.equal(completed.change, 10, state);
+    assert.equal(completed.displayLabel, null, state);
+    assert.equal(completed.isActiveSessionDisplay, false, state);
+  });
+});
+
+test('SG and HK quotes retain their existing display behavior', () => {
+  ['D05.SI', '0700.HK'].forEach(symbol => {
+    const quote = normalizeQuote(rawQuote(symbol, 'CLOSED', {
+      preMarketPrice: 108, preMarketChange: 8, preMarketChangePercent: 8,
+      postMarketPrice: 112, postMarketChange: 2, postMarketChangePercent: 2
+    }), symbol);
+    assert.equal(quote.displayPrice, 110, symbol);
+    assert.equal(quote.change, 10, symbol);
+    assert.equal(quote.displayLabel, null, symbol);
+    assert.equal(quote.isActiveSessionDisplay, false, symbol);
+  });
 });
 
 test('raw.prev remains ignored when no canonical reference is available', () => {

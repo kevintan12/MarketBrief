@@ -116,6 +116,46 @@ test('shared card renderer keeps indices first and uses the active list label', 
   assert.match(watch, /US Markets · Watchlist/);
 });
 
+test('shared card renderer marks only active US quote fallbacks as prior-close data', () => {
+  const grid = {innerHTML: '', querySelectorAll() { return []; }};
+  const context = {
+    mktData: [Object.assign(ticker('AAPL', 'US'), {
+      price: 110, chg: 10, pct: 10, displayLabel: 'Prior close', isActiveSessionFallback: true
+    })],
+    curFilter: 'all', activeTickerList: 'myStocks',
+    document: {getElementById(id) { return id === 'idxGrid' ? grid : null; }, querySelectorAll() { return []; }},
+    window: {}, clearTimeout() {}, setTimeout() {},
+    esc(value) { return String(value); }, fmt(value) { return String(value); },
+    fmtD(value) { return String(value); }, fmtP(value) { return String(value); }
+  };
+  vm.createContext(context);
+  vm.runInContext(dashboardSource, context);
+  context.renderIndices();
+  assert.match(grid.innerHTML, /Prior close/);
+  assert.match(grid.innerHTML, /color:var\(--mut\)/);
+  assert.equal((grid.innerHTML.match(/id="cc_idxGrid_AAPL"/g) || []).length, 1);
+});
+
+test('shared card renderer preserves active quote labels without marking them as fallbacks', () => {
+  const grid = {innerHTML: '', querySelectorAll() { return []; }};
+  const context = {
+    mktData: [Object.assign(ticker('AAPL', 'US'), {
+      price: 112, chg: 2, pct: 1.82, displayLabel: 'After-hours', isActiveSessionFallback: false
+    })],
+    curFilter: 'all', activeTickerList: 'myStocks',
+    document: {getElementById(id) { return id === 'idxGrid' ? grid : null; }, querySelectorAll() { return []; }},
+    window: {}, clearTimeout() {}, setTimeout() {},
+    esc(value) { return String(value); }, fmt(value) { return String(value); },
+    fmtD(value) { return String(value); }, fmtP(value) { return String(value); }
+  };
+  vm.createContext(context);
+  vm.runInContext(dashboardSource, context);
+  context.renderIndices();
+  assert.match(grid.innerHTML, /After-hours/);
+  assert.doesNotMatch(grid.innerHTML, /Prior close/);
+  assert.equal((grid.innerHTML.match(/id="cc_idxGrid_AAPL"/g) || []).length, 1);
+});
+
 test('Market Brief controls are available in both Dashboard-style views', () => {
   assert.match(html, /id="dashboardAIM"/);
   assert.match(html, /Generate Market Brief/);
@@ -138,4 +178,27 @@ test('search quote presentation carries the delayed-data disclosure without chan
   assert.match(searchSource, /Market data may be delayed by approximately 10 minutes\./);
   assert.match(searchSource, /tradeBadge_/);
   assert.match(searchSource, /Pre-Market|Trading|After-Hours|Market Closed/);
+});
+
+test('search session badge follows the normalized US quote session and labels a fallback safely', () => {
+  const context = {
+    MarketBrief: {marketData: {getSessionState() { return {session: 'regular', quoteExpectedToMove: true}; }}},
+    document: {getElementById() { return null; }}
+  };
+  vm.createContext(context);
+  vm.runInContext(searchSource, context);
+  const pre = context.getSearchSessionPresentation('AAPL', {
+    market: 'US', isActiveSessionDisplay: true, isActiveSessionFallback: false,
+    providerMarketState: 'PRE', displayLabel: 'PRE'
+  });
+  const fallback = context.getSearchSessionPresentation('AAPL', {
+    market: 'US', isActiveSessionDisplay: false, isActiveSessionFallback: true,
+    providerMarketState: 'PRE', displayLabel: 'Prior close'
+  });
+  assert.equal(pre.state, 'PRE');
+  assert.equal(pre.label, 'PRE');
+  assert.equal(pre.active, true);
+  assert.equal(fallback.state, 'PRE');
+  assert.equal(fallback.label, 'Prior close');
+  assert.equal(fallback.active, false);
 });

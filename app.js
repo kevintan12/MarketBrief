@@ -437,7 +437,8 @@ async function loadDash(){
       var quote=MarketBrief.marketData.normalizeQuote(r.value,t.sym);
       if(quote.status!=='invalid'){
         if(shouldApplyDashboardQuote(requests[i],quote))
-          nextData.push({sym:t.sym,name:quote.name||t.name,sub:t.sub,flag:t.flag,mkt:t.mkt,price:quote.displayPrice,chg:quote.change,pct:quote.percentChange});
+          nextData.push({sym:t.sym,name:quote.name||t.name,sub:t.sub,flag:t.flag,mkt:t.mkt,price:quote.displayPrice,chg:quote.change,pct:quote.percentChange,
+            displayLabel:quote.displayLabel,isActiveSessionFallback:quote.isActiveSessionFallback});
         else {
           var existing=mktData.find(function(x){return x.sym===t.sym;});
           if(existing)nextData.push(existing);
@@ -557,7 +558,11 @@ async function silentRefreshDash(pollingMarkets){
       var quote=MarketBrief.marketData.normalizeQuote(rawQuote,t.sym);
       if(quote.status==='invalid')return;
       var ex=mktData.find(function(x){return x.sym===t.sym;});
-      if(ex&&shouldApplyDashboardQuote(request,quote)){ex.price=quote.displayPrice;ex.chg=quote.change;ex.pct=quote.percentChange;scheduleRender();}
+      if(ex&&shouldApplyDashboardQuote(request,quote)){
+        ex.price=quote.displayPrice;ex.chg=quote.change;ex.pct=quote.percentChange;
+        ex.displayLabel=quote.displayLabel;ex.isActiveSessionFallback=quote.isActiveSessionFallback;
+        scheduleRender();
+      }
     });
   }));
   updateLiveIndicator();
@@ -585,7 +590,7 @@ async function silentRefreshTicker(sym){
       if(s2)s2.textContent=fmt(rawQuote.high);
       if(s3)s3.textContent=fmt(rawQuote.low);
     });
-    refreshSearchSessionPresentation(sym);
+    refreshSearchSessionPresentation(sym,quote);
   }catch(e){}
 }
 

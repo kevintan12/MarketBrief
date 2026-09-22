@@ -1,5 +1,13 @@
 // ── Search Box with Autocomplete ──────────────────────────────────────────────
-function getSearchSessionPresentation(sym){
+function getSearchSessionPresentation(sym,quote){
+  if(quote&&quote.market==='US'){
+    if(quote.isActiveSessionFallback){
+      return {state:quote.providerMarketState,label:quote.displayLabel||'Prior close',active:false};
+    }
+    if(quote.isActiveSessionDisplay){
+      return {state:quote.providerMarketState,label:quote.displayLabel||'Trading',active:true};
+    }
+  }
   var state=MarketBrief.marketData.getSessionState(sym);
   var labels={
     preMarket:'Pre-Market',
@@ -13,9 +21,9 @@ function getSearchSessionPresentation(sym){
   return {state:state,label:labels[state.session]||'Market Closed',active:state.quoteExpectedToMove};
 }
 
-function refreshSearchSessionPresentation(sym){
+function refreshSearchSessionPresentation(sym,quote){
   if(!sym)return;
-  var sessionPresentation=getSearchSessionPresentation(sym);
+  var sessionPresentation=getSearchSessionPresentation(sym,quote);
   ['tickRes','tickResD'].forEach(function(resId){
     var badge=document.getElementById('tradeBadge_'+resId);
     if(!badge)return;
@@ -145,7 +153,7 @@ async function execSearch(inpId,btnId,resId){
     var cls=Math.abs(quote.percentChange)<0.01?'neu':(quote.percentChange>=0?'up':'dn');
     var arr=cls==='neu'?'—':(quote.percentChange>=0?'▲':'▼');
     var cardId='tc_'+resId;
-    var sessionPresentation=getSearchSessionPresentation(raw);
+    var sessionPresentation=getSearchSessionPresentation(raw,quote);
     var statusBadge=sessionPresentation.active
       ?'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;gap:4px;font-size:0.85rem;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:var(--grn);border-radius:20px;padding:2px 9px;margin-left:8px"><span class="dot" style="margin-right:0"></span>'+sessionPresentation.label+'</span>'
       :'<span id="tradeBadge_'+resId+'" style="display:inline-flex;align-items:center;font-size:0.85rem;background:rgba(100,116,139,0.15);border:1px solid var(--bor);color:var(--mut);border-radius:20px;padding:2px 9px;margin-left:8px">'+sessionPresentation.label+'</span>';
