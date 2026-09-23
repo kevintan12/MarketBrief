@@ -367,6 +367,10 @@
     var providerMarketState=typeof provider.marketState==='string'?provider.marketState.toUpperCase():null;
     var regularMarketPrice=finiteNumber(provider.regularMarketPrice);
     var previousClose=finiteNumber(provider.regularMarketPreviousClose);
+    var chartDerivedPreviousClose=finiteNumber(provider.chartDerivedPreviousClose);
+    if(previousClose===null&&chartDerivedPreviousClose!==null&&chartDerivedPreviousClose>0){
+      previousClose=chartDerivedPreviousClose;
+    }
     var preMarketPrice=finiteNumber(provider.preMarketPrice);
     var preMarketChange=finiteNumber(provider.preMarketChange);
     var preMarketChangePercent=finiteNumber(provider.preMarketChangePercent);

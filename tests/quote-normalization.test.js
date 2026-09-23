@@ -468,6 +468,33 @@ test('SG and HK quotes retain their existing display behavior', () => {
   });
 });
 
+test('SG/HK regular quotes use the validated chart-derived previous close when Yahoo omits it', () => {
+  for (const symbol of ['^STI', '^HSI', '3115.HK']) {
+    const quote = normalizeQuote(rawQuote(symbol, 'REGULAR', {
+      regularMarketPreviousClose: null,
+      chartDerivedPreviousClose: 100,
+      regularMarketPrice: 110
+    }), symbol);
+    assert.equal(quote.displayPrice, 110, symbol);
+    assert.equal(quote.referencePrice, 100, symbol);
+    assert.equal(quote.change, 10, symbol);
+    assert.equal(quote.percentChange, 10, symbol);
+  }
+});
+
+test('invalid chart-derived previous closes remain unavailable', () => {
+  for (const fallback of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, '100']) {
+    const quote = normalizeQuote(rawQuote('^STI', 'REGULAR', {
+      regularMarketPreviousClose: null,
+      chartDerivedPreviousClose: fallback,
+      regularMarketPrice: 110
+    }), '^STI');
+    assert.equal(quote.referencePrice, null);
+    assert.equal(quote.change, null);
+    assert.equal(quote.percentChange, null);
+  }
+});
+
 test('raw.prev remains ignored when no canonical reference is available', () => {
   const quote = normalizeQuote(rawQuote('AAPL', 'REGULAR', {
     regularMarketPreviousClose: null,
