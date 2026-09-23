@@ -482,6 +482,25 @@ test('SG/HK regular quotes use the validated chart-derived previous close when Y
   }
 });
 
+test('CLOSED SG/HK quotes preserve chart-derived previous close when daily reference is unavailable', () => {
+  for (const symbol of ['^HSI', '^STI', '3115.HK']) {
+    const quote = normalizeQuote(rawQuote(symbol, 'CLOSED', {
+      regularMarketPreviousClose: null,
+      chartDerivedPreviousClose: 100,
+      regularMarketPrice: 110,
+      latestDailyClose: 110,
+      previousDailyClose: null,
+      latestDailyCloseTime: null,
+      previousDailyCloseTime: null,
+      dailyClosePairHasGap: true
+    }), symbol);
+    assert.equal(quote.displayPrice, 110, symbol);
+    assert.equal(quote.referencePrice, 100, symbol);
+    assert.equal(quote.change, 10, symbol);
+    assert.equal(quote.percentChange, 10, symbol);
+  }
+});
+
 test('invalid chart-derived previous closes remain unavailable', () => {
   for (const fallback of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, '100']) {
     const quote = normalizeQuote(rawQuote('^STI', 'REGULAR', {

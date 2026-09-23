@@ -368,8 +368,10 @@
     var regularMarketPrice=finiteNumber(provider.regularMarketPrice);
     var previousClose=finiteNumber(provider.regularMarketPreviousClose);
     var chartDerivedPreviousClose=finiteNumber(provider.chartDerivedPreviousClose);
+    var validatedChartPreviousClose=null;
     if(previousClose===null&&chartDerivedPreviousClose!==null&&chartDerivedPreviousClose>0){
       previousClose=chartDerivedPreviousClose;
+      validatedChartPreviousClose=chartDerivedPreviousClose;
     }
     var preMarketPrice=finiteNumber(provider.preMarketPrice);
     var preMarketChange=finiteNumber(provider.preMarketChange);
@@ -487,7 +489,7 @@
       if(useDailyClosePair){
         displayPrice=useNewerRegularClose?regularMarketPrice:latestDailyClose;
         displayPriceSession='regularClose';
-        referencePrice=completedDailyReferenceClose;
+        referencePrice=completedDailyReferenceClose!==null?completedDailyReferenceClose:validatedChartPreviousClose;
         previousClose=referencePrice;
         providerTimestamp=useNewerRegularClose?regularMarketTime:latestDailyCloseTime;
         providerTimestampSource=providerTimestamp===null?null:(useNewerRegularClose?'regularMarketTime':'latestDailyCloseTime');
