@@ -1270,7 +1270,7 @@ function exportToPDF(type){
 
   loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/pdfmake.min.js',function(){
     loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/vfs_fonts.min.js',function(){
-      loadScript('https://cdn.jsdelivr.net/npm/html-to-pdfmake@latest/browser.js',function(){
+      loadScript('https://cdn.jsdelivr.net/npm/html-to-pdfmake@2.5.34/browser.js',function(){
         try{
           if(!window.htmlToPdfmake){throw new Error('htmlToPdfmake not loaded');}
           if(!window.pdfMake){throw new Error('pdfMake not loaded');}
