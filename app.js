@@ -1195,6 +1195,55 @@ async function triggerAboutAI(sym,resId,btn,companyName){
   }
 }
 // ── PDF Export ─────────────────────────────────────────────────────
+// Step 20J: PDF-only text mapping. The fonts have no glyph for these symbols, so they would print
+// as empty boxes. On-screen text is never changed; this runs inside htmlToPdfmake's replaceText.
+var PDF_SYMBOL_MAP={'▲':'↑','▼':'↓','✓':'√','⚠':'!',
+  '\u{1F53A}':'↑','\u{1F53B}':'↓','✅':'√','❌':'×'};
+var PDF_MAPPED_SYMBOLS_RE=/[▲▼✓⚠✅❌\u{1F53A}\u{1F53B}]/gu;
+var PDF_STRIPPED_SYMBOLS_RE=/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}️‍]/gu;
+// fallback=true (Roboto, no arrow glyphs): arrows become words.
+function stripPdfEmoji(text,fallback){
+  var mapped=String(text).replace(PDF_MAPPED_SYMBOLS_RE,function(ch){return PDF_SYMBOL_MAP[ch];});
+  var out=mapped.replace(PDF_STRIPPED_SYMBOLS_RE,'');
+  if(out!==mapped){
+    out=out.replace(/\(\s*\)/g,'').replace(/\(\s+/g,'(').replace(/\s+\)/g,')').replace(/ {2,}/g,' ');
+    if(!/^\s/.test(mapped))out=out.replace(/^\s+/,'');
+  }
+  if(fallback)out=out.replace(/↑/g,'Up').replace(/↓/g,'Down').replace(/→/g,'to');
+  return out;
+}
+// The AI sometimes starts its brief with a "---" line (an <hr>). The PDF draws its own title rule,
+// so a leading hr (no text before it) is dropped; any other hr stays.
+function dropLeadingHr(root){
+  var hr=root.querySelector('hr');if(!hr)return;
+  var r=root.ownerDocument.createRange();r.setStart(root,0);r.setEndBefore(hr);
+  if(!r.toString().trim())hr.remove();
+}
+var PDF_CARLITO_FILES={normal:'fonts/carlito/Carlito-Regular.ttf',bold:'fonts/carlito/Carlito-Bold.ttf',
+  italics:'fonts/carlito/Carlito-Italic.ttf',bolditalics:'fonts/carlito/Carlito-BoldItalic.ttf'};
+var PDF_CARLITO_FONT={normal:'Carlito-Regular.ttf',bold:'Carlito-Bold.ttf',
+  italics:'Carlito-Italic.ttf',bolditalics:'Carlito-BoldItalic.ttf'};
+// pdfmake 0.2.12 cannot load font URLs, so the four files are fetched into pdfMake.vfs (once).
+// Resolves false if any file is unavailable; the export then falls back to Roboto.
+function loadCarlito(){
+  var vfs=window.pdfMake&&window.pdfMake.vfs;
+  if(!vfs)return Promise.resolve(false);
+  return Promise.all(Object.keys(PDF_CARLITO_FILES).map(function(style){
+    var name=PDF_CARLITO_FONT[style];
+    if(vfs[name])return null;
+    return fetch(PDF_CARLITO_FILES[style]).then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.blob();
+    }).then(function(blob){
+      return new Promise(function(done,fail){
+        var reader=new FileReader();
+        reader.onload=function(){done(String(reader.result).split(',')[1]);};
+        reader.onerror=fail;
+        reader.readAsDataURL(blob);
+      });
+    }).then(function(b64){vfs[name]=b64;});
+  })).then(function(){return true;},function(e){console.error('Carlito unavailable, using Roboto:',e);return false;});
+}
 function exportToPDF(type){
   var contentEl=null, title='MarketBrief';
   if(type==='sum'){
@@ -1254,6 +1303,7 @@ function exportToPDF(type){
   _tmpDiv.querySelectorAll('.pdf-btn').forEach(function(el){el.remove();});
   // Remove sumhdr (AI Analysis header bar)
   _tmpDiv.querySelectorAll('.sumhdr').forEach(function(el){el.remove();});
+  dropLeadingHr(_tmpDiv);
   var htmlClean=_tmpDiv.innerHTML.replace(/font-family:[^;"']+[;"']/g,function(m){return m.slice(-1);});
   var wrappedHtml='<div>'+htmlClean+'</div>';
 
@@ -1271,10 +1321,11 @@ function exportToPDF(type){
   loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/pdfmake.min.js',function(){
     loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/vfs_fonts.min.js',function(){
       loadScript('https://cdn.jsdelivr.net/npm/html-to-pdfmake@2.5.34/browser.js',function(){
+       loadCarlito().then(function(carlitoOk){
         try{
           if(!window.htmlToPdfmake){throw new Error('htmlToPdfmake not loaded');}
           if(!window.pdfMake){throw new Error('pdfMake not loaded');}
-          var converted=window.htmlToPdfmake(wrappedHtml,{window:window});
+          var converted=window.htmlToPdfmake(wrappedHtml,{window:window,replaceText:function(t){return stripPdfEmoji(t,!carlitoOk);}});
           var fname=title.replace(/[^a-zA-Z0-9 ]/g,'_').replace(/\s+/g,'_').toLowerCase()+'.pdf';
           var docDef={
             pageSize:'A4',
@@ -1292,9 +1343,9 @@ function exportToPDF(type){
             },
             content:[
               {text:title,fontSize:16,bold:true,color:'#003366',marginBottom:4,marginTop:4},
-              {canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:1,lineColor:'#cccccc'}],marginBottom:12}
+              {canvas:[{type:'line',x1:0,y1:0,x2:514,y2:0,lineWidth:0.5,lineColor:'#000000'}],marginBottom:12}
             ].concat(converted),
-            defaultStyle:{fontSize:10,lineHeight:1.4},
+            defaultStyle:carlitoOk?{font:'Carlito',fontSize:10,lineHeight:1.4}:{fontSize:10,lineHeight:1.4},
             styles:{
               html_h1:{fontSize:14,bold:true,color:'#003366',marginBottom:6,marginTop:10},
               html_h2:{fontSize:12,bold:true,color:'#005b8e',marginBottom:4,marginTop:8},
@@ -1302,12 +1353,13 @@ function exportToPDF(type){
               html_a:{color:'#005b8e',decoration:'underline'}
             }
           };
-          window.pdfMake.createPdf(docDef).download(fname);
+          window.pdfMake.createPdf(docDef,null,carlitoOk?{Carlito:PDF_CARLITO_FONT}:undefined).download(fname);
         }catch(err){
           console.error('PDF error:',err);
           alert('PDF error: '+err.message);
         }
         if(btn){btn.textContent='PDF';btn.disabled=false;}
+       });
       });
     });
   });
