@@ -464,7 +464,7 @@ function getBriefListFingerprint(briefKey){
   return ['US','SG','HK'].map(function(market){
     return (Array.isArray(list[market])?list[market]:[]).map(function(item){
       return market+':'+String(item&&item.sym||'').trim().toUpperCase();
-    }).join(',');
+    }).filter(function(entry){return !/\.L$/.test(entry);}).join(',');
   }).join('|');
 }
 function isSavedBriefStale(briefKey){
@@ -1634,22 +1634,25 @@ async function settAcFetch(q,wid,mkt,pid,listKey){
   try{
     var r=await fetch(S.proxyUrl+'/api/quote?search='+encodeURIComponent(q));
     var data=await r.json();
-    var results=(data.results||[]).slice(0,6);
+    var results=filterSettAcResults(data.results||[],mkt).slice(0,6);
     renderSettAcDrop(results,wid,mkt,pid,listKey);
   }catch(e){ closeSettAcDrop(wid); }
 }
 
-function renderSettAcDrop(results,wid,mkt,pid,listKey){
-  closeSettAcDrop(wid);
-  if(!results.length)return;
-  // Filter results to only show tickers belonging to the correct market
-  var filtered=results.filter(function(r){
+// Keep only tickers belonging to the correct market; London (.L) tickers are grouped under US.
+function filterSettAcResults(results,mkt){
+  return results.filter(function(r){
     var sym=r.symbol||'';
     if(mkt==='SG') return sym.endsWith('.SI');
     if(mkt==='HK') return sym.endsWith('.HK');
-    if(mkt==='US') return !sym.endsWith('.SI')&&!sym.endsWith('.HK')&&!sym.includes('.');
+    if(mkt==='US') return sym.endsWith('.L')||(!sym.endsWith('.SI')&&!sym.endsWith('.HK')&&!sym.includes('.'));
     return true;
   });
+}
+
+function renderSettAcDrop(results,wid,mkt,pid,listKey){
+  closeSettAcDrop(wid);
+  var filtered=filterSettAcResults(results,mkt);
   if(!filtered.length)return;
   var drop=document.createElement('div');
   drop.className='tadd-ac-drop'; drop.id='drop_'+wid;

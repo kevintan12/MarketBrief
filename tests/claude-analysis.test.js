@@ -211,6 +211,39 @@ test('builds exact US package request from ordered fixed anchors and user-manage
   }), /supports US only/);
 });
 
+test('US package request leaves London (.L) tickers out of both lists', () => {
+  const context = load();
+  context.S.myStocks.US = [{sym: 'MSFT'}, {sym: 'SPYL.L'}, {sym: 'AAPL'}];
+  context.S.customTickers.US = [{sym: 'jepq.l'}, {sym: 'VEEV'}];
+  const api = context.window.MarketBrief.claudeAnalysis;
+  const request = api.createMarketBriefPackageRequest({filter: 'US', initiatingList: 'myStocks'});
+  assert.deepEqual(Array.from(request.myStocks, item => item.symbol), ['MSFT', 'AAPL']);
+  assert.deepEqual(Array.from(request.watchlist, item => item.symbol), ['VEEV']);
+  const portfolio = api.getPortfolioContext('US');
+  assert.deepEqual(Array.from(portfolio.myStocks, item => item.symbol), ['MSFT', 'AAPL']);
+  assert.deepEqual(Array.from(portfolio.watchlist, item => item.symbol), ['VEEV']);
+});
+
+test('US package request with only London tickers has empty membership and stays valid', () => {
+  const context = load();
+  context.S.myStocks.US = [{sym: 'SPYL.L'}, {sym: 'JEPQ.L'}];
+  context.S.customTickers.US = [{sym: 'SPYL.L'}];
+  const request = context.window.MarketBrief.claudeAnalysis.createMarketBriefPackageRequest({
+    filter: 'US', initiatingList: 'watchlist'
+  });
+  assert.deepEqual(Array.from(request.myStocks), []);
+  assert.deepEqual(Array.from(request.watchlist), []);
+  assert.deepEqual(Array.from(request.benchmarkAnchors, item => item.symbol), ['^DJI', '^IXIC', '^GSPC', '^RUT']);
+  assert.equal(request.selectedScope, 'US');
+});
+
+test('a blank symbol is still rejected when London tickers share the list', () => {
+  const context = load();
+  context.S.myStocks.US = [{sym: 'SPYL.L'}, {sym: ''}];
+  const api = context.window.MarketBrief.claudeAnalysis;
+  assert.throws(() => api.createMarketBriefPackageRequest({filter: 'US', initiatingList: 'myStocks'}), /Invalid Market Brief portfolio ticker/);
+});
+
 test('requires a canonical initiating list before either structured fetch', async () => {
   const api = load().window.MarketBrief.claudeAnalysis;
   for(const initiatingList of [undefined, '', 'customTickers', 'other']){

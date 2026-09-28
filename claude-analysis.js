@@ -29,6 +29,11 @@
     throw new TypeError('Invalid Market Brief initiating list');
   }
 
+  // London-listed (.L) tickers live in the US list but stay out of the US Market Brief until multi-exchange support.
+  function isLondonSymbol(symbol){
+    return /\.L$/.test(symbol);
+  }
+
   function getPortfolioList(listKey,filter){
     var source=S[listKey];
     if(!source||typeof source!=='object')throw new TypeError('Missing Market Brief portfolio list');
@@ -38,6 +43,7 @@
       tickers.forEach(function(ticker){
         var symbol=ticker&&typeof ticker.sym==='string'?ticker.sym.trim().toUpperCase():'';
         if(!symbol)throw new TypeError('Invalid Market Brief portfolio ticker');
+        if(isLondonSymbol(symbol))return;
         securities.push({market:market,symbol:symbol,telemetryRefs:[],evidenceRefs:[],upcomingEvents:[]});
       });
     });
@@ -65,12 +71,15 @@
   function getUsPackageMembership(listKey,benchmarkSymbols){
     var source=S[listKey];
     if(!source||!Array.isArray(source.US))throw new TypeError('Missing Market Brief portfolio list');
-    return source.US.map(function(ticker){
+    var members=[];
+    source.US.forEach(function(ticker){
       var symbol=ticker&&typeof ticker.sym==='string'?ticker.sym.trim().toUpperCase():'';
       if(!symbol)throw new TypeError('Invalid Market Brief portfolio ticker');
       if(benchmarkSymbols[symbol])throw new TypeError('Benchmark anchors cannot be portfolio membership');
-      return {market:'US',symbol:symbol};
+      if(isLondonSymbol(symbol))return;
+      members.push({market:'US',symbol:symbol});
     });
+    return members;
   }
 
   function createMarketBriefPackageRequest(options){

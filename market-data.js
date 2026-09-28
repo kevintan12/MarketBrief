@@ -40,6 +40,16 @@
       pollingGrace:{lunchBreak:{fastUntilMinutes:15,slowUntilMinutes:15},close:{fastUntilMinutes:30,slowUntilMinutes:60}},
       symbolSuffixes:['.HK'],
       indexSymbols:['^HSI']
+    },
+    UK:{
+      timezone:'Europe/London',
+      open:'08:00',
+      close:'16:30',
+      sessions:[
+        {name:'regular',start:'08:00',end:'16:30',regularOpen:true,quoteExpectedToMove:true}
+      ],
+      symbolSuffixes:['.L'],
+      indexSymbols:[]
     }
   };
 
@@ -135,6 +145,33 @@
         '2027-12-27':{name:'The first weekday after Christmas Day',status:'closed'}
         }}
       }
+    },
+    UK:{
+      source:{name:'London Stock Exchange (unconfirmed)',type:'exchange-calendar-reference',url:'https://www.londonstockexchange.com/equities-trading/market-open-times'},
+      years:{
+        // UNCONFIRMED: holiday dates below were entered from memory. Check against the official LSE calendar before release.
+        2026:{sourceKey:'source',verification:'unverified',exchangeVerification:'pending',holidays:{
+        '2026-01-01':{name:"New Year's Day",status:'closed'},
+        '2026-04-03':{name:'Good Friday',status:'closed'},
+        '2026-04-06':{name:'Easter Monday',status:'closed'},
+        '2026-05-04':{name:'Early May bank holiday',status:'closed'},
+        '2026-05-25':{name:'Spring bank holiday',status:'closed'},
+        '2026-08-31':{name:'Summer bank holiday',status:'closed'},
+        '2026-12-25':{name:'Christmas Day',status:'closed'},
+        '2026-12-28':{name:'Boxing Day observed',status:'closed'}
+        }},
+        // UNCONFIRMED: see note above; check against the official LSE calendar before release.
+        2027:{sourceKey:'source',verification:'unverified',exchangeVerification:'pending',holidays:{
+        '2027-01-01':{name:"New Year's Day",status:'closed'},
+        '2027-03-26':{name:'Good Friday',status:'closed'},
+        '2027-03-29':{name:'Easter Monday',status:'closed'},
+        '2027-05-03':{name:'Early May bank holiday',status:'closed'},
+        '2027-05-31':{name:'Spring bank holiday',status:'closed'},
+        '2027-08-30':{name:'Summer bank holiday',status:'closed'},
+        '2027-12-27':{name:'Christmas Day observed',status:'closed'},
+        '2027-12-28':{name:'Boxing Day observed',status:'closed'}
+        }}
+      }
     }
   };
 
@@ -173,6 +210,7 @@
     var normalized=String(symbol||'').toUpperCase();
     if(markets.SG.symbolSuffixes.some(function(suffix){return normalized.endsWith(suffix);})||markets.SG.indexSymbols.indexOf(normalized)!==-1) return 'SG';
     if(markets.HK.symbolSuffixes.some(function(suffix){return normalized.endsWith(suffix);})||markets.HK.indexSymbols.indexOf(normalized)!==-1) return 'HK';
+    if(markets.UK.symbolSuffixes.some(function(suffix){return normalized.endsWith(suffix);})) return 'UK';
     return 'US';
   }
 

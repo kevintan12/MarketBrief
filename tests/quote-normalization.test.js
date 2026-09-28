@@ -543,3 +543,28 @@ test('missing daily values and invalid dates remain conservative', () => {
   assert.equal(quote.referencePrice, null);
   assert.equal(quote.change, null);
 });
+
+test('.L quote uses the London previous trading date and carries no US session label', () => {
+  const sec = iso => Date.parse(iso) / 1000;
+  // 2026-08-31 is a UK bank holiday, so the London previous trading date for 2026-09-01 is 2026-08-28
+  const closed = normalizeQuote(rawQuote('SPYL.L', 'CLOSED', {
+    exchangeTimezoneName: 'Europe/London',
+    regularMarketPreviousClose: null,
+    regularMarketTime: sec('2026-09-01T15:30:00Z'),
+    latestDailyClose: 110,
+    latestDailyCloseTime: sec('2026-09-01T15:30:00Z'),
+    previousDailyClose: 100,
+    previousDailyCloseTime: sec('2026-08-28T15:30:00Z')
+  }), 'SPYL.L');
+  assert.equal(closed.market, 'UK');
+  assert.equal(closed.referencePrice, 100);
+  assert.equal(closed.change, 10);
+  assert.equal(closed.percentChange, 10);
+  const regular = normalizeQuote(rawQuote('SPYL.L', 'REGULAR', {
+    exchangeTimezoneName: 'Europe/London',
+    regularMarketTime: sec('2026-09-01T10:00:00Z')
+  }), 'SPYL.L');
+  assert.equal(regular.market, 'UK');
+  assert.equal(regular.status, 'ok');
+  assert.equal(regular.displayLabel, null);
+});

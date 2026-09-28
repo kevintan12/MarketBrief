@@ -15,7 +15,7 @@ const navigationSource = appDeclarations('isDashboardView', 'tickerListForView',
 const getAllTickersSource = appDeclarations('getAllTickers');
 const settingsListSource = appDeclarations(
   'renderSettingsPanelTo', 'tickerSelectionControls', 'getTickerSelectionBoxes', 'updateTickerSelectionControls',
-  'toggleTickerSelection', 'deleteSelectedTickers', 'settAcFetch', 'renderSettAcDrop', 'closeSettAcDrop',
+  'toggleTickerSelection', 'deleteSelectedTickers', 'settAcFetch', 'filterSettAcResults', 'renderSettAcDrop', 'closeSettAcDrop',
   'addTickerDirect', 'removeTicker', 'moveTicker', 'reorderTickerArray', 'reorderTicker', '_tickerDrag',
   'positionTickerDragGhost', 'clearTickerDragVisuals', 'addTickerDragListeners', 'removeTickerDragListeners',
   'cancelTickerDragOnEscape', 'startTickerDrag', 'moveTickerDrag', 'endTickerDrag', 'cancelTickerDrag',
@@ -592,4 +592,53 @@ test('selection is transient and absent from saved and exported settings', () =>
   reloaded.context.loadSettings();
   reloaded.context.renderSettingsPanelTo('settingsPanel');
   assert.doesNotMatch(reloaded.elements.settingsPanel.innerHTML, /class="ticker-select"[^>]* checked/);
+});
+
+test('Settings search groups London (.L) results under US and keeps them out of SG and HK', () => {
+  const {context} = createHarness();
+  const results = ['AAPL', 'SPYL.L', 'JEPQ.L', 'D05.SI', '0700.HK', 'BRK.B'].map(symbol => ({symbol, name: symbol}));
+  const symbols = mkt => Array.from(context.filterSettAcResults(results, mkt), item => item.symbol);
+  assert.deepEqual(symbols('US'), ['AAPL', 'SPYL.L', 'JEPQ.L']);
+  assert.deepEqual(symbols('SG'), ['D05.SI']);
+  assert.deepEqual(symbols('HK'), ['0700.HK']);
+});
+
+test('Settings search filters before taking the first six results', async () => {
+  const {context} = createHarness();
+  context.S.proxyUrl = 'https://proxy.example';
+  const raw = ['D05.SI', 'O39.SI', 'C6L.SI', '0700.HK', '0005.HK', 'BRK.B', 'SPYL.L', 'JEPQ.L'];
+  context.fetch = async () => ({json: async () => ({results: raw.map(symbol => ({symbol, name: symbol}))})});
+  let shown = null;
+  context.renderSettAcDrop = results => { shown = Array.from(results, item => item.symbol); };
+  await context.settAcFetch('SPYL', 'wrap', 'US', 'settingsPanel', 'myStocks');
+  assert.deepEqual(shown, ['SPYL.L', 'JEPQ.L']);
+  const many = Array.from({length: 9}, (_, index) => 'T' + index);
+  context.fetch = async () => ({json: async () => ({results: many.map(symbol => ({symbol, name: symbol}))})});
+  await context.settAcFetch('T', 'wrap', 'US', 'settingsPanel', 'myStocks');
+  assert.equal(shown.length, 6);
+});
+
+test('a London ticker added from the US group is stored in the requested list only', () => {
+  const {context} = createHarness();
+  context.addTickerDirect('myStocks', 'US', 'SPYL.L', 'SPDR S&P 500 UCITS ETF', 'settingsPanel');
+  assert.deepEqual(JSON.parse(JSON.stringify(context.S.myStocks.US)), [
+    {sym: 'SPYL.L', name: 'SPDR S&P 500 UCITS ETF', sub: 'UK · LSE', flag: '🇬🇧', mkt: 'US'}
+  ]);
+  assert.deepEqual(Array.from(context.S.customTickers.US), []);
+  assert.deepEqual(Array.from(context.S.myStocks.SG), []);
+  assert.deepEqual(Array.from(context.S.myStocks.HK), []);
+});
+
+test('London tickers in the US list survive save and reload', () => {
+  const first = createHarness();
+  first.context.addTickerDirect('myStocks', 'US', 'SPYL.L', 'SPYL', 'settingsPanel');
+  first.context.addTickerDirect('customTickers', 'US', 'JEPQ.L', 'JEPQ', 'settingsPanel');
+  first.context.document.getElementById('cfgProxy_settingsPanel').value = '';
+  first.context.document.getElementById('cfgStyle_settingsPanel').value = 'detailed';
+  first.context.document.getElementById('cfgTz_settingsPanel').value = 'Asia/Singapore';
+  first.context.saveSettings('settingsPanel');
+  const second = createHarness({mb5: first.localStorage.value('mb5')});
+  second.context.loadSettings();
+  assert.deepEqual(Array.from(second.context.S.myStocks.US, item => item.sym), ['SPYL.L']);
+  assert.deepEqual(Array.from(second.context.S.customTickers.US, item => item.sym), ['JEPQ.L']);
 });

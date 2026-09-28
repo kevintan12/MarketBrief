@@ -44,6 +44,24 @@ test('saved Market Brief HTML is isolated by list and restored to mobile and des
   assert.equal(elements.sumAreaD.innerHTML, '<div>Watch</div>');
 });
 
+test('adding or removing a London ticker does not mark a saved Market Brief stale', () => {
+  const context = {
+    S: {myStocks: {US: [{sym: 'MSFT'}], SG: [], HK: []}, customTickers: {US: [], SG: [], HK: []}},
+    activeTickerList: 'myStocks', currentView: 'MyStocks',
+    document: {getElementById() { return null; }},
+    isDashboardView() { return false; }, setAIBtnVisible() {}
+  };
+  vm.createContext(context);
+  vm.runInContext(briefStateSource, context);
+  const before = context.getBriefListFingerprint('myStocks');
+  context.saveGeneratedBrief('myStocks', '<div>Report</div>', before);
+  context.S.myStocks.US.push({sym: 'SPYL.L'}, {sym: 'jepq.l'});
+  assert.equal(context.getBriefListFingerprint('myStocks'), before);
+  assert.equal(context.isSavedBriefStale('myStocks'), false);
+  context.S.myStocks.US.push({sym: 'AAPL'});
+  assert.equal(context.isSavedBriefStale('myStocks'), true);
+});
+
 test('triggerSummary captures owner, filter and data snapshot and permits one request at a time', () => {
   const calls = [];
   const context = {

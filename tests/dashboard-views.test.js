@@ -115,6 +115,32 @@ test('shared card renderer keeps indices first and uses the active list label', 
   assert.match(watch, /US Markets · Watchlist/);
 });
 
+test('a London ticker stored in the US list shows in the US and All views only', () => {
+  function renderFor(curFilter) {
+    const grid = {innerHTML: '', querySelectorAll() { return []; }};
+    const context = {
+      mktData: [ticker('AAPL', 'US'), Object.assign(ticker('SPYL.L', 'US'), {flag: '🇬🇧', sub: 'UK · LSE'}), ticker('D05.SI', 'SG')],
+      curFilter, activeTickerList: 'myStocks',
+      document: {getElementById(id) { return id === 'idxGrid' ? grid : null; }, querySelectorAll() { return []; }},
+      window: {}, clearTimeout() {}, setTimeout() {},
+      esc(value) { return String(value); }, fmt(value) { return String(value); },
+      fmtD(value) { return String(value); }, fmtP(value) { return String(value); }
+    };
+    context.mktData.forEach(item => Object.assign(item, {price: 1, chg: 0, pct: 0}));
+    vm.createContext(context);
+    vm.runInContext(dashboardSource, context);
+    context.renderIndices();
+    return grid.innerHTML;
+  }
+  const us = renderFor('US');
+  assert.match(us, /US Markets · My Stocks/);
+  assert.match(us, /SPYL\.L/);
+  assert.doesNotMatch(us, /D05\.SI/);
+  assert.match(renderFor('all'), /SPYL\.L/);
+  assert.doesNotMatch(renderFor('SG'), /SPYL\.L/);
+  assert.doesNotMatch(renderFor('HK'), /SPYL\.L/);
+});
+
 test('shared card renderer marks only active US quote fallbacks as prior-close data', () => {
   const grid = {innerHTML: '', querySelectorAll() { return []; }};
   const context = {
