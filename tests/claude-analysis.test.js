@@ -477,6 +477,31 @@ test('renders the canonical eight sections in order without removed or duplicate
   assert.match(html, /href="https:\/\/finance\.yahoo\.com\/markets\/stocks\/market-recap\.html"/);
 });
 
+// Step 20K: the Analysis context table must end with a bottom line like its other rows.
+function analysisContextRows() {
+  const envelope = populatedUsEnvelope();
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const html = api.renderMarketBriefAnalysis(structuredResult(envelope), envelope);
+  const table = html.match(/<table aria-label="Analysis context"[\s\S]*?<\/table>/)[0];
+  return {table, rows: table.match(/<tr>[\s\S]*?<\/tr>/g)};
+}
+
+test('every Analysis context row, including the last, has the same 1px bottom line', () => {
+  const {rows} = analysisContextRows();
+  assert.equal(rows.length, 5);
+  rows.forEach(row => {
+    const cells = row.match(/<(?:th|td) [^>]*style="[^"]*"/g);
+    assert.equal(cells.length, 2);
+    cells.forEach(cell => assert.match(cell, /border-bottom:1px solid var\(--bor\);/));
+  });
+  assert.match(rows[4], />Generated<\/th>/);
+});
+
+test('the Analysis context table has no border-bottom:0 override', () => {
+  const {table} = analysisContextRows();
+  assert.doesNotMatch(table, /border-bottom:\s*0/);
+});
+
 test('bounds the report body without moving the stable report header into the scroller', () => {
   const envelope = populatedUsEnvelope();
   const html = load().window.MarketBrief.claudeAnalysis.renderMarketBriefAnalysis(structuredResult(envelope), envelope);

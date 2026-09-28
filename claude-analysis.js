@@ -271,7 +271,7 @@
       +'<tr><th scope="row" style="'+labelStyle+'">Session</th><td style="'+valueStyle+'">'+escapeHTML(marketStatePresentation(pkg.marketContext.marketState))+'</td></tr>'
       +'<tr><th scope="row" style="'+labelStyle+'">Analysis State</th><td style="'+valueStyle+'">'+(inProgress?'Live / in progress':'Completed session')+'</td></tr>'
       +'<tr><th scope="row" style="'+labelStyle+'">Principal Completed Regular Session</th><td style="'+valueStyle+'">'+escapeHTML(formatCanonicalSessionDate(pkg.marketContext.primaryCompletedSessionDate))+'</td></tr>'
-      +'<tr><th scope="row" style="'+labelStyle+'border-bottom:0;">Generated</th><td style="'+valueStyle+'border-bottom:0;">'+escapeHTML(formatReportGeneratedAt(request.generatedAt,request.userTimezone))+'</td></tr>'
+      +'<tr><th scope="row" style="'+labelStyle+'">Generated</th><td style="'+valueStyle+'">'+escapeHTML(formatReportGeneratedAt(request.generatedAt,request.userTimezone))+'</td></tr>'
       +'</tbody></table></div>';
   }
 
