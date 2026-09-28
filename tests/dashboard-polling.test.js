@@ -1,35 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 
-const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const { appDeclarations } = require('./helpers/app-source');
 
-function sourceBetween(startText, endText) {
-  const start = appSource.indexOf(startText);
-  const end = appSource.indexOf(endText, start);
-  assert.notEqual(start, -1, `missing source start: ${startText}`);
-  assert.notEqual(end, -1, `missing source end: ${endText}`);
-  return appSource.slice(start, end);
-}
-
-const automaticRefreshSource = sourceBetween(
-  'function getDashboardPollingMarkets',
-  'async function silentRefreshTicker'
+const automaticRefreshSource = appDeclarations('getDashboardPollingMarkets', 'silentRefreshDash');
+const manualRefreshSource = appDeclarations(
+  '_dashboardQuoteGeneration', 'beginDashboardQuoteRequest', 'shouldApplyDashboardQuote', 'loadDash'
 );
-const manualRefreshSource = sourceBetween(
-  'var _dashboardQuoteGeneration',
-  'function setSumHTML'
+const refreshLifecycleSource = appDeclarations(
+  'DASHBOARD_REFRESH_BATCH_TIMEOUT_MS', '_refreshTick', 'runDashboardRefreshBatch', 'startAutoRefresh'
 );
-const refreshLifecycleSource = sourceBetween(
-  'var DASHBOARD_REFRESH_BATCH_TIMEOUT_MS',
-  '// ── AI Summary'
-);
-const searchCadenceSource = sourceBetween(
-  'function getSearchPollingCadence',
-  'var DASHBOARD_REFRESH_BATCH_TIMEOUT_MS'
-);
+const searchCadenceSource = appDeclarations('getSearchPollingCadence');
 
 function deferred() {
   let resolve;

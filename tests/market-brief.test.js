@@ -4,16 +4,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const { appSource, appDeclarations } = require('./helpers/app-source');
 const investmentSource = fs.readFileSync(path.join(__dirname, '..', 'investment.js'), 'utf8');
 
-function sourceBetween(startText, endText) {
-  const start = appSource.indexOf(startText);
-  const end = appSource.indexOf(endText, start);
-  assert.notEqual(start, -1, `missing source start: ${startText}`);
-  assert.notEqual(end, -1, `missing source end: ${endText}`);
-  return appSource.slice(start, end);
-}
+const briefStateSource = appDeclarations(
+  'setSumHTML', 'saveBriefHTML', 'getBriefListFingerprint', 'isSavedBriefStale', 'presentSavedBrief',
+  'saveGeneratedBrief', 'restoreCurrentBrief', 'autoRefreshTimer', 'lastSearchSym', 'savedBriefHTML',
+  'savedBriefState', '_summaryInFlight', '_structuredSummaryProgress', 'savedSearchHTML', 'savedSearchQuery',
+  'savedInvestHTML'
+);
+const structuredElapsedSource = appDeclarations('formatStructuredElapsed', 'loadStructuredSummary');
 
 function element() {
   return {innerHTML: '', style: {}, offsetParent: {}, querySelector() { return null; }};
@@ -28,7 +28,7 @@ test('saved Market Brief HTML is isolated by list and restored to mobile and des
     setAIBtnVisible() {}
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function setSumHTML', 'function isAnyMarketOpen'), context);
+  vm.runInContext(briefStateSource, context);
 
   context.saveBriefHTML('myStocks', '<div>Mine</div>');
   context.saveBriefHTML('customTickers', '<div>Watch</div>');
@@ -55,7 +55,7 @@ test('triggerSummary captures owner, filter and data snapshot and permits one re
     loadSummary(...args) { calls.push(args); return Promise.resolve(); }
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function triggerSummary', '// ── Data'), context);
+  vm.runInContext(appDeclarations('triggerSummary'), context);
   context.triggerSummary();
   context.mktData[1].sym = 'CHANGED';
   context.activeTickerList = 'customTickers';
@@ -86,7 +86,7 @@ test('US routes to one structured generation while SG, HK and ALL retain legacy 
       loadSummary(...args) { calls.push(['legacy', ...args]); return pending; }
     };
     vm.createContext(context);
-    vm.runInContext(sourceBetween('function triggerSummary', '// ── Data'), context);
+    vm.runInContext(appDeclarations('triggerSummary'), context);
     context.triggerSummary();
     context.triggerSummary();
     assert.equal(calls.length, 1);
@@ -123,7 +123,7 @@ test('failed US regeneration preserves the previous keyed report', async () => {
     loadSummary() { throw new Error('legacy path must not run'); }
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function triggerSummary', '// ── Data'), context);
+  vm.runInContext(appDeclarations('triggerSummary'), context);
   context.triggerSummary();
   await Promise.resolve();
   await Promise.resolve();
@@ -164,7 +164,7 @@ test('structured loader maps ownership, hands off the envelope and stores only t
     setInterval(callback, delay) { timerDelays.push(delay); return 17; }, clearInterval(id) { clearedTimers.push(id); }
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function formatStructuredElapsed', 'async function loadSummary'), context);
+  vm.runInContext(structuredElapsedSource, context);
   await context.loadStructuredSummary('myStocks', 'old mine');
   assert.equal(calls[0][0], 'package');
   assert.equal(calls[0][1].filter, 'US');
@@ -210,7 +210,7 @@ test('saved reports independently disclose membership or order changes without m
     setAIBtnVisible() {}
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function setSumHTML', 'function isAnyMarketOpen'), context);
+  vm.runInContext(briefStateSource, context);
 
   context.saveGeneratedBrief('myStocks', '<div>My report</div>', context.getBriefListFingerprint('myStocks'));
   context.saveGeneratedBrief('customTickers', '<div>Watch report</div>', context.getBriefListFingerprint('customTickers'));
@@ -252,7 +252,7 @@ test('saved reports independently disclose membership or order changes without m
 test('user-facing timestamps follow S.tz without changing exchange session logic', () => {
   const context = {S: {tz: 'Asia/Singapore'}, Intl, Date};
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function getUserTimeZone', '// ── Navigation'), context);
+  vm.runInContext(appDeclarations('getUserTimeZone', 'formatUserTime', 'formatUserDateTime'), context);
   const instant = '2026-09-21T14:30:00.000Z';
   const singapore = context.formatUserDateTime(instant);
   context.S.tz = 'America/New_York';
@@ -261,9 +261,9 @@ test('user-facing timestamps follow S.tz without changing exchange session logic
   assert.match(singapore, /2026/);
   assert.match(newYork, /2026/);
 
-  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
-  const tickerSource = sourceBetween('async function genTickerAI', '// ── About AI');
-  const pdfSource = sourceBetween('function exportToPDF', '// ── Settings');
+  const summarySource = appDeclarations('loadSummary');
+  const tickerSource = appDeclarations('genTickerAI');
+  const pdfSource = appDeclarations('exportToPDF', 'genInvestAI');
   assert.match(summarySource, /formatUserTime\(summaryNow\)/);
   assert.match(summarySource, /formatUserTime\(new Date\(\)\)/);
   assert.match(tickerSource, /formatUserDateTime\(now\)/);
@@ -289,7 +289,7 @@ test('structured loader omits correlation when UUID generation is unavailable or
       }}
     };
     vm.createContext(context);
-    vm.runInContext(sourceBetween('function formatStructuredElapsed', 'async function loadSummary'), context);
+    vm.runInContext(structuredElapsedSource, context);
     await context.loadStructuredSummary('myStocks', 'old');
     assert.equal(calls.length, 2);
     assert.equal(Object.hasOwn(calls[0], 'generationId'), false);
@@ -313,7 +313,7 @@ test('structured elapsed timer formats seconds and minutes and is cleaned up on 
     setInterval(callback, delay) { timerDelays.push(delay); return 23; }, clearInterval(id) { clearedTimers.push(id); }
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function formatStructuredElapsed', 'async function loadSummary'), context);
+  vm.runInContext(structuredElapsedSource, context);
   assert.equal(context.formatStructuredElapsed(12), 'Worked for 12 secs');
   assert.equal(context.formatStructuredElapsed(68), 'Worked for 1 min 08 secs');
   assert.equal(context.formatStructuredElapsed(134), 'Worked for 2 mins 14 secs');
@@ -349,8 +349,8 @@ test('structured completion remains keyed to its initiating view after navigatio
     }}
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function setSumHTML', 'function isAnyMarketOpen'), context);
-  vm.runInContext(sourceBetween('function formatStructuredElapsed', 'async function loadSummary'), context);
+  vm.runInContext(briefStateSource, context);
+  vm.runInContext(structuredElapsedSource, context);
   context.savedBriefHTML.myStocks = '<div>Old mine retained</div>';
   const generation = context.loadStructuredSummary('myStocks', 'old mine');
   assert.equal(context.savedBriefHTML.myStocks, '<div>Old mine retained</div>');
@@ -400,7 +400,7 @@ async function capturePrompt(briefKey, filter, summaryData) {
     console: {log() {}}
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('async function loadSummary', '// ── Strip IV preamble'), context);
+  vm.runInContext(appDeclarations('loadSummary'), context);
   await context.loadSummary(briefKey, filter, summaryData);
   return prompt;
 }
@@ -426,8 +426,8 @@ test('My Stocks and Watchlist prompts use their captured list data and wording',
 });
 
 test('streaming ownership and PDF selection remain tied to the initiating/current view', () => {
-  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
-  const pdfSource = sourceBetween('function exportToPDF', '// ── Settings');
+  const summarySource = appDeclarations('loadSummary');
+  const pdfSource = appDeclarations('exportToPDF', 'genInvestAI');
   assert.match(summarySource, /_summaryOwner!==briefKey/);
   assert.doesNotMatch(summarySource, /savedBriefHTML\[briefKey\]=briefPrefix\+rendered\+briefSuffix/);
   assert.match(summarySource, /saveGeneratedBrief\(briefKey,briefPrefix\+finalRendered\+briefSuffix,generationFingerprint\)/);
@@ -435,16 +435,16 @@ test('streaming ownership and PDF selection remain tied to the initiating/curren
 });
 
 test('legacy Market Brief remains on the streaming claude route only', () => {
-  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
+  const summarySource = appDeclarations('loadSummary');
   assert.match(summarySource, /\/api\/quote\?claude=1/);
   assert.doesNotMatch(summarySource, /claudeAnalysis=1/);
   assert.doesNotMatch(summarySource, /analysisPackage=1/);
-  assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /claudeAnalysis/);
-  assert.doesNotMatch(sourceBetween('function triggerSummary', '// ── Data'), /analysisPackage/);
+  assert.doesNotMatch(appDeclarations('triggerSummary'), /claudeAnalysis/);
+  assert.doesNotMatch(appDeclarations('triggerSummary'), /analysisPackage/);
 });
 
 test('legacy Market Brief puts sumStream inside the bounded report body', () => {
-  const summarySource = sourceBetween('async function loadSummary', '// ── Strip IV preamble');
+  const summarySource = appDeclarations('loadSummary');
   const prefixStart = summarySource.indexOf('var briefPrefix=');
   const prefixEnd = summarySource.indexOf('var briefSuffix=', prefixStart);
   assert.ok(prefixStart >= 0 && prefixEnd > prefixStart);

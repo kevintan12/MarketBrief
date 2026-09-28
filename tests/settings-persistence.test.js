@@ -4,22 +4,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const { appSource, appDeclaration, appDeclarations, appStatement } = require('./helpers/app-source');
 const appCssSource = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
 
-function sourceBetween(startText, endText) {
-  const start = appSource.indexOf(startText);
-  const end = appSource.indexOf(endText, start);
-  assert.notEqual(start, -1, `missing source start: ${startText}`);
-  assert.notEqual(end, -1, `missing source end: ${endText}`);
-  return appSource.slice(start, end);
-}
-
-const stateSource = sourceBetween('var MarketBrief =', '// ── Boot');
-const navigationSource = sourceBetween('function isDashboardView', '// ── Desktop');
-const getAllTickersSource = sourceBetween('function getAllTickers', 'var _quoteFetches');
-const settingsListSource = sourceBetween('function renderSettingsPanelTo', 'function exportSettings');
-const persistenceSource = appSource.slice(appSource.indexOf('function exportSettings'));
+const stateSource = [
+  appDeclaration('MarketBrief'), appStatement('MarketBrief.config ='),
+  appDeclarations('S', 'mktData', 'FIXED_SYMS', 'acTimers')
+].join('\n');
+const navigationSource = appDeclarations('isDashboardView', 'tickerListForView', 'showView');
+const getAllTickersSource = appDeclarations('getAllTickers');
+const settingsListSource = appDeclarations(
+  'renderSettingsPanelTo', 'tickerSelectionControls', 'getTickerSelectionBoxes', 'updateTickerSelectionControls',
+  'toggleTickerSelection', 'deleteSelectedTickers', 'settAcFetch', 'renderSettAcDrop', 'closeSettAcDrop',
+  'addTickerDirect', 'removeTicker', 'moveTicker', 'reorderTickerArray', 'reorderTicker', '_tickerDrag',
+  'positionTickerDragGhost', 'clearTickerDragVisuals', 'addTickerDragListeners', 'removeTickerDragListeners',
+  'cancelTickerDragOnEscape', 'startTickerDrag', 'moveTickerDrag', 'endTickerDrag', 'cancelTickerDrag',
+  'finishTickerDrag'
+);
+const persistenceSource = appDeclarations('exportSettings', 'importSettings', 'storeSave', 'storeLoad', 'saveSettings', 'loadSettings');
 
 function createStorage(initial = {}) {
   const values = {...initial};

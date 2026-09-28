@@ -6,17 +6,16 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'marketbrief.html'), 'utf8');
-const appSource = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+const { appSource, appDeclaration, appDeclarations, appStatement } = require('./helpers/app-source');
 const dashboardSource = fs.readFileSync(path.join(root, 'dashboard-ui.js'), 'utf8');
 const searchSource = fs.readFileSync(path.join(root, 'search.js'), 'utf8');
 
-function sourceBetween(startText, endText) {
-  const start = appSource.indexOf(startText);
-  const end = appSource.indexOf(endText, start);
-  assert.notEqual(start, -1, `missing source start: ${startText}`);
-  assert.notEqual(end, -1, `missing source end: ${endText}`);
-  return appSource.slice(start, end);
-}
+const stateSource = [
+  appDeclaration('MarketBrief'), appStatement('MarketBrief.config ='),
+  appDeclarations('S', 'mktData', 'FIXED_SYMS', 'acTimers')
+].join('\n');
+const getAllTickersSource = appDeclarations('getAllTickers');
+const navigationSource = appDeclarations('isDashboardView', 'tickerListForView', 'showView');
 
 function ticker(sym, mkt) {
   return {sym, name: sym, sub: mkt, flag: mkt, mkt};
@@ -34,8 +33,8 @@ test('desktop and mobile navigation use the five-item product order', () => {
 test('startup defaults to My Stocks and active ticker source follows the selected view', () => {
   const context = {window: {}};
   vm.createContext(context);
-  vm.runInContext(sourceBetween('var MarketBrief =', '// ── Boot'), context);
-  vm.runInContext(sourceBetween('function getAllTickers', 'var _quoteFetches'), context);
+  vm.runInContext(stateSource, context);
+  vm.runInContext(getAllTickersSource, context);
   context.S.fixedTickers = [ticker('^STI', 'SG')];
   context.S.myStocks = {US: [ticker('VEEV', 'US')], SG: [], HK: []};
   context.S.customTickers = {US: [ticker('AAPL', 'US')], SG: [], HK: []};
@@ -49,8 +48,8 @@ test('startup defaults to My Stocks and active ticker source follows the selecte
 test('fixed market anchors have the exact configured set and order in both views', () => {
   const context = {window: {}};
   vm.createContext(context);
-  vm.runInContext(sourceBetween('var MarketBrief =', '// ── Boot'), context);
-  vm.runInContext(sourceBetween('function getAllTickers', 'var _quoteFetches'), context);
+  vm.runInContext(stateSource, context);
+  vm.runInContext(getAllTickersSource, context);
   const expected = ['^DJI', '^IXIC', '^GSPC', '^RUT', '^STI', '^HSI'];
   assert.deepEqual(Array.from(context.S.fixedTickers, item => item.sym), expected);
   context.S.myStocks.US.push(ticker('VEEV', 'US'));
@@ -80,7 +79,7 @@ test('switching My Stocks and Watchlist clears prior data and reloads the shared
     loadDash() { loads++; }, console
   };
   vm.createContext(context);
-  vm.runInContext(sourceBetween('function isDashboardView', '// ── Desktop'), context);
+  vm.runInContext(navigationSource, context);
   context.showView('Watchlist');
   assert.equal(context.currentView, 'Watchlist');
   assert.equal(context.activeTickerList, 'customTickers');
@@ -163,7 +162,7 @@ test('Market Brief controls are available in both Dashboard-style views', () => 
   assert.match(html, /id="aiBtnM"[^>]*onclick="triggerSummary\(\)"/);
   assert.ok(html.indexOf('Generation may take a little while and uses AI resources.') < html.indexOf('id="sumArea"'));
   assert.doesNotMatch(html, /Generate AI Summary/);
-  const desktopSource = sourceBetween('function renderDesktop', 'MarketBrief.searchAI=');
+  const desktopSource = appDeclarations('renderDesktop');
   assert.match(desktopSource, /Generate Market Brief/);
   assert.match(desktopSource, /Market data may be delayed by approximately 10 minutes\./);
   assert.match(desktopSource, /id="aiBtnD"[^>]*onclick="triggerSummary\(\)"/);
