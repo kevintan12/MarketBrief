@@ -676,11 +676,69 @@ test('renders DEGRADED and FAILED results without fabricating unavailable conten
   assert.doesNotMatch(degraded, /Uncertainty:/);
   assert.doesNotMatch(degraded, /Evidence gaps/);
   assert.doesNotMatch(degraded, /A canonical evidence gap remains/);
-  assert.match(degraded, /No supported analysis is available from the supplied package/);
+  assert.match(degraded, /Not enough data to point out risks or opportunities\./);
   assert.match(failed, /US · FAILED/);
   assert.doesNotMatch(failed, /Evidence gaps/);
   assert.doesNotMatch(failed, /A canonical evidence gap remains/);
   assert.doesNotMatch(failed, /Supported analysis/);
+});
+
+test('shows the approved plain-language wording per blank section and leaves populated sections unchanged', () => {
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const blankWordingBySection = {
+    'EXECUTIVE MARKET SUMMARY': 'Not enough data to produce an analysis.',
+    'KEY MARKET DRIVERS': 'Not enough data to name the main drivers of the market.',
+    'STOCKS & SECTORS IN FOCUS': 'Not enough data to point out specific stocks or sectors.',
+    'MY STOCKS & WATCHLIST - MATERIAL MOVEMENTS': 'Not enough data to produce an analysis.',
+    'MARKET INTERPRETATION': 'Not enough data to give an interpretation.',
+    'KEY RISKS & OPPORTUNITIES': 'Not enough data to point out risks or opportunities.',
+    'WHAT TO WATCH FOR NEXT': 'Not enough data to say what to watch next.'
+  };
+  const sectionNames = Object.keys(blankWordingBySection);
+  const escapedName = (name) => name.replace(/&/g, '&amp;');
+  sectionNames.forEach((name, index) => {
+    const envelope = populatedUsEnvelope();
+    const result = structuredResult(envelope);
+    result.sections[index].content = null;
+    result.sections[index].evidenceRefs = [];
+    result.sections[index].telemetryRefs = [];
+    const html = api.renderMarketBriefAnalysis(result, envelope);
+    const marker = (index + 1) + '. ' + escapedName(name);
+    const start = html.indexOf(marker);
+    assert.ok(start !== -1, name + ' heading missing');
+    const nextHeading = html.indexOf((index + 2) + '. ', start + marker.length);
+    const section = html.slice(start, nextHeading === -1 ? html.length : nextHeading);
+    assert.ok(section.includes(blankWordingBySection[name]), name + ' did not show its approved blank wording');
+    assert.doesNotMatch(section, /No supported analysis is available from the supplied package/);
+    // every other section in this response stayed populated and unchanged
+    sectionNames.forEach((otherName, otherIndex) => {
+      if (otherIndex === index) return;
+      const otherMarker = (otherIndex + 1) + '. ' + escapedName(otherName);
+      const otherStart = html.indexOf(otherMarker);
+      assert.ok(otherStart !== -1, otherName + ' heading missing');
+      const otherNextHeading = html.indexOf((otherIndex + 2) + '. ', otherStart + otherMarker.length);
+      const otherSection = html.slice(otherStart, otherNextHeading === -1 ? html.length : otherNextHeading);
+      const expectedContent = otherIndex === 0 ? 'Safe &lt;script&gt;alert(1)&lt;/script&gt; analysis.' : 'Supported analysis.';
+      assert.ok(otherSection.includes(expectedContent), otherName + ' populated content changed');
+    });
+  });
+});
+
+test('leaves the Further Readings placeholder unchanged and still rejects whitespace-only or missing section content', () => {
+  const api = load().window.MarketBrief.claudeAnalysis;
+  const envelope = populatedUsEnvelope();
+  const emptyReadings = structuredResult(envelope);
+  emptyReadings.furtherReadings = [];
+  const html = api.renderMarketBriefAnalysis(emptyReadings, envelope);
+  assert.match(html, /8\. FURTHER READINGS[\s\S]*No validated Further Readings were supplied\./);
+
+  const whitespaceOnly = structuredResult(envelope);
+  whitespaceOnly.sections[1].content = '   ';
+  assert.throws(() => api.renderMarketBriefAnalysis(whitespaceOnly, envelope), /Invalid structured Market Brief section/);
+
+  const missingContent = structuredResult(envelope);
+  delete missingContent.sections[1].content;
+  assert.throws(() => api.renderMarketBriefAnalysis(missingContent, envelope), /Invalid structured Market Brief section/);
 });
 
 test('renders the structured generated time in the user timezone without a raw ISO value', () => {
@@ -758,7 +816,7 @@ test('renders rich, degraded and portfolio-overlap fixtures without frontend fil
   assert.match(richHtml, /Microsoft was also material to the initiating My Stocks list/);
   const thin = structuredResult(envelope, 'DEGRADED');
   const thinHtml = api.renderMarketBriefAnalysis(thin, envelope);
-  assert.match(thinHtml, /6\. KEY RISKS &amp; OPPORTUNITIES[\s\S]*No supported analysis is available from the supplied package/);
+  assert.match(thinHtml, /6\. KEY RISKS &amp; OPPORTUNITIES[\s\S]*Not enough data to point out risks or opportunities\./);
   assert.doesNotMatch(thinHtml, /buying opportunity|rebound may/i);
 });
 

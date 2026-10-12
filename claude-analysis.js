@@ -13,6 +13,14 @@
   ];
   var REPORT_HEADER='REPORT HEADER / ANALYSIS CONTEXT';
   var ANALYSIS_STATUSES={NORMAL:true,DEGRADED:true,FAILED:true};
+  var BLANK_SECTION_TEXT={
+    'KEY MARKET DRIVERS':'Not enough data to name the main drivers of the market.',
+    'STOCKS & SECTORS IN FOCUS':'Not enough data to point out specific stocks or sectors.',
+    'MARKET INTERPRETATION':'Not enough data to give an interpretation.',
+    'KEY RISKS & OPPORTUNITIES':'Not enough data to point out risks or opportunities.',
+    'WHAT TO WATCH FOR NEXT':'Not enough data to say what to watch next.'
+  };
+  var BLANK_SECTION_FALLBACK_TEXT='Not enough data to produce an analysis.';
 
   function mapScope(filter){
     var scope=String(filter||'').toUpperCase();
@@ -395,7 +403,7 @@
       }else if(section.content!==null){
         html+=renderText(section.content);
       }else{
-        html+='<div style="color:var(--mut);">No supported analysis is available from the supplied package.</div>';
+        html+='<div style="color:var(--mut);">'+(BLANK_SECTION_TEXT[section.name]||BLANK_SECTION_FALLBACK_TEXT)+'</div>';
       }
       html+=renderSectionReferences(section,maps);
     });
