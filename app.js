@@ -1495,12 +1495,14 @@ function renderSettingsPanelTo(pid){
     '<div class="srow">'
       +'<div class="slbl">My Stocks — by Market</div>'
       +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
+      +(listOverlapNotice?'<div class="snote" style="margin-bottom:12px">'+esc(listOverlapNotice)+'</div>':'')
       +tickerSelectionControls('myStocks',pid)
       +'<div id="tickerList_myStocks_'+pid+'">'
         +mktSection('myStocks','US','🇺🇸','US Stocks')
         +mktSection('myStocks','SG','🇸🇬','SGX Stocks')
         +mktSection('myStocks','HK','🇭🇰','HKEX Stocks')
       +'</div>'
+      +'<div id="listMsg_myStocks_'+pid+'"></div>'
     +'</div>'
     +'<div class="srow">'
       +'<div class="slbl">Watchlist — by Market</div>'
@@ -1511,6 +1513,7 @@ function renderSettingsPanelTo(pid){
         +mktSection('customTickers','SG','🇸🇬','SGX Stocks')
         +mktSection('customTickers','HK','🇭🇰','HKEX Stocks')
       +'</div>'
+      +'<div id="listMsg_customTickers_'+pid+'"></div>'
     +'</div>'
     +'<div class="srow">'
       +'<div class="slbl">Summary Style</div>'
@@ -1677,12 +1680,48 @@ function closeSettAcDrop(wid){
   var d=document.getElementById('drop_'+wid); if(d) d.remove();
 }
 
+// Step 20B: a ticker lives in one list only (My Stocks or Watchlist, never both).
+function tickerListLabel(listKey){return listKey==='myStocks'?'My Stocks':'Watchlist';}
+function tickerListHas(listKey,sym){
+  var key=String(sym||'').trim().toUpperCase();
+  return ['US','SG','HK'].some(function(m){
+    return (S[listKey][m]||[]).some(function(t){return String(t&&t.sym||'').trim().toUpperCase()===key;});
+  });
+}
+// Saved data from before Step 20B may hold a ticker in both lists: keep the My Stocks copy.
+var listOverlapNotice='';
+function removeCrossListDuplicates(){
+  var removed=[];
+  ['US','SG','HK'].forEach(function(m){
+    if(!Array.isArray(S.customTickers[m]))return;
+    S.customTickers[m]=S.customTickers[m].filter(function(t){
+      if(!tickerListHas('myStocks',t&&t.sym))return true;
+      removed.push(t.sym);
+      return false;
+    });
+  });
+  return removed;
+}
+function listOverlapText(removed){
+  if(!removed.length)return '';
+  return removed.join(', ')+(removed.length===1?' was':' were')+' in both lists; kept in My Stocks only.';
+}
+
 function addTickerDirect(listKey,mkt,sym,name,pid){
   var all=[];
   ['US','SG','HK'].forEach(function(m){all=all.concat(S[listKey][m]||[]);});
   all=all.concat(S.fixedTickers);
   all=all.map(function(t){return t.sym;});
   if(all.indexOf(sym)>-1)return;
+  var otherList=listKey==='myStocks'?'customTickers':'myStocks';
+  if(tickerListHas(otherList,sym)){
+    var msg=document.getElementById('listMsg_'+listKey+'_'+pid);
+    if(msg){
+      msg.innerHTML='<div class="msg err" style="margin-top:6px">'+esc(sym)+' is already in '+tickerListLabel(otherList)+'.</div>';
+      setTimeout(function(){msg.innerHTML='';},3000);
+    }
+    return;
+  }
   var flag=sym.endsWith('.L')?'🇬🇧':({'US':'🇺🇸','SG':'🇸🇬','HK':'🇭🇰'}[mkt]||'🌐');
   var sub=sym.endsWith('.L')?'UK · LSE':({'US':'US · NYSE/Nasdaq','SG':'SG · SGX','HK':'HK · HKEX'}[mkt]||'');
   S[listKey][mkt].push({sym:sym,name:name||sym,sub:sub,flag:flag,mkt:mkt});
@@ -1834,9 +1873,10 @@ function importSettings(pid){
     if(data.tz!==undefined)       S.tz=data.tz;
     if(data.customTickers)        S.customTickers=data.customTickers;
     if(data.myStocks)             S.myStocks=data.myStocks;
+    var overlap=listOverlapText(removeCrossListDuplicates());
     storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers,myStocks:S.myStocks});
-    msg.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Settings imported! Reloading…</div>';
-    setTimeout(function(){location.reload();},1200);
+    msg.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Settings imported!'+(overlap?' '+esc(overlap):'')+' Reloading…</div>';
+    setTimeout(function(){location.reload();},overlap?4000:1200);
   }catch(e){
     msg.innerHTML='<div class="msg err" style="margin-top:6px">Invalid code. Please try again.</div>';
     setTimeout(function(){msg.innerHTML='';},3000);
@@ -1875,5 +1915,7 @@ function loadSettings(){
     if(s.tz)       S.tz=s.tz;
     if(s.customTickers)['US','SG','HK'].forEach(function(m){if(s.customTickers[m])S.customTickers[m]=s.customTickers[m];});
     if(s.myStocks)['US','SG','HK'].forEach(function(m){if(s.myStocks[m])S.myStocks[m]=s.myStocks[m];});
+    listOverlapNotice=listOverlapText(removeCrossListDuplicates());
+    if(listOverlapNotice)storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers,myStocks:S.myStocks});
   }catch(e){}
 }

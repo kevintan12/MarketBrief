@@ -16,6 +16,7 @@ const getAllTickersSource = appDeclarations('getAllTickers');
 const settingsListSource = appDeclarations(
   'renderSettingsPanelTo', 'tickerSelectionControls', 'getTickerSelectionBoxes', 'updateTickerSelectionControls',
   'toggleTickerSelection', 'deleteSelectedTickers', 'settAcFetch', 'filterSettAcResults', 'renderSettAcDrop', 'closeSettAcDrop',
+  'tickerListLabel', 'tickerListHas', 'listOverlapNotice', 'removeCrossListDuplicates', 'listOverlapText',
   'addTickerDirect', 'removeTicker', 'moveTicker', 'reorderTickerArray', 'reorderTicker', '_tickerDrag',
   'positionTickerDragGhost', 'clearTickerDragVisuals', 'addTickerDragListeners', 'removeTickerDragListeners',
   'cancelTickerDragOnEscape', 'startTickerDrag', 'moveTickerDrag', 'endTickerDrag', 'cancelTickerDrag',
@@ -197,14 +198,96 @@ test('list-aware add and remove mutate only the requested list', () => {
   assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), ['AAPL']);
   assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), []);
 
-  context.addTickerDirect('myStocks', 'US', 'AAPL', 'Apple', 'settingsPanel');
-  context.addTickerDirect('myStocks', 'US', 'AAPL', 'Apple', 'settingsPanel');
+  context.addTickerDirect('myStocks', 'US', 'MSFT', 'Microsoft', 'settingsPanel');
+  context.addTickerDirect('myStocks', 'US', 'MSFT', 'Microsoft', 'settingsPanel');
   assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), ['AAPL']);
-  assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), ['AAPL']);
+  assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), ['MSFT']);
 
   context.removeTicker('myStocks', 'US', 0, 'settingsPanel');
   assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), ['AAPL']);
   assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), []);
+});
+
+// Step 20B: a ticker lives in one list only.
+test('Step 20B: adding a My Stocks ticker to the Watchlist is blocked with a message naming My Stocks', () => {
+  const {context, elements} = createHarness();
+  context.addTickerDirect('myStocks', 'US', 'AAPL', 'Apple', 'settingsPanel');
+  context.addTickerDirect('customTickers', 'US', 'AAPL', 'Apple', 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), ['AAPL']);
+  assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), []);
+  assert.match(elements.listMsg_customTickers_settingsPanel.innerHTML, /AAPL is already in My Stocks\./);
+});
+
+test('Step 20B: adding a Watchlist ticker to My Stocks is blocked with a message naming the Watchlist', () => {
+  const {context, elements} = createHarness();
+  context.addTickerDirect('customTickers', 'SG', 'D05.SI', 'DBS', 'settingsPanel');
+  context.addTickerDirect('myStocks', 'SG', 'D05.SI', 'DBS', 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.SG, item => item.sym), ['D05.SI']);
+  assert.deepEqual(Array.from(context.S.myStocks.SG, item => item.sym), []);
+  assert.match(elements.listMsg_myStocks_settingsPanel.innerHTML, /D05\.SI is already in Watchlist\./);
+});
+
+test('Step 20B: the other-list check ignores case and spaces in saved symbols', () => {
+  const {context} = createHarness();
+  context.S.myStocks.US.push(ticker(' spyl.l ', 'US'));
+  context.addTickerDirect('customTickers', 'US', 'SPYL.L', 'SPYL', 'settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.US), []);
+});
+
+test('Step 20B: Settings renders a message slot for each list', () => {
+  const {context, elements} = createHarness();
+  context.renderSettingsPanelTo('settingsPanel');
+  assert.match(elements.settingsPanel.innerHTML, /id="listMsg_myStocks_settingsPanel"/);
+  assert.match(elements.settingsPanel.innerHTML, /id="listMsg_customTickers_settingsPanel"/);
+  assert.doesNotMatch(elements.settingsPanel.innerHTML, /in both lists/);
+});
+
+test('Step 20B: saved data with a ticker in both lists keeps the My Stocks copy, saves and shows a notice', () => {
+  const saved = {
+    customTickers: {US: [ticker('AAPL', 'US'), ticker('MSFT', 'US')], SG: [ticker('D05.SI', 'SG')], HK: []},
+    myStocks: {US: [ticker('AAPL', 'US')], SG: [ticker('D05.SI', 'SG')], HK: []}
+  };
+  const {context, elements, localStorage} = createHarness({mb5: JSON.stringify(saved)});
+  context.loadSettings();
+  assert.deepEqual(Array.from(context.S.customTickers.US, item => item.sym), ['MSFT']);
+  assert.deepEqual(Array.from(context.S.customTickers.SG), []);
+  assert.deepEqual(Array.from(context.S.myStocks.US, item => item.sym), ['AAPL']);
+  assert.deepEqual(Array.from(context.S.myStocks.SG, item => item.sym), ['D05.SI']);
+  const persisted = JSON.parse(localStorage.value('mb5'));
+  assert.deepEqual(persisted.customTickers.US.map(item => item.sym), ['MSFT']);
+  context.renderSettingsPanelTo('settingsPanel');
+  assert.match(elements.settingsPanel.innerHTML, /AAPL, D05\.SI were in both lists; kept in My Stocks only\./);
+});
+
+test('Step 20B: saved data without overlap loads unchanged, is not rewritten and shows no notice', () => {
+  const saved = JSON.stringify({
+    customTickers: {US: [ticker('MSFT', 'US')], SG: [], HK: []},
+    myStocks: {US: [ticker('AAPL', 'US')], SG: [], HK: []}
+  });
+  const {context, elements, localStorage} = createHarness({mb5: saved});
+  context.loadSettings();
+  assert.equal(localStorage.value('mb5'), saved);
+  assert.equal(context.listOverlapNotice, '');
+  context.renderSettingsPanelTo('settingsPanel');
+  assert.doesNotMatch(elements.settingsPanel.innerHTML, /in both lists/);
+});
+
+test('Step 20B: importing a code with a ticker in both lists keeps the My Stocks copy and says so', () => {
+  const payload = {
+    customTickers: {US: [ticker('NVDA', 'US')], SG: [], HK: [ticker('0700.HK', 'HK')]},
+    myStocks: {US: [], SG: [], HK: [ticker('0700.HK', 'HK')]}
+  };
+  const {context, elements, localStorage} = createHarness();
+  context.document.getElementById('impInp_settingsPanel').value = Buffer.from(
+    unescape(encodeURIComponent(JSON.stringify(payload))), 'binary'
+  ).toString('base64');
+  context.importSettings('settingsPanel');
+  assert.deepEqual(Array.from(context.S.customTickers.HK), []);
+  assert.deepEqual(Array.from(context.S.myStocks.HK, item => item.sym), ['0700.HK']);
+  const persisted = JSON.parse(localStorage.value('mb5'));
+  assert.deepEqual(persisted.customTickers.HK, []);
+  assert.deepEqual(persisted.customTickers.US.map(item => item.sym), ['NVDA']);
+  assert.match(elements.impMsg_settingsPanel.innerHTML, /0700\.HK was in both lists; kept in My Stocks only\./);
 });
 
 test('fixed anchors cannot be added to either user-managed ticker list', () => {
