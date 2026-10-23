@@ -118,14 +118,25 @@
     });
   }
 
+  var EVIDENCE_CONTEXT_KEYS=[
+    'evidence','materialEvents','authoritativeFacts','principalCatalysts','supportingEvidence',
+    'conflictingEvidence','subsequentDevelopments','sessionAssociations','broadMarketFocus','unresolvedGaps','furtherReadings'
+  ];
+  // Step 9V.2: mb-proxy Step 9V adds one optional last list, evidenceContext.sinceCloseDevelopments,
+  // to Closed/Weekend/Holiday packages (present even when empty). This page checks only that the key
+  // exists -- the server already validates its contents -- and still rejects every other extra key.
+  var SINCE_CLOSE_DEVELOPMENTS_KEY='sinceCloseDevelopments';
+
+  function hasEvidenceContextKeys(value){
+    return hasExactKeys(value,EVIDENCE_CONTEXT_KEYS)
+      ||hasExactKeys(value,EVIDENCE_CONTEXT_KEYS.concat([SINCE_CLOSE_DEVELOPMENTS_KEY]));
+  }
+
   function isCanonicalMarketPackage(pkg){
     return hasExactKeys(pkg,['market','marketContext','telemetry','evidenceContext'])
       &&hasExactKeys(pkg.marketContext,['exchangeTimezone','marketState','primaryCompletedSessionDate','includesCurrentOverlay','calendarContext'])
       &&hasExactKeys(pkg.telemetry,['benchmarkSnapshots','stockSnapshots'])
-      &&hasExactKeys(pkg.evidenceContext,[
-        'evidence','materialEvents','authoritativeFacts','principalCatalysts','supportingEvidence',
-        'conflictingEvidence','subsequentDevelopments','sessionAssociations','broadMarketFocus','unresolvedGaps','furtherReadings'
-      ]);
+      &&hasEvidenceContextKeys(pkg.evidenceContext);
   }
 
   function orderMarketPackages(marketPackages,filter){
@@ -443,7 +454,7 @@
       throw analysisError('HTTP_FAILURE','Market Brief package request failed',response.status);
     }
     if(!isCanonicalMarketBriefEnvelope(payload))
-      throw analysisError('MALFORMED_RESPONSE','Market Brief package response was not a canonical envelope',response.status);
+      throw analysisError('MALFORMED_RESPONSE','The report data arrived in a format this page does not recognise. Reload the page; if it repeats, the page and server versions do not match. No report was written.',response.status);
     return payload;
   }
 
