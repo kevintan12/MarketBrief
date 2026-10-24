@@ -1516,7 +1516,8 @@ function renderSettingsPanelTo(pid){
       +'<div class="snote">Export your settings as a code to copy to another device, or paste a code here to import.</div>'
       +'<button class="savebtn" style="margin-top:8px;background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--acc)" onclick="exportSettings(\''+pid+'\')">⬆ Export Settings Code</button>'
       +'<div id="expOut_'+pid+'"></div>'
-      +'<textarea class="sinp" id="impInp_'+pid+'" placeholder="Paste settings code here to import…" rows="3" style="margin-top:10px;font-size:0.8rem;resize:vertical;"></textarea>'
+      +'<textarea class="sinp" id="impInp_'+pid+'" placeholder="Paste settings code here to import…" rows="3" autocapitalize="off" autocorrect="off" spellcheck="false" style="margin-top:10px;font-size:1rem;resize:vertical;"></textarea>'
+      +'<button class="savebtn" style="margin-top:6px;background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:var(--acc)" onclick="pasteSettingsCode(\''+pid+'\')">📋 Paste from Clipboard</button>'
       +'<button class="savebtn" style="margin-top:6px;" onclick="importSettings(\''+pid+'\')">⬇ Import Settings Code</button>'
       +'<div id="impMsg_'+pid+'"></div>'
     +'</div>'
@@ -1839,6 +1840,21 @@ try{pinH=localStorage.getItem('mb_pin_hash')||'';}catch(e){}
     this.textContent='✓ Copied!';
     setTimeout(function(){document.getElementById(btnId).textContent='Copy Code';},2000);
   };
+}
+// Step 9Y: fills the import box from the clipboard; never imports by itself (Chrome on iPad may not show the Paste menu).
+function pasteSettingsCode(pid){
+  var msg=document.getElementById('impMsg_'+pid);
+  function fail(){
+    msg.innerHTML='<div class="msg err" style="margin-top:6px">Couldn\'t read the clipboard. Tap and hold the box above, then choose Paste.</div>';
+  }
+  var read;
+  try{read=navigator.clipboard.readText();}catch(e){fail();return;}
+  return Promise.resolve(read).then(function(text){
+    var code=String(text==null?'':text).trim();
+    if(!code){fail();return;}
+    document.getElementById('impInp_'+pid).value=code;
+    msg.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Code pasted. Tap Import Settings Code.</div>';
+  },fail);
 }
 function importSettings(pid){
   var msg=document.getElementById('impMsg_'+pid);
