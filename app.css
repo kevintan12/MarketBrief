@@ -151,6 +151,13 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 .snote{font-size:0.9rem;color:var(--mut);margin-top:7px;line-height:1.6;}
 .savebtn{width:100%;padding:12px;background:var(--acc);border:none;border-radius:9px;color:var(--bg);font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;transition:opacity 0.2s;}
 .savebtn:hover{opacity:0.85;}
+/* Step 9AL: Settings sections (General / My Stocks / Watchlist) */
+.sgroup-head{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;background:var(--sur);border:1px solid var(--bor);border-radius:11px;padding:13px 16px;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--txt);}
+.sgroup-head::-webkit-details-marker{display:none;}
+.sgroup-head::before{content:'▸';display:inline-block;color:var(--acc);transition:transform 0.15s;}
+.sgroup[open]>.sgroup-head::before{transform:rotate(90deg);}
+.sgroup-head:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
+.sgroup-body{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
 
 .mkt-section{margin-bottom:16px;}
 .mkt-section-title{font-size:0.85rem;color:var(--mut);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}

@@ -1472,7 +1472,30 @@ function renderSettingsPanelTo(pid){
       +'</div>';
   }
 
-  el.innerHTML=
+  // Step 9AL: open state comes from the saved per-device item, else what is on screen, else General open.
+  var savedOpen=null;
+  try{
+    var savedRaw=localStorage.getItem('mb_settings_open');
+    var savedMatch=/^v1:(.*)$/.exec(savedRaw==null?'':String(savedRaw));
+    if(savedMatch){
+      var savedNames=savedMatch[1]?savedMatch[1].split(','):[];
+      if(savedNames.every(function(n,i){return ['general','myStocks','watchlist'].indexOf(n)>-1&&savedNames.indexOf(n)===i;}))savedOpen=savedNames;
+    }
+  }catch(e){}
+  function sectionOpen(key){
+    if(savedOpen)return savedOpen.indexOf(key)>-1;
+    var shown=document.getElementById('sg_'+key+'_'+pid);
+    if(shown&&typeof shown.open==='boolean')return shown.open;
+    return key==='general';
+  }
+  function settingsSection(key,title,body){
+    return '<details class="sgroup" id="sg_'+key+'_'+pid+'"'+(sectionOpen(key)?' open':'')+' ontoggle="rememberSettingsSections(\''+pid+'\')">'
+      +'<summary class="sgroup-head">'+title+'</summary>'
+      +'<div class="sgroup-body">'+body+'</div>'
+      +'</details>';
+  }
+
+  var myStocksHtml=
     '<div class="srow">'
       +'<div class="slbl">My Stocks — by Market</div>'
       +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
@@ -1484,8 +1507,9 @@ function renderSettingsPanelTo(pid){
         +mktSection('myStocks','HK','🇭🇰','HKEX Stocks')
       +'</div>'
       +'<div id="listMsg_myStocks_'+pid+'"></div>'
-    +'</div>'
-    +'<div class="srow">'
+    +'</div>';
+  var watchlistHtml=
+    '<div class="srow">'
       +'<div class="slbl">Watchlist — by Market</div>'
       +'<div class="snote" style="margin-bottom:12px">Use ↑↓ to reorder. Search by name to add.</div>'
       +tickerSelectionControls('customTickers',pid)
@@ -1495,8 +1519,9 @@ function renderSettingsPanelTo(pid){
         +mktSection('customTickers','HK','🇭🇰','HKEX Stocks')
       +'</div>'
       +'<div id="listMsg_customTickers_'+pid+'"></div>'
-    +'</div>'
-    +'<div class="srow">'
+    +'</div>';
+  var generalHtml=
+    '<div class="srow">'
       +'<div class="slbl">Summary Style</div>'
       +'<select class="sinp" id="cfgStyle_'+pid+'">'
         +'<option value="detailed"'+(S.style==='detailed'?' selected':'')+'>Detailed paragraph</option>'
@@ -1543,7 +1568,12 @@ function renderSettingsPanelTo(pid){
       +'<div class="slbl" style="color:var(--acc)">★ Proxy URL</div>'
       +'<input class="sinp" type="url" id="cfgProxy_'+pid+'" placeholder="https://mb-proxy.vercel.app" value="'+esc(S.proxyUrl)+'">'
       +'<div class="snote">Your Vercel proxy URL for live market data.</div>'
-    +'</div>'
+    +'</div>';
+
+  el.innerHTML=
+    settingsSection('general','General',generalHtml)
+    +settingsSection('myStocks','My Stocks',myStocksHtml)
+    +settingsSection('watchlist','Watchlist',watchlistHtml)
     +'<div class="srow" style="border-color:rgba(239,68,68,0.2)">'
       +'<div class="slbl" style="color:var(--red)">Disclaimer</div>'
       +'<div class="snote" style="margin:0">Market data via Yahoo Finance may be delayed by approximately 10 minutes. For informational purposes only — not financial advice.</div>'
@@ -1575,6 +1605,15 @@ function renderSettingsPanelTo(pid){
       });
     });
   });
+}
+
+// Step 9AL: remembers which Settings sections are open, on this device only (not in mb5 or the export code).
+function rememberSettingsSections(pid){
+  var open=['general','myStocks','watchlist'].filter(function(key){
+    var section=document.getElementById('sg_'+key+'_'+pid);
+    return !!(section&&section.open);
+  });
+  try{localStorage.setItem('mb_settings_open','v1:'+open.join(','));}catch(e){}
 }
 
 function tickerSelectionControls(listKey,pid){
