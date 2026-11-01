@@ -84,6 +84,8 @@ document.addEventListener('keydown',function(e){
 var MarketBrief = window.MarketBrief = window.MarketBrief || {};
 MarketBrief.config = {
   proxyUrl:'', style:'detailed', tz:'Asia/Singapore',
+  // Step 9AK: AI model for every new Market Brief; anything but 'haiku-4.5' means 'haiku-5.5'.
+  model:'haiku-5.5',
   // DJI first, then IXIC, then GSPC, then RUT for US order
   fixedTickers:[
     {sym:'^DJI',  name:'Dow Jones', sub:'US · DJIA',              flag:'🇺🇸', mkt:'US'},
@@ -1511,6 +1513,14 @@ function renderSettingsPanelTo(pid){
         +'<option value="UTC"'+(S.tz==='UTC'?' selected':'')+'>UTC</option>'
       +'</select>'
     +'</div>'
+    +'<div class="srow">'
+      +'<div class="slbl">AI Model</div>'
+      +'<select class="sinp" id="cfgModel_'+pid+'">'
+        +'<option value="haiku-5.5"'+(S.model!=='haiku-4.5'?' selected':'')+'>Haiku 5.5 (recommended)</option>'
+        +'<option value="haiku-4.5"'+(S.model==='haiku-4.5'?' selected':'')+'>Haiku 4.5 (older, about 10x the cost)</option>'
+      +'</select>'
+      +'<div class="snote">Used for each new Market Brief.</div>'
+    +'</div>'
     +'<div class="srow" style="border-color:rgba(0,212,255,0.25)">'
       +'<div class="slbl" style="color:var(--acc)">⇅ Sync Settings</div>'
       +'<div class="snote">Export your settings as a code to copy to another device, or paste a code here to import.</div>'
@@ -1827,7 +1837,7 @@ function finishTickerDrag(commit,e){
 function exportSettings(pid){
   var pinH='';
 try{pinH=localStorage.getItem('mb_pin_hash')||'';}catch(e){}
-  var data={proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers,myStocks:S.myStocks,pinHash:pinH};
+  var data={proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,model:S.model,customTickers:S.customTickers,myStocks:S.myStocks,pinHash:pinH};
   var code=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
   var out=document.getElementById('expOut_'+pid);
   var codeId='expCode_'+pid;
@@ -1866,10 +1876,11 @@ function importSettings(pid){
     if(data.style!==undefined)    S.style=data.style;
     if(data.pinHash){try{localStorage.setItem('mb_pin_hash',data.pinHash);}catch(e){}}
     if(data.tz!==undefined)       S.tz=data.tz;
+    if(data.model!==undefined)    S.model=data.model==='haiku-4.5'?'haiku-4.5':'haiku-5.5';
     if(data.customTickers)        S.customTickers=data.customTickers;
     if(data.myStocks)             S.myStocks=data.myStocks;
     var overlap=listOverlapText(removeCrossListDuplicates());
-    storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers,myStocks:S.myStocks});
+    storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,model:S.model,customTickers:S.customTickers,myStocks:S.myStocks});
     msg.innerHTML='<div class="msg ok" style="margin-top:6px">✓ Settings imported!'+(overlap?' '+esc(overlap):'')+' Reloading…</div>';
     setTimeout(function(){location.reload();},overlap?4000:1200);
   }catch(e){
@@ -1892,7 +1903,8 @@ function saveSettings(pid){
   S.proxyUrl=(document.getElementById('cfgProxy_'+pid).value||'').trim().replace(/\/+$/,'');
   S.style   =document.getElementById('cfgStyle_'+pid).value;
   S.tz      =document.getElementById('cfgTz_'+pid).value;
-  var result=storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers,myStocks:S.myStocks});
+  S.model   =document.getElementById('cfgModel_'+pid).value==='haiku-4.5'?'haiku-4.5':'haiku-5.5';
+  var result=storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,model:S.model,customTickers:S.customTickers,myStocks:S.myStocks});
   var m=document.getElementById('saveMsg_'+pid);
   if(result==='memory'){
     m.innerHTML='<div class="msg err" style="margin-top:6px">⚠ Storage blocked by browser — settings saved for this session only. Check Safari Settings → Privacy and disable Private Browsing or allow website data.</div>';
@@ -1908,9 +1920,10 @@ function loadSettings(){
     if(s.proxyUrl) S.proxyUrl=s.proxyUrl;
     if(s.style)    S.style=s.style;
     if(s.tz)       S.tz=s.tz;
+    S.model=s.model==='haiku-4.5'?'haiku-4.5':'haiku-5.5';
     if(s.customTickers)['US','SG','HK'].forEach(function(m){if(s.customTickers[m])S.customTickers[m]=s.customTickers[m];});
     if(s.myStocks)['US','SG','HK'].forEach(function(m){if(s.myStocks[m])S.myStocks[m]=s.myStocks[m];});
     listOverlapNotice=listOverlapText(removeCrossListDuplicates());
-    if(listOverlapNotice)storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,customTickers:S.customTickers,myStocks:S.myStocks});
+    if(listOverlapNotice)storeSave({proxyUrl:S.proxyUrl,style:S.style,tz:S.tz,model:S.model,customTickers:S.customTickers,myStocks:S.myStocks});
   }catch(e){}
 }

@@ -426,6 +426,8 @@
     if(typeof generationId==='string'&&
        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(generationId))
       url+='&generationId='+encodeURIComponent(generationId);
+    // Step 9AK: the Settings model choice, sent only as one of the two exact ids.
+    if(S.model==='haiku-5.5'||S.model==='haiku-4.5')url+='&model='+S.model;
     return url;
   }
 
