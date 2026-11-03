@@ -256,6 +256,89 @@
     }).join('');
   }
 
+  // Step 9AA.4: Section 4 (My Stocks & Watchlist) arrives with a plain-text table in front:
+  // a header line, group labels, "a | b | c" rows and one note line. When the first non-blank
+  // line is exactly one of the two known headers the table is drawn; otherwise the text is
+  // drawn exactly as renderText always did. All text is escaped; colours and borders sit on
+  // each element (the PDF export swaps them from the element's own style).
+  var SECTION_FOUR_INDEX=3;
+  var SECTION_FOUR_HEADERS=[
+    ['Stock','Ticker','Last Price','Change'],
+    ['Stock','Price','Change']
+  ];
+  var SECTION_FOUR_GROUPS={'My Stocks':true,'Watchlist':true};
+  var SECTION_FOUR_NOTES=[
+    /^Prices at the close on .+\.$/,
+    /^Prices at the latest close\.$/,
+    /^Live prices at .+; \* last close\.$/,
+    /^\* No live prices yet; last close on .+\.$/,
+    /^\* No live prices yet; last close\.$/,
+    /^Prices not available\.$/
+  ];
+  var S4_CELL='padding:7px 10px;border:1px solid var(--bor);';
+
+  function sectionFourHeaderCells(line){
+    var cells=line.split('|').map(function(cell){return cell.trim();});
+    for(var i=0;i<SECTION_FOUR_HEADERS.length;i++){
+      var header=SECTION_FOUR_HEADERS[i];
+      if(cells.length===header.length&&header.every(function(name,n){return name===cells[n];}))return header;
+    }
+    return null;
+  }
+
+  function sectionFourChangeColor(text){
+    return text.charAt(0)==='↑'?'var(--grn)':text.charAt(0)==='↓'?'var(--red)':'var(--mut)';
+  }
+
+  function sectionFourRow(cells,header){
+    var last=header.length-1;
+    var html='<tr>';
+    cells.forEach(function(cell,index){
+      var numeric=index>=last-1;
+      var color=index===last?sectionFourChangeColor(cell):cell==='Not available'?'var(--mut)':'var(--txt)';
+      html+='<td style="'+S4_CELL+'text-align:'+(numeric?'right':'left')+';color:'+color+';'
+        +(numeric?'white-space:nowrap;':'')+'">'+escapeHTML(cell)+'</td>';
+    });
+    return html+'</tr>';
+  }
+
+  function renderSectionFourText(value){
+    var lines=String(value).split(/\r?\n/);
+    var start=0;
+    while(start<lines.length&&!lines[start].trim())start++;
+    var header=start<lines.length?sectionFourHeaderCells(lines[start]):null;
+    if(!header)return renderText(value);
+    var head='<tr>';
+    header.forEach(function(name,index){
+      head+='<th style="'+S4_CELL+'text-align:'+(index>=header.length-2?'right':'left')
+        +';background:rgba(0,212,255,0.08);color:var(--txt);">'+escapeHTML(name)+'</th>';
+    });
+    head+='</tr>';
+    var body='';
+    var next=start+1;
+    for(;next<lines.length;next++){
+      var line=lines[next].trim();
+      if(SECTION_FOUR_GROUPS[line]){
+        body+='<tr><td colspan="'+header.length+'" style="'+S4_CELL
+          +'font-weight:700;color:var(--orange);background:rgba(249,115,22,0.08);">'+escapeHTML(line)+'</td></tr>';
+        continue;
+      }
+      if(line.indexOf('|')===-1)break;
+      var cells=line.split('|').map(function(cell){return cell.trim();});
+      body+=cells.length===header.length
+        ?sectionFourRow(cells,header)
+        :'<tr><td colspan="'+header.length+'" style="'+S4_CELL+'color:var(--mut);">'+escapeHTML(line)+'</td></tr>';
+    }
+    var html='<div style="overflow-x:auto;margin:12px 0 4px;"><table class="section-four-table" aria-label="My Stocks and Watchlist prices"'
+      +' style="width:100%;border-collapse:collapse;font-size:0.95rem;line-height:1.45;">'
+      +'<thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
+    if(next<lines.length&&SECTION_FOUR_NOTES.some(function(pattern){return pattern.test(lines[next].trim());})){
+      html+='<div style="color:var(--mut);font-size:0.85rem;margin-bottom:8px;">'+escapeHTML(lines[next].trim())+'</div>';
+      next++;
+    }
+    return html+(next<lines.length?renderText(lines.slice(next).join('\n')):'');
+  }
+
   function requireValidReportTimeZone(value){
     try{new Intl.DateTimeFormat('en-US',{timeZone:value});}
     catch(e){throw new TypeError('Invalid structured Market Brief user timezone');}
@@ -412,7 +495,7 @@
         });
         html+=readings.length?readings.join(''):'<div style="color:var(--mut);">No validated Further Readings were supplied.</div>';
       }else if(section.content!==null){
-        html+=renderText(section.content);
+        html+=index===SECTION_FOUR_INDEX?renderSectionFourText(section.content):renderText(section.content);
       }else{
         html+='<div style="color:var(--mut);">'+(BLANK_SECTION_TEXT[section.name]||BLANK_SECTION_FALLBACK_TEXT)+'</div>';
       }
