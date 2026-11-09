@@ -12,6 +12,7 @@
         {name:'regular',start:'09:30',end:'16:00',regularOpen:true,quoteExpectedToMove:true},
         {name:'postMarket',start:'16:00',end:'20:00',regularOpen:false,quoteExpectedToMove:true}
       ],
+      earlyClose:{close:'13:00',postMarketEnd:'17:00'},
       symbolSuffixes:[],
       indexSymbols:[]
     },
@@ -68,6 +69,9 @@
         '2026-09-07':{name:'Labor Day',status:'closed'},
         '2026-11-26':{name:'Thanksgiving Day',status:'closed'},
         '2026-12-25':{name:'Christmas Day',status:'closed'}
+        },earlyCloseDays:{
+        '2026-11-27':{name:'Day after Thanksgiving (early close)'},
+        '2026-12-24':{name:'Christmas Eve (early close)'}
         }},
         2027:{sourceKey:'source',verification:'exchange-verified',exchangeVerification:'verified',holidays:{
         '2027-01-01':{name:"New Year's Day",status:'closed'},
@@ -197,7 +201,25 @@
       coverage:coverage,
       covered:!!yearData,
       yearData:yearData,
-      holiday:yearData&&yearData.holidays[exchangeDate]&&yearData.holidays[exchangeDate].status==='closed'?yearData.holidays[exchangeDate]:null
+      holiday:yearData&&yearData.holidays[exchangeDate]&&yearData.holidays[exchangeDate].status==='closed'?yearData.holidays[exchangeDate]:null,
+      earlyCloseDay:yearData&&yearData.earlyCloseDays&&yearData.earlyCloseDays[exchangeDate]?yearData.earlyCloseDays[exchangeDate]:null
+    };
+  }
+
+  // Session windows and regular close for one exchange date. Early-close days shorten the regular
+  // session and move the after-hours window; every other date uses the default windows.
+  function getSessionWindowsForDate(market,exchangeDate){
+    var definition=markets[market];
+    var calendarState=getCalendarDateState(market,exchangeDate);
+    var early=calendarState.earlyCloseDay&&!calendarState.holiday&&definition.earlyClose?definition.earlyClose:null;
+    if(!early)return {sessions:definition.sessions,close:definition.close};
+    return {
+      close:early.close,
+      sessions:definition.sessions.map(function(window){
+        if(window.name==='regular')return Object.assign({},window,{end:early.close});
+        if(window.name==='postMarket')return Object.assign({},window,{start:early.close,end:early.postMarketEnd});
+        return window;
+      })
     };
   }
 
@@ -255,7 +277,7 @@
       holidayName=holiday.name;
     }
     if(tradingDay){
-      var active=definition.sessions.find(function(window){
+      var active=getSessionWindowsForDate(market,local.date).sessions.find(function(window){
         return local.minuteOfDay>=minutesFromTime(window.start)&&local.minuteOfDay<minutesFromTime(window.end);
       });
       if(active){
@@ -305,7 +327,7 @@
 
   function getLatestCompletedRegularSessionDate(marketOrSymbol,now){
     var state=getSessionState(marketOrSymbol,now);
-    if(state.tradingDay&&minutesFromTime(state.exchangeTime)>=minutesFromTime(markets[state.market].close))return state.exchangeDate;
+    if(state.tradingDay&&minutesFromTime(state.exchangeTime)>=minutesFromTime(getSessionWindowsForDate(state.market,state.exchangeDate).close))return state.exchangeDate;
     return getPreviousTradingDate(state.market,state.exchangeDate);
   }
 
