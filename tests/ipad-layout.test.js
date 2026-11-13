@@ -2,18 +2,22 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 
-const { appDeclarations } = require('./helpers/app-source');
+const { appSource, appDeclarations } = require('./helpers/app-source');
 
-// Step 9AS.1b: detectLayout redraws on every resize as before 9AS.1 (commit 7abf096),
-// except while a form field has focus; a skipped resize runs once when focus leaves.
-const layoutSource = appDeclarations('layoutRedrawPending', 'layoutFieldFocused', 'redrawSkippedLayout', 'detectLayout');
+// Step 9AS.3: layout is decided by matchMedia('(min-width:769px)'), the same test app.css uses.
+// detectLayout skips while a form field has focus; one re-check runs on focusout only if a change was skipped.
+const layoutSource = appDeclarations('layoutRedrawPending', 'layoutQuery', 'layoutFieldFocused', 'redrawSkippedLayout', 'detectLayout');
 
 function makeHarness(opts = {}) {
   const calls = { renderDesktop: 0, restoreCurrentBrief: 0 };
   const els = {};
   ['desktopWrap', 'mobileWrap', 'mBnav'].forEach(id => { els[id] = { style: {} }; });
+  const query = { matches: opts.matches !== false, queries: [] };
   const context = {
-    window: { innerWidth: 1024 },
+    window: {
+      innerWidth: 1, // must be ignored: a zoomed iPad reports a small innerWidth
+      matchMedia(q) { query.queries.push(q); return query; }
+    },
     document: { activeElement: { tagName: 'BODY' }, getElementById: id => els[id] },
     isDesktop: false,
     currentView: 'MyStocks',
@@ -23,23 +27,51 @@ function makeHarness(opts = {}) {
   };
   vm.createContext(context);
   vm.runInContext(layoutSource, context);
-  return { context, calls, els };
+  return { context, calls, els, query };
 }
 
-test('a resize with no focused field redraws every time, even at the same layout', () => {
-  const { context, calls } = makeHarness();
-  context.detectLayout();
-  context.window.innerWidth = 820;
-  context.detectLayout();
-  context.detectLayout();
-  assert.equal(calls.renderDesktop, 3);
+test('the layout comes from matchMedia(min-width:769px), never from innerWidth', () => {
+  const desktop = makeHarness({ matches: true });
+  assert.deepEqual(desktop.query.queries, ['(min-width:769px)']);
+  desktop.context.detectLayout();
+  assert.equal(desktop.context.isDesktop, true);
+  assert.equal(desktop.els.desktopWrap.style.display, 'flex');
+  assert.equal(desktop.els.mobileWrap.style.display, 'none');
+  assert.equal(desktop.els.mBnav.style.display, 'none');
+  assert.equal(desktop.calls.renderDesktop, 1);
+
+  const phone = makeHarness({ matches: false });
+  phone.context.detectLayout();
+  assert.equal(phone.context.isDesktop, false);
+  assert.equal(phone.els.desktopWrap.style.display, 'none');
+  assert.equal(phone.els.mobileWrap.style.display, 'block');
+  assert.equal(phone.els.mBnav.style.display, 'flex');
+  assert.equal(phone.calls.renderDesktop, 0);
+  assert.equal(phone.calls.restoreCurrentBrief, 1);
+
+  const other = makeHarness({ matches: false, dashboard: false });
+  other.context.detectLayout();
+  assert.equal(other.calls.restoreCurrentBrief, 0);
 });
 
-test('a resize with a focused input, textarea or select does not redraw or change the layout', () => {
+test('a change event with no focused field redraws the new layout', () => {
+  const { context, calls, query } = makeHarness();
+  context.detectLayout();
+  query.matches = false;
+  context.detectLayout();
+  assert.equal(context.isDesktop, false);
+  assert.equal(calls.restoreCurrentBrief, 1);
+  query.matches = true;
+  context.detectLayout();
+  assert.equal(context.isDesktop, true);
+  assert.equal(calls.renderDesktop, 2);
+});
+
+test('a change with a focused input, textarea or select does not redraw', () => {
   for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) {
-    const { context, calls, els } = makeHarness();
+    const { context, calls, els, query } = makeHarness();
     context.detectLayout();
-    context.window.innerWidth = 600;
+    query.matches = false;
     context.document.activeElement = { tagName };
     context.detectLayout();
     assert.equal(calls.renderDesktop + calls.restoreCurrentBrief, 1, tagName);
@@ -48,30 +80,30 @@ test('a resize with a focused input, textarea or select does not redraw or chang
   }
 });
 
-test('focusout redraws once after a skipped resize, and not at all if none was skipped', () => {
-  const { context, calls } = makeHarness();
+test('focusout redraws once after a skipped change, and not at all if none was skipped', () => {
+  const { context, calls, query } = makeHarness();
   context.detectLayout();
-  context.redrawSkippedLayout(); // nothing was skipped: no redraw
+  context.redrawSkippedLayout(); // nothing skipped: no redraw
   assert.equal(calls.renderDesktop, 1);
-  context.window.innerWidth = 600;
+  query.matches = false;
   context.document.activeElement = { tagName: 'INPUT' };
   context.detectLayout(); // skipped
   context.document.activeElement = { tagName: 'BODY' };
   context.redrawSkippedLayout();
   assert.equal(context.isDesktop, false);
   assert.equal(calls.restoreCurrentBrief, 1);
-  context.redrawSkippedLayout(); // second focusout: already done
+  context.redrawSkippedLayout(); // a second focusout does nothing
   assert.equal(calls.restoreCurrentBrief, 1);
   assert.equal(calls.renderDesktop, 1);
 });
 
-test('focus moving from one field to another keeps the skipped resize pending', () => {
-  const { context, calls } = makeHarness();
+test('focus moving between fields keeps the skipped change pending', () => {
+  const { context, calls, query } = makeHarness();
   context.detectLayout();
-  context.window.innerWidth = 600;
+  query.matches = false;
   context.document.activeElement = { tagName: 'INPUT' };
   context.detectLayout();
-  context.document.activeElement = { tagName: 'TEXTAREA' }; // focusout, but another field has focus
+  context.document.activeElement = { tagName: 'TEXTAREA' };
   context.redrawSkippedLayout();
   assert.equal(calls.restoreCurrentBrief, 0);
   context.document.activeElement = { tagName: 'BODY' };
@@ -79,28 +111,11 @@ test('focus moving from one field to another keeps the skipped resize pending', 
   assert.equal(calls.restoreCurrentBrief, 1);
 });
 
-test('the layout decision matches 7abf096: 769 px and up is desktop, below is mobile', () => {
-  const wide = makeHarness();
-  wide.context.window.innerWidth = 769;
-  wide.context.detectLayout();
-  assert.equal(wide.context.isDesktop, true);
-  assert.equal(wide.els.desktopWrap.style.display, 'flex');
-  assert.equal(wide.els.mobileWrap.style.display, 'none');
-  assert.equal(wide.els.mBnav.style.display, 'none');
-  assert.equal(wide.calls.renderDesktop, 1);
-
-  const narrow = makeHarness();
-  narrow.context.window.innerWidth = 768;
-  narrow.context.detectLayout();
-  assert.equal(narrow.context.isDesktop, false);
-  assert.equal(narrow.els.desktopWrap.style.display, 'none');
-  assert.equal(narrow.els.mobileWrap.style.display, 'block');
-  assert.equal(narrow.els.mBnav.style.display, 'flex');
-  assert.equal(narrow.calls.renderDesktop, 0);
-  assert.equal(narrow.calls.restoreCurrentBrief, 1);
-
-  const other = makeHarness({ dashboard: false });
-  other.context.window.innerWidth = 500;
-  other.context.detectLayout();
-  assert.equal(other.calls.restoreCurrentBrief, 0);
+test('boot listens to the matchMedia change event (with an older-browser fallback) and not to resize', () => {
+  const onload = appSource.slice(appSource.indexOf('window.onload=function'), appSource.indexOf('function layoutFieldFocused'));
+  assert.match(onload, /layoutQuery\.addEventListener\('change',detectLayout\)/);
+  assert.match(onload, /layoutQuery\.addListener\(detectLayout\)/);
+  assert.match(onload, /document\.addEventListener\('focusout'/);
+  assert.doesNotMatch(appSource, /addEventListener\('resize'/);
+  assert.doesNotMatch(appDeclarations('detectLayout'), /innerWidth/);
 });

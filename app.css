@@ -226,3 +226,13 @@ select.sinp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmln
 .pk:hover{background:#1a2236;border-color:#00d4ff;color:#00d4ff;}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 .pin-shake{animation:shake 0.4s ease;}
+
+/* Step 9AS.3: fixed page. Only the ticker list and the report scroll; header and menu stay put (iPad Chrome). */
+@media(min-width:769px){
+  html,body{overflow:hidden;overscroll-behavior:none;}
+  .app{height:100vh;height:100dvh;}
+  .sidebar{height:calc(100vh - 61px);height:calc(100dvh - 61px);}
+}
+@media(max-width:768px){
+  #dashboardAIM{max-height:calc(100vh - 150px);max-height:calc(100dvh - 150px);}
+}

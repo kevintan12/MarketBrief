@@ -116,7 +116,9 @@ window.onload=function(){
   initPIN();
   loadSettings();
   detectLayout();
-  window.addEventListener('resize',detectLayout);
+  // Step 9AS.3: redraw only when the layout really crosses 769 px (same test the CSS uses), never on a plain resize.
+  if(layoutQuery.addEventListener) layoutQuery.addEventListener('change',detectLayout);
+  else if(layoutQuery.addListener) layoutQuery.addListener(detectLayout);
   document.addEventListener('focusout',function(){setTimeout(redrawSkippedLayout,0);});
   tickClock(); setInterval(tickClock,1000);
   renderSettingsPanelTo('settingsPanel');
@@ -152,6 +154,9 @@ window.onload=function(){
 // nothing is rebuilt while an input, textarea or select has focus (a rebuild would delete the field being
 // typed in). A resize skipped for that reason is remembered and run once when the field loses focus.
 var layoutRedrawPending=false;
+// Step 9AS.3: one width source. matchMedia uses the same (min-width:769px) test as app.css, so JS and CSS cannot
+// disagree after a zoom or rotation (window.innerWidth follows the visible area and does).
+var layoutQuery=window.matchMedia('(min-width:769px)');
 function layoutFieldFocused(){
   var el=document.activeElement, tag=el&&el.tagName?String(el.tagName).toUpperCase():'';
   return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
@@ -160,7 +165,7 @@ function redrawSkippedLayout(){ if(layoutRedrawPending) detectLayout(); }
 function detectLayout(){
   if(layoutFieldFocused()){ layoutRedrawPending=true; return; }
   layoutRedrawPending=false;
-  isDesktop=window.innerWidth>=769;
+  isDesktop=layoutQuery.matches;
   document.getElementById('desktopWrap').style.display=isDesktop?'flex':'none';
   document.getElementById('mobileWrap').style.display=isDesktop?'none':'block';
   document.getElementById('mBnav').style.display=isDesktop?'none':'flex';
