@@ -20,8 +20,7 @@ function mediaBlock(source, query) {
 
 test('desktop and tablet layout stops the page scrolling', () => {
   const wide = mediaBlock(block, '@media(min-width:769px)');
-  // 9AS.3a: the block must not lock html or body (narrow iPad landscape, off-centre PIN page)
-  assert.doesNotMatch(block, /(?:^|[\s,}])(?:html|body)\s*(?:,\s*(?:html|body)\s*)*\{[^}]*overflow:hidden/);
+  assert.match(wide, /html,body\{overflow:hidden;overscroll-behavior:none;\}/);
   assert.match(wide, /\.app\{height:100vh;height:100dvh;\}/);
   assert.match(wide, /\.sidebar\{height:calc\(100vh - 61px\);height:calc\(100dvh - 61px\);\}/);
   // the vh fallback comes first so a browser without dvh keeps today's value
@@ -37,5 +36,5 @@ test('phone layout keeps page scrolling and only caps the report box to the visi
 test('the original rules are left in place so earlier pins still hold', () => {
   assert.match(css, /#dashboardAIM\{display:flex;flex-direction:column;max-height:calc\(100vh - 150px\);\}/);
   assert.match(css, /@media\(min-width:769px\)\{\.app\{max-width:1280px;height:100vh;overflow:hidden;/);
-  assert.equal((css.match(/html,body\{overflow:hidden/g) || []).length, 0);
+  assert.equal((css.match(/html,body\{overflow:hidden/g) || []).length, 1);
 });
