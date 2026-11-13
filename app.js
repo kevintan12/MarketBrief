@@ -117,6 +117,7 @@ window.onload=function(){
   loadSettings();
   detectLayout();
   window.addEventListener('resize',detectLayout);
+  document.addEventListener('focusout',function(){setTimeout(redrawSkippedLayout,0);});
   tickClock(); setInterval(tickClock,1000);
   renderSettingsPanelTo('settingsPanel');
   loadDash();
@@ -147,17 +148,19 @@ window.onload=function(){
 
 };
 
-// Step 9AS.1: redraw only when the layout really flips across 769 px (or on the first call).
-// A resize that keeps the same layout (iPad keyboard, toolbar slide, zoom) must not rebuild the page,
-// and nothing is rebuilt while a field is being typed in; the next resize after blur retries a skipped flip.
-var lastLayoutDesktop=null;
+// Step 9AS.1b: detectLayout behaves exactly as before 9AS.1 (redraw on every resize), except that
+// nothing is rebuilt while an input, textarea or select has focus (a rebuild would delete the field being
+// typed in). A resize skipped for that reason is remembered and run once when the field loses focus.
+var layoutRedrawPending=false;
+function layoutFieldFocused(){
+  var el=document.activeElement, tag=el&&el.tagName?String(el.tagName).toUpperCase():'';
+  return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+}
+function redrawSkippedLayout(){ if(layoutRedrawPending) detectLayout(); }
 function detectLayout(){
-  var nextDesktop=window.innerWidth>=769;
-  if(lastLayoutDesktop===nextDesktop) return;
-  var focused=document.activeElement, tag=focused&&focused.tagName?String(focused.tagName).toUpperCase():'';
-  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
-  lastLayoutDesktop=nextDesktop;
-  isDesktop=nextDesktop;
+  if(layoutFieldFocused()){ layoutRedrawPending=true; return; }
+  layoutRedrawPending=false;
+  isDesktop=window.innerWidth>=769;
   document.getElementById('desktopWrap').style.display=isDesktop?'flex':'none';
   document.getElementById('mobileWrap').style.display=isDesktop?'none':'block';
   document.getElementById('mBnav').style.display=isDesktop?'none':'flex';
